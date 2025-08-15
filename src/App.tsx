@@ -9,6 +9,13 @@ import Projects from "./pages/Projects";
 import Inventory from "./pages/Inventory";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Vendors from "./pages/Vendors";
+import BOM from "./pages/BOM";
+import WorkOrders from "./pages/WorkOrders";
+import PurchaseOrders from "./pages/PurchaseOrders";
+import GatePass from "./pages/GatePass";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,18 +29,19 @@ const App = () => (
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           
           {/* Protected Routes with Layout */}
           <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
           <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
           <Route path="/inventory" element={<AppLayout><Inventory /></AppLayout>} />
           <Route path="/users" element={<AppLayout><Users /></AppLayout>} />
-          <Route path="/vendors" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/bom" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/work-orders" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/purchase-orders" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/gate-pass" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/reports" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
+          <Route path="/bom" element={<AppLayout><BOM /></AppLayout>} />
+          <Route path="/work-orders" element={<AppLayout><WorkOrders /></AppLayout>} />
+          <Route path="/purchase-orders" element={<AppLayout><PurchaseOrders /></AppLayout>} />
+          <Route path="/gate-pass" element={<AppLayout><GatePass /></AppLayout>} />
+          <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
           <Route path="/settings" element={<AppLayout><Dashboard /></AppLayout>} />
           
           {/* Catch-all route */}
