@@ -64,9 +64,15 @@ export const bomSchema = yup.object({
     yup.object({
       materialId: yup.string().required('Material is required'),
       quantity: yup.number().positive('Quantity must be positive').required('Quantity is required'),
-      unitCost: yup.number().positive('Unit cost must be positive').required('Unit cost is required'),
+      availableStock: yup.number().min(0, 'Available stock must be non-negative'),
     })
   ).min(1, 'At least one material is required'),
+});
+
+export const bomItemSchema = yup.object({
+  materialId: yup.string().required('Material is required'),
+  quantity: yup.number().positive('Quantity must be positive').required('Quantity is required'),
+  availableStock: yup.number().min(0, 'Available stock must be non-negative'),
 });
 
 // Work Order validation schema
