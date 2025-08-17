@@ -24,9 +24,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import CreateProjectModal from "@/components/projects/CreateProjectModal";
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Mock project data
   const projects = [
@@ -111,7 +113,7 @@ const Projects = () => {
           <h1 className="text-3xl font-bold">Projects</h1>
           <p className="text-muted-foreground mt-1">Manage and track all your projects in one place</p>
         </div>
-        <Button size="lg" className="gap-2">
+        <Button size="lg" className="gap-2" onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4" />
           New Project
         </Button>
@@ -251,6 +253,12 @@ const Projects = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Create Project Modal */}
+      <CreateProjectModal 
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+      />
     </div>
   );
 };

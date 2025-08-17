@@ -67,7 +67,7 @@ export default function PurchaseOrders() {
     defaultValues: {
       vendorId: "",
       items: [],
-      deliveryDate: "",
+      deliveryDate: new Date().toISOString().split('T')[0],
     },
   });
 

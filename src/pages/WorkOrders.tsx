@@ -69,7 +69,7 @@ export default function WorkOrders() {
       description: "",
       assignedTo: "",
       priority: "Medium",
-      dueDate: "",
+      dueDate: new Date().toISOString().split('T')[0],
     },
   });
 

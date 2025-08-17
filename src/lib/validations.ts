@@ -20,8 +20,8 @@ export const signupSchema = yup.object({
 export const projectSchema = yup.object({
   name: yup.string().required('Project name is required'),
   description: yup.string().required('Description is required'),
-  startDate: yup.date().required('Start date is required'),
-  endDate: yup.date().min(yup.ref('startDate'), 'End date must be after start date').required('End date is required'),
+  startDate: yup.string().required('Start date is required'),
+  endDate: yup.string().required('End date is required'),
   status: yup.string().oneOf(['Planning', 'In Progress', 'Completed', 'On Hold']).required('Status is required'),
   budget: yup.number().positive('Budget must be positive').required('Budget is required'),
 });
@@ -76,7 +76,7 @@ export const workOrderSchema = yup.object({
   description: yup.string().required('Description is required'),
   assignedTo: yup.string().required('Assignee is required'),
   priority: yup.string().oneOf(['Low', 'Medium', 'High', 'Critical']).required('Priority is required'),
-  dueDate: yup.date().min(new Date(), 'Due date must be in the future').required('Due date is required'),
+  dueDate: yup.string().required('Due date is required'),
 });
 
 // Purchase Order validation schema
@@ -89,7 +89,7 @@ export const purchaseOrderSchema = yup.object({
       unitPrice: yup.number().positive('Unit price must be positive').required('Unit price is required'),
     })
   ).min(1, 'At least one item is required'),
-  deliveryDate: yup.date().min(new Date(), 'Delivery date must be in the future').required('Delivery date is required'),
+  deliveryDate: yup.string().required('Delivery date is required'),
 });
 
 // Gate Pass validation schema
