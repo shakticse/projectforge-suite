@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, Search, User, LogOut, Settings, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +13,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { authService } from "@/services/authService";
+import { toast } from "sonner";
 
 export function Header() {
   const [notifications] = useState(3); // Mock notification count
-  const [user] = useState({
+  const navigate = useNavigate();
+  
+  // Get current user from auth service or use mock data
+  const currentUser = authService.getCurrentUser();
+  const [user] = useState(currentUser || {
     name: "John Doe",
     email: "john.doe@company.com",
     role: "Project Manager",
     avatar: "JD"
   });
+
+  // Generate initials from name if no avatar
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const displayAvatar = user.avatar || getInitials(user.name);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      toast.error("Logout failed");
+    }
+  };
 
   return (
     <header className="h-16 border-b bg-card px-6 flex items-center justify-between">
@@ -56,7 +80,7 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-3 h-10 px-3">
               <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
-                {user.avatar}
+                {displayAvatar}
               </div>
               <div className="hidden md:block text-left">
                 <div className="text-sm font-medium">{user.name}</div>
@@ -82,7 +106,7 @@ export function Header() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </DropdownMenuItem>

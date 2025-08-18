@@ -18,6 +18,7 @@ export interface User {
   email: string;
   role: string;
   department?: string;
+  avatar?: string;
 }
 
 export const authService = {

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Inventory from "./pages/Inventory";
@@ -32,17 +33,17 @@ const App = () => (
           <Route path="/signup" element={<Signup />} />
           
           {/* Protected Routes with Layout */}
-          <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
-          <Route path="/inventory" element={<AppLayout><Inventory /></AppLayout>} />
-          <Route path="/users" element={<AppLayout><Users /></AppLayout>} />
-          <Route path="/vendors" element={<AppLayout><Vendors /></AppLayout>} />
-          <Route path="/bom" element={<AppLayout><BOM /></AppLayout>} />
-          <Route path="/work-orders" element={<AppLayout><WorkOrders /></AppLayout>} />
-          <Route path="/purchase-orders" element={<AppLayout><PurchaseOrders /></AppLayout>} />
-          <Route path="/gate-pass" element={<AppLayout><GatePass /></AppLayout>} />
-          <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-          <Route path="/settings" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/projects" element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><AppLayout><Inventory /></AppLayout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
+          <Route path="/vendors" element={<ProtectedRoute><AppLayout><Vendors /></AppLayout></ProtectedRoute>} />
+          <Route path="/bom" element={<ProtectedRoute><AppLayout><BOM /></AppLayout></ProtectedRoute>} />
+          <Route path="/work-orders" element={<ProtectedRoute><AppLayout><WorkOrders /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchase-orders" element={<ProtectedRoute><AppLayout><PurchaseOrders /></AppLayout></ProtectedRoute>} />
+          <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
