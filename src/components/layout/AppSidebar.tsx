@@ -58,7 +58,7 @@ export function AppSidebar() {
     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth text-sm font-medium ${
       isActive
         ? "bg-primary text-primary-foreground shadow-sm"
-        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        : "text-foreground hover:bg-secondary hover:text-foreground"
     }`;
 
   return (

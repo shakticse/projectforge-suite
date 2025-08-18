@@ -11,6 +11,7 @@ import Inventory from "./pages/Inventory";
 import Users from "./pages/Users";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import Vendors from "./pages/Vendors";
 import BOM from "./pages/BOM";
 import WorkOrders from "./pages/WorkOrders";
@@ -31,6 +32,7 @@ const App = () => (
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           
           {/* Protected Routes with Layout */}
           <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />

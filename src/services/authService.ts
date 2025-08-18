@@ -23,6 +23,23 @@ export interface User {
 
 export const authService = {
   async login(credentials: LoginCredentials) {
+    // Check for demo credentials first
+    if (credentials.email === 'admin@projecthub.com' && credentials.password === 'password') {
+      const mockUser: User = {
+        id: '1',
+        name: 'John Doe',
+        email: 'admin@projecthub.com',
+        role: 'Project Manager',
+        department: 'Operations',
+        avatar: 'JD'
+      };
+      const token = 'demo-jwt-token-12345';
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      return { token, user: mockUser };
+    }
+    
+    // For other credentials, make API call
     const response = await api.post('/auth/login', credentials);
     const { token, user } = response.data;
     localStorage.setItem('auth_token', token);
