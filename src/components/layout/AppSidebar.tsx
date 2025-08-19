@@ -57,7 +57,7 @@ export function AppSidebar() {
   const getNavClassName = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth text-sm font-medium ${
       isActive
-        ? "bg-primary text-primary-foreground shadow-sm"
+        ? "bg-destructive text-primary-foreground shadow-sm"
         : "text-foreground hover:bg-secondary hover:text-foreground"
     }`;
 
