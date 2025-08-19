@@ -137,8 +137,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
 export default function PurchaseOrders() {
   const [purchaseOrders] = useState<PurchaseOrder[]>(mockPurchaseOrders);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [approvalFilter, setApprovalFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [approvalFilter, setApprovalFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -180,8 +180,8 @@ export default function PurchaseOrders() {
         po.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         po.vendorName.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStatus = !statusFilter || po.status === statusFilter;
-      const matchesApproval = !approvalFilter || po.approvalStatus === approvalFilter;
+      const matchesStatus = statusFilter === "all" || po.status === statusFilter;
+      const matchesApproval = approvalFilter === "all" || po.approvalStatus === approvalFilter;
       
       return matchesSearch && matchesStatus && matchesApproval;
     });
@@ -478,7 +478,7 @@ export default function PurchaseOrders() {
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
             <SelectItem value="Approved">Approved</SelectItem>
             <SelectItem value="Rejected">Rejected</SelectItem>
@@ -492,7 +492,7 @@ export default function PurchaseOrders() {
             <SelectValue placeholder="All Approval" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Approval</SelectItem>
+            <SelectItem value="all">All Approval</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
             <SelectItem value="Approved">Approved</SelectItem>
             <SelectItem value="Rejected">Rejected</SelectItem>
