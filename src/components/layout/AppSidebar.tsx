@@ -27,15 +27,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainMenuItems = [
+const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Users", url: "/users", icon: Users },
   { title: "Vendors", url: "/vendors", icon: Building2 },
-];
-
-const operationsItems = [
   { title: "Bill of Materials", url: "/bom", icon: FileText },
   { title: "Work Orders", url: "/work-orders", icon: ClipboardList },
   { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
@@ -62,8 +59,8 @@ export function AppSidebar() {
     }`;
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-sidebar backdrop-blur-sm`}>
-      <div className="flex h-16 items-center justify-between px-4 border-b">
+    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}>
+      <div className="flex h-16 items-center justify-between px-4 border-b bg-background/80">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
@@ -80,37 +77,14 @@ export function AppSidebar() {
         </button>
       </div>
 
-      <SidebarContent className="p-4">
+      <SidebarContent className="p-4 bg-muted/20">
         <SidebarGroup>
-          <SidebarGroupLabel className={`text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2 ${collapsed ? "hidden" : ""}`}>
-            Main
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {mainMenuItems.map((item) => (
+              {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className={getNavClassName}>
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className={`text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2 ${collapsed ? "hidden" : ""}`}>
-            Operations
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {operationsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavClassName}>
+                    <NavLink to={item.url} end={item.url === "/"} className={getNavClassName}>
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!collapsed && <span className="font-medium">{item.title}</span>}
                     </NavLink>
