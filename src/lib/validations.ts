@@ -87,12 +87,13 @@ export const workOrderSchema = yup.object({
 
 // Purchase Order validation schema
 export const purchaseOrderSchema = yup.object({
+  projectId: yup.string().required('Project is required'),
+  bomId: yup.string().required('BOM is required'),
   vendorId: yup.string().required('Vendor is required'),
   items: yup.array().of(
     yup.object({
       itemId: yup.string().required('Item is required'),
       quantity: yup.number().positive('Quantity must be positive').required('Quantity is required'),
-      unitPrice: yup.number().positive('Unit price must be positive').required('Unit price is required'),
     })
   ).min(1, 'At least one item is required'),
   deliveryDate: yup.string().required('Delivery date is required'),

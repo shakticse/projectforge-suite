@@ -62,7 +62,7 @@ export function AppSidebar() {
     }`;
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-sidebar/95 backdrop-blur-sm`}>
+    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-sidebar backdrop-blur-sm`}>
       <div className="flex h-16 items-center justify-between px-4 border-b">
         {!collapsed && (
           <div className="flex items-center gap-2">
