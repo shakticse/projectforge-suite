@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,7 @@ const mockBOMs: BOMItem[] = [
 ];
 
 export default function BOM() {
+  const navigate = useNavigate();
   const [boms] = useState<BOMItem[]>(mockBOMs);
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
@@ -414,7 +416,12 @@ export default function BOM() {
               <TableBody>
                 {paginatedBOMs.map((bom) => (
                   <TableRow key={bom.id} className="hover:bg-muted/50 cursor-pointer">
-                    <TableCell className="font-medium">{bom.id}</TableCell>
+                    <TableCell 
+                      className="font-medium text-primary hover:underline cursor-pointer"
+                      onClick={() => navigate(`/bom/${bom.id}`)}
+                    >
+                      {bom.id}
+                    </TableCell>
                     <TableCell>{bom.projectName}</TableCell>
                     <TableCell>{bom.itemName}</TableCell>
                     <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
