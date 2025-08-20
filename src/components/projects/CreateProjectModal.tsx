@@ -42,6 +42,10 @@ const projectSchema = yup.object({
   startDate: yup.string().required('Start date is required'),
   endDate: yup.string().required('End date is required'),
   managerId: yup.string().required('Project manager is required'),
+  projectArea: yup.number().positive('Project area must be positive').required('Project area is required'),
+  areaUnit: yup.string().required('Area unit is required'),
+  sitePossessionStartDate: yup.string().required('Site possession start date is required'),
+  sitePossessionEndDate: yup.string().required('Site possession end date is required'),
 });
 
 interface CreateProjectModalProps {
@@ -67,6 +71,15 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
     { id: "4", name: "David Wilson" },
   ];
 
+  // Area unit options
+  const areaUnits = [
+    { value: "sq_mtr", label: "Square Meters (sq. mtr)" },
+    { value: "sq_ft", label: "Square Feet (sq. ft)" },
+    { value: "sq_yd", label: "Square Yards (sq. yd)" },
+    { value: "acres", label: "Acres" },
+    { value: "hectares", label: "Hectares" },
+  ];
+
   const form = useForm({
     resolver: yupResolver(projectSchema),
     defaultValues: {
@@ -77,6 +90,10 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date().toISOString().split('T')[0],
       managerId: "",
+      projectArea: 0,
+      areaUnit: "",
+      sitePossessionStartDate: new Date().toISOString().split('T')[0],
+      sitePossessionEndDate: new Date().toISOString().split('T')[0],
     },
   });
 
@@ -277,6 +294,83 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Project Area Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="projectArea"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Area</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Enter project area"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="areaUnit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area Unit</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select area unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {areaUnits.map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Site Possession Dates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="sitePossessionStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Possession Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sitePossessionEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Possession End Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>

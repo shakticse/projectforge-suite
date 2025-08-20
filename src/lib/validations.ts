@@ -24,6 +24,10 @@ export const projectSchema = yup.object({
   endDate: yup.string().required('End date is required'),
   status: yup.string().oneOf(['Planning', 'In Progress', 'Completed', 'On Hold']).required('Status is required'),
   budget: yup.number().positive('Budget must be positive').required('Budget is required'),
+  projectArea: yup.number().positive('Project area must be positive').required('Project area is required'),
+  areaUnit: yup.string().oneOf(['sq_mtr', 'sq_ft', 'sq_yd', 'acres', 'hectares']).required('Area unit is required'),
+  sitePossessionStartDate: yup.string().required('Site possession start date is required'),
+  sitePossessionEndDate: yup.string().required('Site possession end date is required'),
 });
 
 // Inventory validation schema

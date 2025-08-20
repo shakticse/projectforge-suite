@@ -25,11 +25,11 @@ const Dashboard = () => {
       color: "text-primary"
     },
     {
-      title: "Inventory Items",
-      value: "1,247",
-      change: "+12.3%", 
-      icon: Package,
-      color: "text-success"
+      title: "Overdue Projects",
+      value: "3",
+      change: "-15.2%", 
+      icon: AlertCircle,
+      color: "text-destructive"
     },
     {
       title: "Active Users",
