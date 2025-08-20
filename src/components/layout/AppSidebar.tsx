@@ -66,7 +66,7 @@ export function AppSidebar() {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
             </div>
-            <h1 className="font-semibold text-lg">ProjectHub</h1>
+            <h1 className="font-semibold text-lg">Pavillions and Interiors</h1>
           </div>
         )}
         <button
@@ -77,7 +77,7 @@ export function AppSidebar() {
         </button>
       </div>
 
-      <SidebarContent className="p-4 bg-muted/20">
+      <SidebarContent className="p-4 bg-primary">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
