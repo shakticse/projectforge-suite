@@ -256,7 +256,7 @@ const Inventory = () => {
                       </div>
                     </div> */}
                   </TableCell>
-                  <TableCell>{item.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
                   {/* <TableCell className="font-medium">${item.totalValue.toLocaleString()}</TableCell>
                   <TableCell>{getStatusBadge(item)}</TableCell> */}
                   <TableCell className="text-sm text-muted-foreground">{item.location}</TableCell>

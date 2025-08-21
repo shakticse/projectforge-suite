@@ -48,6 +48,7 @@ interface PurchaseOrderDetail {
   poNumber: string;
   vendorName: string;
   items: string[];
+  quantity: number;
   totalAmount: number;
   status: 'Pending' | 'Approved' | 'Rejected' | 'In Progress';
   createdDate: string;
@@ -79,8 +80,8 @@ const BOMDetails = () => {
   // Mock data - replace with API calls
   const mockBOMDetails: BOMDetails = {
     id: bomId || "BOM-001",
-    projectName: "Office Building Construction",
-    itemName: "Foundation Work",
+    projectName: "Auto Expo",
+    itemName: "Auto Expo, Delhi",
     startDate: "2024-01-15",
     endDate: "2024-01-30",
     approvalStatus: "Approved",
@@ -92,15 +93,15 @@ const BOMDetails = () => {
   const mockBOMItems: BOMItem[] = [
     {
       id: "1",
-      materialName: "Cement (50kg bags)",
-      requestedQuantity: 100,
-      allocatedQuantity: 80,
+      materialName: "GLASS STOPPER PVC",
+      requestedQuantity: 250,
+      allocatedQuantity: 100,
       unit: "bags",
       status: "Partial"
     },
     {
       id: "2", 
-      materialName: "Steel Rebar (12mm)",
+      materialName: "GLASS SLIDING LOCK",
       requestedQuantity: 200,
       allocatedQuantity: 200,
       unit: "units",
@@ -108,8 +109,16 @@ const BOMDetails = () => {
     },
     {
       id: "3",
-      materialName: "Concrete Blocks",
+      materialName: "HANGAR 10 MTR ROOF COVER",
       requestedQuantity: 500,
+      allocatedQuantity: 0,
+      unit: "pieces",
+      status: "Unavailable"
+    },
+    {
+      id: "4",
+      materialName: "HAMMER 7 KG",
+      requestedQuantity: 150,
       allocatedQuantity: 0,
       unit: "pieces",
       status: "Unavailable"
@@ -120,34 +129,35 @@ const BOMDetails = () => {
     {
       id: "1",
       poNumber: "PO-2024-001",
-      vendorName: "ABC Construction Supplies",
-      items: ["Cement", "Steel Rebar"],
+      vendorName: "ABC Supplies",
+      items: ["GLASS STOPPER PVC"],
+      quantity: 150,
       totalAmount: 25000,
       status: "Approved",
       createdDate: "2024-01-05",
       deliveryDate: "2024-01-20"
     },
-    {
-      id: "2",
-      poNumber: "PO-2024-002", 
-      vendorName: "XYZ Building Materials",
-      items: ["Concrete Blocks"],
-      totalAmount: 15000,
-      status: "Pending",
-      createdDate: "2024-01-08",
-      deliveryDate: "2024-01-25"
-    }
+    // {
+    //   id: "2",
+    //   poNumber: "PO-2024-002", 
+    //   vendorName: "XYZ Materials",
+    //   items: ["Concrete Blocks"],
+    //   totalAmount: 15000,
+    //   status: "Pending",
+    //   createdDate: "2024-01-08",
+    //   deliveryDate: "2024-01-25"
+    // }
   ];
 
   const mockMaterialRequests: MaterialRequest[] = [
     {
       id: "1",
       requestId: "MR-2024-001",
-      fromLocation: "Main Warehouse",
-      toLocation: "Site Storage",
-      materialName: "Cement (50kg bags)",
-      requestedQuantity: 20,
-      approvedQuantity: 20,
+      fromLocation: "Kasna",
+      toLocation: "Site Store",
+      materialName: "HANGAR 10 MTR ROOF COVER",
+      requestedQuantity: 500,
+      approvedQuantity: 500,
       status: "Delivered",
       requestDate: "2024-01-12",
       expectedDate: "2024-01-15"
@@ -155,11 +165,11 @@ const BOMDetails = () => {
     {
       id: "2",
       requestId: "MR-2024-002",
-      fromLocation: "Secondary Store",
-      toLocation: "Site Storage", 
-      materialName: "Steel Rebar (12mm)",
-      requestedQuantity: 50,
-      approvedQuantity: 30,
+      fromLocation: "Kasna",
+      toLocation: "Site Store", 
+      materialName: "HAMMER 7 KG",
+      requestedQuantity: 150,
+      approvedQuantity: 150,
       status: "In Transit",
       requestDate: "2024-01-14",
       expectedDate: "2024-01-18"
@@ -414,6 +424,7 @@ const BOMDetails = () => {
                       <TableHead>PO Number</TableHead>
                       <TableHead>Vendor</TableHead>
                       <TableHead>Items</TableHead>
+                      <TableHead>Total Quantity</TableHead>
                       <TableHead>Total Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created Date</TableHead>
@@ -434,6 +445,7 @@ const BOMDetails = () => {
                             ))}
                           </div>
                         </TableCell>
+                        <TableCell className="font-medium">{po.quantity}</TableCell>
                         <TableCell className="font-medium">₹{po.totalAmount.toLocaleString()}</TableCell>
                         <TableCell>
                           <Badge variant={getStatusColor(po.status)} className="flex items-center gap-1">

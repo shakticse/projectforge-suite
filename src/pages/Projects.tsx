@@ -42,7 +42,7 @@ const Projects = () => {
       startDate: "2024-10-01",
       dueDate: "2024-12-15",
       teamSize: 8,
-      budget: "$125,000",
+      budget: "₹125,000",
       manager: "Sarah Johnson"
     },
     {
@@ -55,7 +55,7 @@ const Projects = () => {
       startDate: "2024-11-15",
       dueDate: "2025-01-10",
       teamSize: 5,
-      budget: "$75,000",
+      budget: "₹75,000",
       manager: "Mike Chen"
     },
     {
@@ -68,7 +68,7 @@ const Projects = () => {
       startDate: "2024-09-01",
       dueDate: "2024-12-01", 
       teamSize: 6,
-      budget: "$95,000",
+      budget: "₹95,000",
       manager: "Emily Davis"
     },
     {
@@ -81,7 +81,7 @@ const Projects = () => {
       startDate: "2024-10-20",
       dueDate: "2024-12-20",
       teamSize: 4,
-      budget: "$60,000",
+      budget: "₹60,000",
       manager: "David Wilson"
     }
   ];
