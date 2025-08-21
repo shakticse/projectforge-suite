@@ -364,7 +364,7 @@ const BOMDetails = () => {
                       <TableHead>Material Name</TableHead>
                       <TableHead>Requested Qty</TableHead>
                       <TableHead>Allocated Qty</TableHead>
-                      <TableHead>Unit</TableHead>
+                      {/* <TableHead>Unit</TableHead> */}
                       <TableHead>Allocation %</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -377,7 +377,7 @@ const BOMDetails = () => {
                           <TableCell className="font-medium">{item.materialName}</TableCell>
                           <TableCell>{item.requestedQuantity}</TableCell>
                           <TableCell>{item.allocatedQuantity}</TableCell>
-                          <TableCell>{item.unit}</TableCell>
+                          {/* <TableCell>{item.unit}</TableCell> */}
                           <TableCell>
                             <div className="flex items-center space-x-2">
                               <Progress value={percentage} className="w-16 h-2" />

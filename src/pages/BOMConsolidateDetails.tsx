@@ -350,7 +350,7 @@ export default function BOMConsolidateDetails() {
                     </div>
                   </TableHead>
                   <TableHead className="text-right">Total Allocated</TableHead>
-                  <TableHead 
+                  {/* <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort('unit')}
                   >
@@ -358,7 +358,7 @@ export default function BOMConsolidateDetails() {
                       <span>Unit</span>
                       {getSortIcon('unit')}
                     </div>
-                  </TableHead>
+                  </TableHead> */}
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort('status')}
@@ -402,9 +402,9 @@ export default function BOMConsolidateDetails() {
                           {totalAllocated}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      {/* <TableCell>
                         <span className="text-sm text-muted-foreground">{item.unit}</span>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(item.status)}>
                           {item.status}
