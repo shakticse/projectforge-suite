@@ -1,0 +1,314 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Search, Package, FileText } from "lucide-react";
+
+interface BOMConsolidateItem {
+  id: string;
+  materialName: string;
+  requiredQuantity: number;
+  inhouse: number;
+  purchased: number;
+  outsourced: number;
+  unit: string;
+  status: 'Complete' | 'Partial' | 'Pending';
+}
+
+interface BOMConsolidateDetails {
+  id: string;
+  projectName: string;
+  itemName: string;
+  totalItems: number;
+  createdBy: string;
+  createdDate: string;
+  status: 'Approved' | 'Pending' | 'Rejected' | 'In Progress';
+  items: BOMConsolidateItem[];
+}
+
+const mockConsolidateData: BOMConsolidateDetails = {
+  id: "BOM-001",
+  projectName: "Office Building Construction",
+  itemName: "Foundation Work",
+  totalItems: 15,
+  createdBy: "Jane Smith",
+  createdDate: "2024-01-10",
+  status: "Approved",
+  items: [
+    {
+      id: "1",
+      materialName: "Cement",
+      requiredQuantity: 50,
+      inhouse: 20,
+      purchased: 25,
+      outsourced: 5,
+      unit: "bags",
+      status: "Complete"
+    },
+    {
+      id: "2", 
+      materialName: "Steel Rebar",
+      requiredQuantity: 100,
+      inhouse: 40,
+      purchased: 50,
+      outsourced: 0,
+      unit: "kg",
+      status: "Partial"
+    },
+    {
+      id: "3",
+      materialName: "Concrete Blocks",
+      requiredQuantity: 200,
+      inhouse: 0,
+      purchased: 150,
+      outsourced: 50,
+      unit: "pieces",
+      status: "Complete"
+    },
+    {
+      id: "4",
+      materialName: "Sand",
+      requiredQuantity: 75,
+      inhouse: 25,
+      purchased: 30,
+      outsourced: 0,
+      unit: "cubic meters",
+      status: "Partial"
+    },
+    {
+      id: "5",
+      materialName: "MAXIMA VERTICAL 2.5 MTR",
+      requiredQuantity: 15,
+      inhouse: 10,
+      purchased: 5,
+      outsourced: 0,
+      unit: "pieces",
+      status: "Complete"
+    },
+    {
+      id: "6",
+      materialName: "OCTONORM VERTICAL 2.5 MTR",
+      requiredQuantity: 25,
+      inhouse: 15,
+      purchased: 10,
+      outsourced: 0,
+      unit: "pieces",
+      status: "Complete"
+    }
+  ]
+};
+
+export default function BOMConsolidateDetails() {
+  const { bomId } = useParams();
+  const navigate = useNavigate();
+  const [bomData] = useState<BOMConsolidateDetails>(mockConsolidateData);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredItems = bomData.items.filter(item =>
+    item.materialName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Complete': return 'default';
+      case 'Partial': return 'secondary';
+      case 'Pending': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const getBOMStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Approved': return 'default';
+      case 'Pending': return 'secondary';
+      case 'Rejected': return 'destructive';
+      case 'In Progress': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  const getTotalQuantity = (item: BOMConsolidateItem) => {
+    return item.inhouse + item.purchased + item.outsourced;
+  };
+
+  const getCompletionPercentage = (item: BOMConsolidateItem) => {
+    return Math.round((getTotalQuantity(item) / item.requiredQuantity) * 100);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate('/bom')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to BOM
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">BOM Consolidate Details</h1>
+            <p className="text-muted-foreground">Material allocation breakdown for BOM {bomId}</p>
+          </div>
+        </div>
+        <Badge variant={getBOMStatusBadgeVariant(bomData.status)} className="text-sm">
+          {bomData.status}
+        </Badge>
+      </div>
+
+      {/* BOM Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileText className="h-5 w-5 mr-2" />
+            BOM Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">BOM ID</p>
+              <p className="text-lg font-semibold">{bomData.id}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Project Name</p>
+              <p className="text-lg font-semibold">{bomData.projectName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Item Name</p>
+              <p className="text-lg font-semibold">{bomData.itemName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Items</p>
+              <p className="text-lg font-semibold">{bomData.totalItems}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Created By</p>
+              <p className="text-lg font-semibold">{bomData.createdBy}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Created Date</p>
+              <p className="text-lg font-semibold">{new Date(bomData.createdDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search */}
+      <div className="flex items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search materials..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {filteredItems.length} materials
+        </div>
+      </div>
+
+      {/* Materials Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Package className="h-5 w-5 mr-2" />
+            Material Allocation Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Material Name</TableHead>
+                  <TableHead className="text-right">Required Quantity</TableHead>
+                  <TableHead className="text-right">Inhouse</TableHead>
+                  <TableHead className="text-right">Purchased</TableHead>
+                  <TableHead className="text-right">Outsourced</TableHead>
+                  <TableHead className="text-right">Total Allocated</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Completion %</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => {
+                  const totalAllocated = getTotalQuantity(item);
+                  const completionPercentage = getCompletionPercentage(item);
+                  
+                  return (
+                    <TableRow key={item.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">{item.materialName}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {item.requiredQuantity}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                          {item.inhouse}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-700/10">
+                          {item.purchased}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10">
+                          {item.outsourced}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        <span className={`${totalAllocated >= item.requiredQuantity ? 'text-green-600' : 'text-orange-600'}`}>
+                          {totalAllocated}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">{item.unit}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(item.status)}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center space-x-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                completionPercentage >= 100 ? 'bg-green-500' : 
+                                completionPercentage >= 75 ? 'bg-blue-500' : 
+                                completionPercentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.min(completionPercentage, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium min-w-12">
+                            {completionPercentage}%
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {filteredItems.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No materials found</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

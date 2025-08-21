@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 
@@ -501,6 +501,7 @@ export default function BOM() {
                   <TableHead>Last Updated</TableHead>
                   <TableHead>Updated By</TableHead>
                   <TableHead>Created By</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -525,6 +526,15 @@ export default function BOM() {
                     <TableCell>{new Date(bom.lastUpdated).toLocaleDateString()}</TableCell>
                     <TableCell>{bom.updatedBy}</TableCell>
                     <TableCell>{bom.createdBy}</TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
