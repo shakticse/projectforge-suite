@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Search, Package, FileText } from "lucide-react";
+import { ArrowLeft, Search, Package, FileText, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface BOMConsolidateItem {
   id: string;
@@ -101,15 +101,77 @@ const mockConsolidateData: BOMConsolidateDetails = {
   ]
 };
 
+type SortField = 'materialName' | 'requiredQuantity' | 'inhouse' | 'purchased' | 'outsourced' | 'unit' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 export default function BOMConsolidateDetails() {
   const { bomId } = useParams();
   const navigate = useNavigate();
   const [bomData] = useState<BOMConsolidateDetails>(mockConsolidateData);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  
+  // Sorting states
+  const [sortField, setSortField] = useState<SortField>('materialName');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
+  // Filter and sort items
   const filteredItems = bomData.items.filter(item =>
     item.materialName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+    
+    if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Pagination logic
+  const totalItems = sortedItems.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = sortedItems.slice(startIndex, endIndex);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (items: number) => {
+    setItemsPerPage(items);
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -209,8 +271,23 @@ export default function BOMConsolidateDetails() {
             className="pl-10"
           />
         </div>
-        <div className="text-sm text-muted-foreground">
-          {filteredItems.length} materials
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">Show:</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} materials
+          </div>
         </div>
       </div>
 
@@ -227,19 +304,75 @@ export default function BOMConsolidateDetails() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Material Name</TableHead>
-                  <TableHead className="text-right">Required Quantity</TableHead>
-                  <TableHead className="text-right">Inhouse</TableHead>
-                  <TableHead className="text-right">Purchased</TableHead>
-                  <TableHead className="text-right">Outsourced</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('materialName')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Material Name</span>
+                      {getSortIcon('materialName')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('requiredQuantity')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Required Quantity</span>
+                      {getSortIcon('requiredQuantity')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('inhouse')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Inhouse</span>
+                      {getSortIcon('inhouse')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('purchased')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Purchased</span>
+                      {getSortIcon('purchased')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('outsourced')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Outsourced</span>
+                      {getSortIcon('outsourced')}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Total Allocated</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('unit')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Unit</span>
+                      {getSortIcon('unit')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>Status</span>
+                      {getSortIcon('status')}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Completion %</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => {
+                {currentItems.map((item) => {
                   const totalAllocated = getTotalQuantity(item);
                   const completionPercentage = getCompletionPercentage(item);
                   
@@ -301,7 +434,7 @@ export default function BOMConsolidateDetails() {
             </Table>
           </div>
 
-          {filteredItems.length === 0 && (
+          {currentItems.length === 0 && filteredItems.length === 0 && (
             <div className="text-center py-12">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No materials found</p>
@@ -309,6 +442,63 @@ export default function BOMConsolidateDetails() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(pageNum)}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
