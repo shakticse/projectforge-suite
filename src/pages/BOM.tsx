@@ -48,6 +48,12 @@ interface MaterialOption {
   id: string;
   name: string;
   availableStock: number;
+  childItems?: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    availableStock: number;
+  }>;
 }
 
 const mockProjects = [
@@ -62,6 +68,19 @@ const mockMaterials: MaterialOption[] = [
   { id: "mat-3", name: "Concrete Blocks", availableStock: 500 },
   { id: "mat-4", name: "Sand", availableStock: 300 },
   { id: "mat-5", name: "Gravel", availableStock: 250 },
+  { 
+    id: "mat-6", 
+    name: "STALL 3 MTR X 3 MTR", 
+    availableStock: 50,
+    childItems: [
+      { id: "mat-6-1", name: "MAXIMA VERTICAL 2.5 MTR", quantity: 3, availableStock: 100 },
+      { id: "mat-6-2", name: "OCTONORM VERTICAL 2.5 MTR", quantity: 5, availableStock: 80 },
+      { id: "mat-6-3", name: "OCTONORM PANEL 1 MTR X 2.5 MTR", quantity: 9, availableStock: 200 },
+      { id: "mat-6-4", name: "OCTONORM SECTION 1 MTR, 37 MM", quantity: 18, availableStock: 150 },
+      { id: "mat-6-5", name: "OCTONORM SECTION 3.0 MTR, 50 MM", quantity: 2, availableStock: 75 },
+      { id: "mat-6-6", name: "MAXIMA FASCIA 3 MTR 26 CM", quantity: 2, availableStock: 90 }
+    ]
+  }
 ];
 
 const mockBOMs: BOMItem[] = [
@@ -123,6 +142,9 @@ export default function BOM() {
     materialId: string;
     quantity: number;
     availableStock: number;
+    isChild?: boolean;
+    parentId?: number;
+    childMultiplier?: number;
   }>>([]);
 
   const addMaterialRow = () => {
@@ -136,21 +158,55 @@ export default function BOM() {
   };
 
   const removeMaterialRow = (id: number) => {
-    setMaterials(materials.filter(m => m.id !== id));
+    // Remove the parent row and all its children
+    setMaterials(materials.filter(m => m.id !== id && m.parentId !== id));
   };
 
   const updateMaterial = (id: number, field: string, value: any) => {
-    setMaterials(materials.map(m => {
-      if (m.id === id) {
-        const updated = { ...m, [field]: value };
-        if (field === 'materialId') {
-          const material = mockMaterials.find(mat => mat.id === value);
-          updated.availableStock = material?.availableStock || 0;
+    setMaterials(currentMaterials => {
+      let updatedMaterials = [...currentMaterials];
+      
+      const materialIndex = updatedMaterials.findIndex(m => m.id === id);
+      if (materialIndex === -1) return updatedMaterials;
+      
+      const updated = { ...updatedMaterials[materialIndex], [field]: value };
+      
+      if (field === 'materialId') {
+        const selectedMaterial = mockMaterials.find(mat => mat.id === value);
+        updated.availableStock = selectedMaterial?.availableStock || 0;
+        
+        // Remove any existing child items for this parent
+        updatedMaterials = updatedMaterials.filter(m => m.parentId !== id);
+        
+        // Add child items if the selected material has them
+        if (selectedMaterial?.childItems) {
+          const maxId = Math.max(...updatedMaterials.map(m => m.id), 0);
+          const childItems = selectedMaterial.childItems.map((child, index) => ({
+            id: maxId + index + 1,
+            materialId: child.id,
+            quantity: child.quantity * (updated.quantity || 1),
+            availableStock: child.availableStock,
+            isChild: true,
+            parentId: id,
+            childMultiplier: child.quantity
+          }));
+          updatedMaterials.push(...childItems);
         }
-        return updated;
       }
-      return m;
-    }));
+      
+      if (field === 'quantity' && !updated.isChild) {
+        // Update child quantities when parent quantity changes
+        updatedMaterials = updatedMaterials.map(m => {
+          if (m.parentId === id && m.childMultiplier) {
+            return { ...m, quantity: (m.childMultiplier * value) || 0 };
+          }
+          return m;
+        });
+      }
+      
+      updatedMaterials[materialIndex] = updated;
+      return updatedMaterials;
+    });
   };
 
   const onSubmit = async (data: any) => {
@@ -279,54 +335,88 @@ export default function BOM() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {materials.map((material, index) => (
-                            <TableRow key={material.id}>
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell>
-                                <Select 
-                                  value={material.materialId} 
-                                  onValueChange={(value) => updateMaterial(material.id, 'materialId', value)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select material" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {mockMaterials.map((mat) => (
-                                      <SelectItem key={mat.id} value={mat.id}>
-                                        {mat.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Input 
-                                  value={material.availableStock}
-                                  readOnly
-                                  className="bg-muted"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={material.quantity || ""}
-                                  onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
-                                  placeholder="0"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeMaterialRow(material.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {materials.map((material, index) => {
+                            const materialData = material.isChild 
+                              ? mockMaterials.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
+                              : mockMaterials.find(m => m.id === material.materialId);
+                            
+                            return (
+                              <TableRow 
+                                key={material.id} 
+                                className={material.isChild ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
+                              >
+                                <TableCell>
+                                  {material.isChild ? (
+                                    <span className="text-muted-foreground ml-4">
+                                      └ {index + 1}
+                                    </span>
+                                  ) : (
+                                    index + 1
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {material.isChild ? (
+                                    <div className="ml-4">
+                                      <span className="text-sm font-medium">
+                                        {materialData?.name || 'Unknown Material'}
+                                      </span>
+                                      <div className="text-xs text-muted-foreground">
+                                        Child item (multiplier: {material.childMultiplier}x)
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <Select 
+                                      value={material.materialId} 
+                                      onValueChange={(value) => updateMaterial(material.id, 'materialId', value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select material" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {mockMaterials.map((mat) => (
+                                          <SelectItem key={mat.id} value={mat.id}>
+                                            {mat.name}
+                                            {mat.childItems && <span className="text-xs text-muted-foreground ml-2">(has {mat.childItems.length} child items)</span>}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Input 
+                                    value={material.availableStock}
+                                    readOnly
+                                    className="bg-muted"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={material.quantity || ""}
+                                    onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
+                                    placeholder="0"
+                                    disabled={material.isChild && false} // Child quantities can be edited
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {!material.isChild ? (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeMaterialRow(material.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  ) : (
+                                    <div className="w-8"></div>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
