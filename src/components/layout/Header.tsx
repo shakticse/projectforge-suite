@@ -23,10 +23,10 @@ export function Header() {
   // Get current user from auth service or use mock data
   const currentUser = authService.getCurrentUser();
   const [user] = useState(currentUser || {
-    name: "John Doe",
-    email: "john.doe@company.com",
+    name: "Admin",
+    email: "Admin@PavillionsInteriors.com",
     role: "Project Manager",
-    avatar: "JD"
+    avatar: "AD"
   });
 
   // Generate initials from name if no avatar

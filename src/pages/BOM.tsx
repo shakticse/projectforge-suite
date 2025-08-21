@@ -52,33 +52,34 @@ interface MaterialOption {
     id: string;
     name: string;
     quantity: number;
+    perunit: number;
     availableStock: number;
   }>;
 }
 
 const mockProjects = [
-  { id: "proj-1", name: "Office Building Construction" },
-  { id: "proj-2", name: "Residential Complex" },
-  { id: "proj-3", name: "Shopping Mall Project" },
+  { id: "proj-1", name: "G20 Project" },
+  { id: "proj-2", name: "India Energy Week" },
+  { id: "proj-3", name: "Kochi Metro" },
 ];
 
 const mockMaterials: MaterialOption[] = [
-  { id: "mat-1", name: "Cement", availableStock: 150 },
-  { id: "mat-2", name: "Steel Rebar", availableStock: 200 },
-  { id: "mat-3", name: "Concrete Blocks", availableStock: 500 },
-  { id: "mat-4", name: "Sand", availableStock: 300 },
-  { id: "mat-5", name: "Gravel", availableStock: 250 },
+  { id: "mat-1", name: "BELT TIGHTNER", availableStock: 150 },
+  { id: "mat-2", name: "MDF 17MM 8'X4'", availableStock: 200 },
+  { id: "mat-3", name: "PAPER BLADE 9MM", availableStock: 500 },
+  { id: "mat-4", name: "CUTTER WIRE ROPE", availableStock: 300 },
+  { id: "mat-5", name: "CANOPY BEAM 3 MTR", availableStock: 250 },
   { 
     id: "mat-6", 
     name: "STALL 3 MTR X 3 MTR", 
     availableStock: 50,
     childItems: [
-      { id: "mat-6-1", name: "MAXIMA VERTICAL 2.5 MTR", quantity: 3, availableStock: 100 },
-      { id: "mat-6-2", name: "OCTONORM VERTICAL 2.5 MTR", quantity: 5, availableStock: 80 },
-      { id: "mat-6-3", name: "OCTONORM PANEL 1 MTR X 2.5 MTR", quantity: 9, availableStock: 200 },
-      { id: "mat-6-4", name: "OCTONORM SECTION 1 MTR, 37 MM", quantity: 18, availableStock: 150 },
-      { id: "mat-6-5", name: "OCTONORM SECTION 3.0 MTR, 50 MM", quantity: 2, availableStock: 75 },
-      { id: "mat-6-6", name: "MAXIMA FASCIA 3 MTR 26 CM", quantity: 2, availableStock: 90 }
+      { id: "mat-6-1", name: "MAXIMA VERTICAL 2.5 MTR", quantity: 3, perunit: 1, availableStock: 100 },
+      { id: "mat-6-2", name: "OCTONORM VERTICAL 2.5 MTR", quantity: 5, perunit: 5,availableStock: 80 },
+      { id: "mat-6-3", name: "OCTONORM PANEL 1 MTR X 2.5 MTR", quantity: 9, perunit: 6, availableStock: 200 },
+      { id: "mat-6-4", name: "OCTONORM SECTION 1 MTR, 37 MM", quantity: 18, perunit: 12, availableStock: 150 },
+      { id: "mat-6-5", name: "OCTONORM SECTION 3.0 MTR, 50 MM", quantity: 2, perunit: 2, availableStock: 75 },
+      { id: "mat-6-6", name: "MAXIMA FASCIA 3 MTR 26 CM", quantity: 2, perunit: 1, availableStock: 90 }
     ]
   }
 ];
@@ -87,7 +88,7 @@ const mockBOMs: BOMItem[] = [
   {
     id: "BOM-001",
     projectId: "proj-1",
-    projectName: "Office Building Construction",
+    projectName: "G20 Project",
     itemName: "Foundation Work",
     materials: [
       { materialId: "mat-1", materialName: "Cement", quantity: 50, availableStock: 150 },
@@ -104,8 +105,8 @@ const mockBOMs: BOMItem[] = [
   {
     id: "BOM-002", 
     projectId: "proj-2",
-    projectName: "Residential Complex",
-    itemName: "Wall Construction",
+    projectName: "India Energy Week",
+    itemName: "Construction",
     materials: [
       { materialId: "mat-3", materialName: "Concrete Blocks", quantity: 200, availableStock: 500 },
       { materialId: "mat-1", materialName: "Cement", quantity: 75, availableStock: 150 }
@@ -145,6 +146,7 @@ export default function BOM() {
     isChild?: boolean;
     parentId?: number;
     childMultiplier?: number;
+    childPerUnitQty?: number;
   }>>([]);
 
   const addMaterialRow = () => {
@@ -184,11 +186,12 @@ export default function BOM() {
           const childItems = selectedMaterial.childItems.map((child, index) => ({
             id: maxId + index + 1,
             materialId: child.id,
-            quantity: child.quantity * (updated.quantity || 1),
+            quantity: 0,//child.quantity + (((updated.quantity -1)*child.perunit) || 1),
             availableStock: child.availableStock,
             isChild: true,
             parentId: id,
-            childMultiplier: child.quantity
+            childMultiplier: child.quantity,
+            childPerUnitQty: child.perunit
           }));
           updatedMaterials.push(...childItems);
         }
@@ -198,7 +201,7 @@ export default function BOM() {
         // Update child quantities when parent quantity changes
         updatedMaterials = updatedMaterials.map(m => {
           if (m.parentId === id && m.childMultiplier) {
-            return { ...m, quantity: (m.childMultiplier * value) || 0 };
+            return { ...m, quantity: (m.childMultiplier + (m.childPerUnitQty * (value -1))) || 0 };
           }
           return m;
         });
@@ -303,9 +306,9 @@ export default function BOM() {
                     name="itemName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Item Name</FormLabel>
+                        <FormLabel>BOM Details</FormLabel>
                         <FormControl>
-                          <Input placeholder="Foundation Work" {...field} />
+                          <Input placeholder="Add Details" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -348,7 +351,7 @@ export default function BOM() {
                                 <TableCell>
                                   {material.isChild ? (
                                     <span className="text-muted-foreground ml-4">
-                                      └ {index + 1}
+                                      {index + 1}
                                     </span>
                                   ) : (
                                     index + 1
@@ -356,13 +359,13 @@ export default function BOM() {
                                 </TableCell>
                                 <TableCell>
                                   {material.isChild ? (
-                                    <div className="ml-4">
+                                    <div className="pl-4">
                                       <span className="text-sm font-medium">
-                                        {materialData?.name || 'Unknown Material'}
+                                        └&gt; {materialData?.name || 'N/A'}
                                       </span>
-                                      <div className="text-xs text-muted-foreground">
+                                      {/* <div className="text-xs text-muted-foreground">
                                         Child item (multiplier: {material.childMultiplier}x)
-                                      </div>
+                                      </div> */}
                                     </div>
                                   ) : (
                                     <Select 

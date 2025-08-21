@@ -39,35 +39,35 @@ const Inventory = () => {
   const inventoryItems = [
     {
       id: 1,
-      name: "Steel Sheets 4x8",
+      name: "MAXIMA VERTICAL 2.5 MTR",
       sku: "STL-4X8-001",
-      category: "Raw Materials",
+      category: "Maxima 80 MM",
       quantity: 150,
       minStock: 100,
       maxStock: 500,
       unitPrice: 125.50,
       totalValue: 18825,
       supplier: "MetalCorp Industries",
-      location: "Warehouse A-1",
+      location: "Noida",
       status: "In Stock"
     },
     {  
       id: 2,
-      name: "Aluminum Pipes 2inch",
+      name: "OCTONORM VERTICAL 2.5 MTR",
       sku: "ALU-P2-002", 
-      category: "Raw Materials",
+      category: "Octonorm",
       quantity: 45,
       minStock: 50,
       maxStock: 200,
       unitPrice: 35.75,
       totalValue: 1608.75,
       supplier: "Aluminum Solutions",
-      location: "Warehouse A-2",
+      location: "Kasna",
       status: "Low Stock"
     },
     {
       id: 3,
-      name: "Industrial Screws M8",
+      name: "GLASS STOPPER PVC",
       sku: "SCR-M8-003",
       category: "Hardware", 
       quantity: 2500,
@@ -76,35 +76,35 @@ const Inventory = () => {
       unitPrice: 0.25,
       totalValue: 625,
       supplier: "FastenTech",
-      location: "Warehouse B-1",
+      location: "Kochi",
       status: "In Stock"
     },
     {
       id: 4,
-      name: "Electric Motors 5HP",
+      name: "GLASS SLIDING LOCK",
       sku: "MOT-5HP-004",
-      category: "Equipment",
+      category: "Hardware",
       quantity: 12,
       minStock: 10,
       maxStock: 30,
       unitPrice: 850.00,
       totalValue: 10200,
       supplier: "ElectroMotors Inc",
-      location: "Equipment Storage",
+      location: "Chennai",
       status: "In Stock"
     },
     {
       id: 5,
-      name: "Safety Helmets",
+      name: "HANGAR 10 MTR ROOF COVER",
       sku: "SAF-HLM-005",
-      category: "Safety",
+      category: "Hangar 10 Mtr",
       quantity: 3,
       minStock: 25,
       maxStock: 100,
       unitPrice: 25.00,
       totalValue: 75,
       supplier: "SafetyFirst Co",
-      location: "Safety Depot",
+      location: "Noida",
       status: "Critical"
     }
   ];
@@ -138,7 +138,7 @@ const Inventory = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="glass-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -186,7 +186,7 @@ const Inventory = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
 
       {/* Filters and Search */}
       <Card className="glass-card">
@@ -229,8 +229,8 @@ const Inventory = () => {
                 <TableHead>Category</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Unit Price</TableHead>
-                <TableHead>Total Value</TableHead>
-                <TableHead>Status</TableHead>
+                {/* <TableHead>Total Value</TableHead>
+                <TableHead>Status</TableHead> */}
                 <TableHead>Location</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -238,27 +238,27 @@ const Inventory = () => {
             <TableBody>
               {inventoryItems.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
+                  <TableCell className="font-mono text-sm">{item.name}
+                    {/* <div>
                       <div className="font-medium">{item.name}</div>
                       <div className="text-sm text-muted-foreground">{item.supplier}</div>
-                    </div>
+                    </div> */}
                   </TableCell>
                   <TableCell className="font-mono text-sm">{item.sku}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{item.category}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <div>
+                  <TableCell className="font-mono text-sm">{item.quantity}
+                    {/* <div>
                       <div className="font-medium">{item.quantity}</div>
                       <div className="text-xs text-muted-foreground">
                         Min: {item.minStock} | Max: {item.maxStock}
                       </div>
-                    </div>
+                    </div> */}
                   </TableCell>
-                  <TableCell>${item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="font-medium">${item.totalValue.toLocaleString()}</TableCell>
-                  <TableCell>{getStatusBadge(item)}</TableCell>
+                  <TableCell>{item.unitPrice.toFixed(2)}</TableCell>
+                  {/* <TableCell className="font-medium">${item.totalValue.toLocaleString()}</TableCell>
+                  <TableCell>{getStatusBadge(item)}</TableCell> */}
                   <TableCell className="text-sm text-muted-foreground">{item.location}</TableCell>
                   <TableCell>
                     <DropdownMenu>

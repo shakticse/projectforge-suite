@@ -34,8 +34,8 @@ const Projects = () => {
   const projects = [
     {
       id: 1,
-      name: "Manufacturing System Upgrade",
-      description: "Complete overhaul of the manufacturing process automation system",
+      name: "Gujarat Trade Show 2024",
+      description: "Vibrant Gujarat Global Trade Show 2024",
       status: "In Progress",
       priority: "High",
       progress: 75,
@@ -47,8 +47,8 @@ const Projects = () => {
     },
     {
       id: 2,
-      name: "Inventory Optimization",
-      description: "Implementation of AI-driven inventory management system",
+      name: "G20 Project",
+      description: "G20 India’s Presidency 2022- 2023",
       status: "Planning",
       priority: "Medium",
       progress: 25,
@@ -60,8 +60,8 @@ const Projects = () => {
     },
     {
       id: 3,
-      name: "Quality Control Implementation",
-      description: "Setting up automated quality control processes",
+      name: "India Energy Week",
+      description: "India Energy Week 2024, Goa",
       status: "Review",
       priority: "High",
       progress: 90,
@@ -73,8 +73,8 @@ const Projects = () => {
     },
     {
       id: 4,
-      name: "Supplier Integration Platform",
-      description: "Digital platform for seamless supplier collaboration",
+      name: "Kochi Metro",
+      description: "Museum - Kochi Metro, Kochi",
       status: "In Progress",
       priority: "Low",
       progress: 45,
@@ -188,9 +188,9 @@ const Projects = () => {
                 <Badge variant={getStatusColor(project.status)} className="text-xs">
                   {project.status}
                 </Badge>
-                <Badge variant={getPriorityColor(project.priority)} className="text-xs">
+                {/* <Badge variant={getPriorityColor(project.priority)} className="text-xs">
                   {project.priority}
-                </Badge>
+                </Badge> */}
               </div>
 
               {/* Progress */}

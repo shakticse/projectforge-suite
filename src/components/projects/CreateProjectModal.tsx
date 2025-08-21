@@ -77,7 +77,7 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
     { value: "sq_ft", label: "Square Feet (sq. ft)" },
     { value: "sq_yd", label: "Square Yards (sq. yd)" },
     { value: "acres", label: "Acres" },
-    { value: "hectares", label: "Hectares" },
+    // { value: "hectares", label: "Hectares" },
   ];
 
   const form = useForm({
@@ -273,36 +273,6 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             {/* Project Area Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -371,6 +341,36 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Site Possession End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
