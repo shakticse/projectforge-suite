@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Search, Package, FileText, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Search, Package, FileText, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, History, Eye } from "lucide-react";
+import ChangeHistoryModal from "@/components/bom/ChangeHistoryModal";
 
 interface BOMConsolidateItem {
   id: string;
@@ -16,6 +17,25 @@ interface BOMConsolidateItem {
   outsourced: number;
   unit: string;
   status: 'Complete' | 'Partial' | 'Pending';
+}
+
+interface ChangeItem {
+  id: string;
+  action: 'added' | 'updated' | 'deleted';
+  materialName: string;
+  field?: string;
+  oldValue?: string | number;
+  newValue?: string | number;
+  unit?: string;
+}
+
+interface ChangeHistory {
+  id: string;
+  transactionId: string;
+  updatedBy: string;
+  updateDate: string;
+  changesCount: number;
+  changes: ChangeItem[];
 }
 
 interface BOMConsolidateDetails {
@@ -101,6 +121,84 @@ const mockConsolidateData: BOMConsolidateDetails = {
   ]
 };
 
+const mockChangeHistory: ChangeHistory[] = [
+  {
+    id: "1",
+    transactionId: "TXN-2024-001",
+    updatedBy: "John Doe",
+    updateDate: "2024-01-15T14:30:00Z",
+    changesCount: 3,
+    changes: [
+      {
+        id: "c1",
+        action: "updated",
+        materialName: "Cement",
+        field: "Required Quantity",
+        oldValue: 45,
+        newValue: 50,
+        unit: "bags"
+      },
+      {
+        id: "c2",
+        action: "updated",
+        materialName: "Steel Rebar",
+        field: "Purchased",
+        oldValue: 45,
+        newValue: 50,
+        unit: "kg"
+      },
+      {
+        id: "c3",
+        action: "added",
+        materialName: "MAXIMA VERTICAL 2.5 MTR",
+        newValue: 15,
+        unit: "pieces"
+      }
+    ]
+  },
+  {
+    id: "2",
+    transactionId: "TXN-2024-002",
+    updatedBy: "Jane Smith",
+    updateDate: "2024-01-12T09:15:00Z",
+    changesCount: 2,
+    changes: [
+      {
+        id: "c4",
+        action: "added",
+        materialName: "Sand",
+        newValue: 75,
+        unit: "cubic meters"
+      },
+      {
+        id: "c5",
+        action: "deleted",
+        materialName: "Gravel",
+        oldValue: 30,
+        unit: "cubic meters"
+      }
+    ]
+  },
+  {
+    id: "3",
+    transactionId: "TXN-2024-003",
+    updatedBy: "Mike Johnson",
+    updateDate: "2024-01-11T16:45:00Z",
+    changesCount: 1,
+    changes: [
+      {
+        id: "c6",
+        action: "updated",
+        materialName: "Concrete Blocks",
+        field: "Inhouse",
+        oldValue: 5,
+        newValue: 0,
+        unit: "pieces"
+      }
+    ]
+  }
+];
+
 type SortField = 'materialName' | 'requiredQuantity' | 'inhouse' | 'purchased' | 'outsourced' | 'unit' | 'status';
 type SortDirection = 'asc' | 'desc';
 
@@ -117,6 +215,15 @@ export default function BOMConsolidateDetails() {
   // Sorting states
   const [sortField, setSortField] = useState<SortField>('materialName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Change history modal states
+  const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<ChangeHistory | null>(null);
+
+  const handleViewChanges = (transaction: ChangeHistory) => {
+    setSelectedTransaction(transaction);
+    setIsChangeModalOpen(true);
+  };
 
   // Filter and sort items
   const filteredItems = bomData.items.filter(item =>
@@ -498,6 +605,76 @@ export default function BOMConsolidateDetails() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Change History Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <History className="h-5 w-5 mr-2" />
+            Change History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Transaction ID</TableHead>
+                  <TableHead>Updated By</TableHead>
+                  <TableHead>Update Date</TableHead>
+                  <TableHead className="text-center">Changes Count</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockChangeHistory.map((transaction) => (
+                  <TableRow key={transaction.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">{transaction.transactionId}</TableCell>
+                    <TableCell>{transaction.updatedBy}</TableCell>
+                    <TableCell>
+                      {new Date(transaction.updateDate).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="text-xs">
+                        {transaction.changesCount} items
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewChanges(transaction)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {mockChangeHistory.length === 0 && (
+            <div className="text-center py-12">
+              <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No change history found</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Change History Modal */}
+      {selectedTransaction && (
+        <ChangeHistoryModal
+          open={isChangeModalOpen}
+          onOpenChange={setIsChangeModalOpen}
+          transactionId={selectedTransaction.transactionId}
+          changes={selectedTransaction.changes}
+          updatedBy={selectedTransaction.updatedBy}
+          updateDate={selectedTransaction.updateDate}
+        />
       )}
     </div>
   );
