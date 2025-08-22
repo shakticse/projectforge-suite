@@ -68,7 +68,7 @@ export default function ChangeHistoryModal({
           <DialogTitle>Change History Details</DialogTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-muted/30 rounded-lg">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
+              <p className="text-sm font-medium text-muted-foreground">#</p>
               <p className="text-sm font-semibold">{transactionId}</p>
             </div>
             <div className="space-y-1">
@@ -90,8 +90,8 @@ export default function ChangeHistoryModal({
                 <TableRow>
                   <TableHead>Action</TableHead>
                   <TableHead>Material Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Field</TableHead>
+                  {/* <TableHead>Description</TableHead>
+                  <TableHead>Field</TableHead> */}
                   <TableHead>Old Value</TableHead>
                   <TableHead>New Value</TableHead>
                 </TableRow>
@@ -108,7 +108,7 @@ export default function ChangeHistoryModal({
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{change.materialName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    {/* <TableCell className="text-sm text-muted-foreground">
                       {formatChangeDescription(change)}
                     </TableCell>
                     <TableCell>
@@ -117,18 +117,18 @@ export default function ChangeHistoryModal({
                           {change.field}
                         </Badge>
                       )}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       {change.oldValue && (
                         <span className="text-sm text-red-600 line-through">
-                          {change.oldValue} {change.unit}
+                          {change.oldValue}
                         </span>
                       )}
                     </TableCell>
                     <TableCell>
                       {change.newValue && (
                         <span className="text-sm text-green-600 font-medium">
-                          {change.newValue} {change.unit}
+                          {change.newValue}
                         </span>
                       )}
                     </TableCell>

@@ -124,7 +124,7 @@ const mockConsolidateData: BOMConsolidateDetails = {
 const mockChangeHistory: ChangeHistory[] = [
   {
     id: "1",
-    transactionId: "TXN-2024-001",
+    transactionId: "001",
     updatedBy: "John Doe",
     updateDate: "2024-01-15T14:30:00Z",
     changesCount: 3,
@@ -158,7 +158,7 @@ const mockChangeHistory: ChangeHistory[] = [
   },
   {
     id: "2",
-    transactionId: "TXN-2024-002",
+    transactionId: "002",
     updatedBy: "Jane Smith",
     updateDate: "2024-01-12T09:15:00Z",
     changesCount: 2,
@@ -181,7 +181,7 @@ const mockChangeHistory: ChangeHistory[] = [
   },
   {
     id: "3",
-    transactionId: "TXN-2024-003",
+    transactionId: "003",
     updatedBy: "Mike Johnson",
     updateDate: "2024-01-11T16:45:00Z",
     changesCount: 1,
