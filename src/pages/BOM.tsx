@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 
@@ -147,7 +149,10 @@ export default function BOM() {
     parentId?: number;
     childMultiplier?: number;
     childPerUnitQty?: number;
+    isCustom?: boolean;
+    customName?: string;
   }>>([]);
+  const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
 
   const addMaterialRow = () => {
     const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
@@ -156,6 +161,18 @@ export default function BOM() {
       materialId: "", 
       quantity: 0, 
       availableStock: 0 
+    }]);
+  };
+
+  const addCustomMaterialRow = () => {
+    const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
+    setMaterials([...materials, { 
+      id: newId, 
+      materialId: `custom-${newId}`, 
+      quantity: 0, 
+      availableStock: 0,
+      isCustom: true,
+      customName: ""
     }]);
   };
 
@@ -176,6 +193,8 @@ export default function BOM() {
       if (field === 'materialId') {
         const selectedMaterial = mockMaterials.find(mat => mat.id === value);
         updated.availableStock = selectedMaterial?.availableStock || 0;
+        updated.isCustom = false;
+        updated.customName = undefined;
         
         // Remove any existing child items for this parent
         updatedMaterials = updatedMaterials.filter(m => m.parentId !== id);
@@ -195,6 +214,13 @@ export default function BOM() {
           }));
           updatedMaterials.push(...childItems);
         }
+        
+        // Close the popover
+        setOpenPopovers(prev => ({ ...prev, [id]: false }));
+      }
+      
+      if (field === 'customName') {
+        updated.customName = value;
       }
       
       if (field === 'quantity' && !updated.isChild) {
@@ -316,13 +342,19 @@ export default function BOM() {
                   />
                 </div>
 
-                <div className="space-y-4">
+                  <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Materials</h3>
-                    <Button type="button" onClick={addMaterialRow} size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Material
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" onClick={addMaterialRow} size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Material
+                      </Button>
+                      <Button type="button" onClick={addCustomMaterialRow} size="sm" variant="outline">
+                        <Type className="h-4 w-4 mr-2" />
+                        Add Custom Item
+                      </Button>
+                    </div>
                   </div>
 
                   {materials.length > 0 && (
@@ -357,35 +389,73 @@ export default function BOM() {
                                     index + 1
                                   )}
                                 </TableCell>
-                                <TableCell>
-                                  {material.isChild ? (
-                                    <div className="pl-4">
-                                      <span className="text-sm font-medium">
-                                        └&gt; {materialData?.name || 'N/A'}
-                                      </span>
-                                      {/* <div className="text-xs text-muted-foreground">
-                                        Child item (multiplier: {material.childMultiplier}x)
-                                      </div> */}
-                                    </div>
-                                  ) : (
-                                    <Select 
-                                      value={material.materialId} 
-                                      onValueChange={(value) => updateMaterial(material.id, 'materialId', value)}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select material" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {mockMaterials.map((mat) => (
-                                          <SelectItem key={mat.id} value={mat.id}>
-                                            {mat.name}
-                                            {mat.childItems && <span className="text-xs text-muted-foreground ml-2">(has {mat.childItems.length} child items)</span>}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                </TableCell>
+                                 <TableCell>
+                                   {material.isChild ? (
+                                     <div className="pl-4">
+                                       <span className="text-sm font-medium">
+                                         └&gt; {materialData?.name || 'N/A'}
+                                       </span>
+                                     </div>
+                                   ) : material.isCustom ? (
+                                     <Input
+                                       placeholder="Enter custom item name"
+                                       value={material.customName || ""}
+                                       onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
+                                       className="w-full"
+                                     />
+                                   ) : (
+                                     <Popover
+                                       open={openPopovers[material.id] || false}
+                                       onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
+                                     >
+                                       <PopoverTrigger asChild>
+                                         <Button
+                                           variant="outline"
+                                           role="combobox"
+                                           aria-expanded={openPopovers[material.id] || false}
+                                           className="w-full justify-between"
+                                         >
+                                           {material.materialId ? 
+                                             mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                             : "Select material..."
+                                           }
+                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                         </Button>
+                                       </PopoverTrigger>
+                                       <PopoverContent className="w-full p-0" align="start">
+                                         <Command>
+                                           <CommandInput placeholder="Search materials..." />
+                                           <CommandList>
+                                             <CommandEmpty>No material found.</CommandEmpty>
+                                             <CommandGroup>
+                                               {mockMaterials.map((mat) => (
+                                                 <CommandItem
+                                                   key={mat.id}
+                                                   value={mat.name}
+                                                   onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
+                                                 >
+                                                   <Check
+                                                     className={`mr-2 h-4 w-4 ${
+                                                       material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                     }`}
+                                                   />
+                                                   <div className="flex flex-col">
+                                                     <span>{mat.name}</span>
+                                                     {mat.childItems && (
+                                                       <span className="text-xs text-muted-foreground">
+                                                         (has {mat.childItems.length} child items)
+                                                       </span>
+                                                     )}
+                                                   </div>
+                                                 </CommandItem>
+                                               ))}
+                                             </CommandGroup>
+                                           </CommandList>
+                                         </Command>
+                                       </PopoverContent>
+                                     </Popover>
+                                   )}
+                                 </TableCell>
                                 <TableCell>
                                   <Input 
                                     value={material.availableStock}
