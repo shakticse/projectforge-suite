@@ -146,9 +146,17 @@ const Login = () => {
             {/* Demo Credentials */}
             <div className="mt-4 p-3 bg-secondary/50 rounded-lg">
               <p className="text-xs text-muted-foreground text-center mb-2">Demo Credentials:</p>
-              <p className="text-xs text-center">
-                <span className="font-mono">admin@projecthub.com</span> / <span className="font-mono">password</span>
-              </p>
+              <div className="text-xs space-y-1">
+                <p className="text-center">
+                  <strong>Project Manager:</strong> <span className="font-mono">pm@projecthub.com</span> / <span className="font-mono">password</span>
+                </p>
+                <p className="text-center">
+                  <strong>Project Supervisor:</strong> <span className="font-mono">supervisor@projecthub.com</span> / <span className="font-mono">password</span>
+                </p>
+                <p className="text-center">
+                  <strong>Store In Charge:</strong> <span className="font-mono">store@projecthub.com</span> / <span className="font-mono">password</span>
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

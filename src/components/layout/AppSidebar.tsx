@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { authService } from "@/services/authService";
 import {
   LayoutDashboard,
   FolderOpen,
@@ -12,7 +13,8 @@ import {
   BarChart3,
   Settings,
   ChevronLeft,
-  Building2
+  Building2,
+  Activity
 } from "lucide-react";
 
 import {
@@ -27,24 +29,36 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderOpen },
-  { title: "Inventory", url: "/inventory", icon: Package },
-  { title: "Users", url: "/users", icon: Users },
-  { title: "Vendors", url: "/vendors", icon: Building2 },
-  { title: "Bill of Materials", url: "/bom", icon: FileText },
-  { title: "Work Orders", url: "/work-orders", icon: ClipboardList },
-  { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
-  { title: "Gate Pass", url: "/gate-pass", icon: Truck },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-];
+const getMenuItems = (userRole: string) => {
+  const baseItems = [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Projects", url: "/projects", icon: FolderOpen },
+    { title: "Inventory", url: "/inventory", icon: Package },
+    { title: "Users", url: "/users", icon: Users },
+    { title: "Vendors", url: "/vendors", icon: Building2 },
+    { title: "Bill of Materials", url: "/bom", icon: FileText },
+    { title: "Work Orders", url: "/work-orders", icon: ClipboardList },
+    { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
+    { title: "Gate Pass", url: "/gate-pass", icon: Truck },
+    { title: "Reports", url: "/reports", icon: BarChart3 },
+  ];
+
+  // Add BOM Status for Store In Charge users
+  if (userRole === 'Store In Charge') {
+    const bomIndex = baseItems.findIndex(item => item.title === 'Bill of Materials');
+    baseItems.splice(bomIndex + 1, 0, { title: "BOM Status", url: "/bom-status", icon: Activity });
+  }
+
+  return baseItems;
+};
 
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+  const user = authService.getCurrentUser();
+  const menuItems = getMenuItems(user?.role || '');
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";

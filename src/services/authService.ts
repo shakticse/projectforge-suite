@@ -23,20 +23,56 @@ export interface User {
 
 export const authService = {
   async login(credentials: LoginCredentials) {
-    // Check for demo credentials first
-    if (credentials.email === 'admin@projecthub.com' && credentials.password === 'password') {
-      const mockUser: User = {
-        id: '1',
-        name: 'John Doe',
-        email: 'admin@projecthub.com',
-        role: 'Project Manager',
-        department: 'Operations',
-        avatar: 'JD'
-      };
-      const token = 'demo-jwt-token-12345';
+    // Demo credentials for different user roles
+    const demoUsers = [
+      {
+        email: 'pm@projecthub.com',
+        password: 'password',
+        user: {
+          id: '1',
+          name: 'John Doe',
+          email: 'pm@projecthub.com',
+          role: 'Project Manager',
+          department: 'Operations',
+          avatar: 'JD'
+        }
+      },
+      {
+        email: 'supervisor@projecthub.com',
+        password: 'password',
+        user: {
+          id: '2',
+          name: 'Jane Smith',
+          email: 'supervisor@projecthub.com',
+          role: 'Project Supervisor',
+          department: 'Operations',
+          avatar: 'JS'
+        }
+      },
+      {
+        email: 'store@projecthub.com',
+        password: 'password',
+        user: {
+          id: '3',
+          name: 'Mike Wilson',
+          email: 'store@projecthub.com',
+          role: 'Store In Charge',
+          department: 'Inventory',
+          avatar: 'MW'
+        }
+      }
+    ];
+
+    // Check for demo credentials
+    const demoUser = demoUsers.find(
+      demo => demo.email === credentials.email && demo.password === credentials.password
+    );
+
+    if (demoUser) {
+      const token = `demo-jwt-token-${demoUser.user.id}`;
       localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      return { token, user: mockUser };
+      localStorage.setItem('user', JSON.stringify(demoUser.user));
+      return { token, user: demoUser.user };
     }
     
     // For other credentials, make API call

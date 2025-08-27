@@ -17,6 +17,7 @@ import Vendors from "./pages/Vendors";
 import BOM from "./pages/BOM";
 import BOMDetails from "./pages/BOMDetails";
 import BOMConsolidateDetails from "./pages/BOMConsolidateDetails";
+import BOMStatus from "./pages/BOMStatus";
 import WorkOrders from "./pages/WorkOrders";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import GatePass from "./pages/GatePass";
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/bom" element={<ProtectedRoute><AppLayout><BOM /></AppLayout></ProtectedRoute>} />
           <Route path="/bom/:bomId" element={<ProtectedRoute><AppLayout><BOMDetails /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-consolidate/:bomId" element={<ProtectedRoute><AppLayout><BOMConsolidateDetails /></AppLayout></ProtectedRoute>} />
+          <Route path="/bom-status" element={<ProtectedRoute><AppLayout><BOMStatus /></AppLayout></ProtectedRoute>} />
           <Route path="/work-orders" element={<ProtectedRoute><AppLayout><WorkOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/purchase-orders" element={<ProtectedRoute><AppLayout><PurchaseOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
