@@ -331,6 +331,25 @@ export default function BOMConsolidateDetails() {
 
       {/* BOM Summary Card */}
       <Card>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-4">
+              <p className="text-lg font-semibold">{bomData.id}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-lg font-semibold">{bomData.projectName}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-lg font-semibold">{bomData.itemName}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">Created Date</p>
+              <p className="text-lg font-semibold">{new Date(bomData.createdDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2" />
@@ -365,7 +384,7 @@ export default function BOMConsolidateDetails() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Search */}
       <div className="flex items-center justify-between">

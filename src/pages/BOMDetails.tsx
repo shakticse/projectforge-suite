@@ -285,6 +285,27 @@ const BOMDetails = () => {
 
       {/* BOM Summary */}
       <Card>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-4">
+              <p className="text-lg font-semibold">BOM#: {bomDetails.id}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-lg font-medium">{bomDetails.projectName}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="text-lg font-medium">{bomDetails.itemName}</p>
+            </div>
+            <div className="space-y-4">
+              <p className="flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                {new Date(bomDetails.startDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})} - {new Date(bomDetails.endDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2" />
@@ -341,7 +362,7 @@ const BOMDetails = () => {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Detailed Sections */}
       <Tabs defaultValue="items" className="space-y-6">

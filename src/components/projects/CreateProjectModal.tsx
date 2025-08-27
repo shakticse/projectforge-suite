@@ -39,13 +39,15 @@ const projectSchema = yup.object({
     .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits')
     .required('Pincode is required'),
   state: yup.string().required('State is required'),
-  startDate: yup.string().required('Start date is required'),
-  endDate: yup.string().required('End date is required'),
+  startDate: yup.string().required('Project Start date is required'),
+  endDate: yup.string().required('Project End date is required'),
   managerId: yup.string().required('Project manager is required'),
   projectArea: yup.number().positive('Project area must be positive').required('Project area is required'),
   areaUnit: yup.string().required('Area unit is required'),
   sitePossessionStartDate: yup.string().required('Site possession start date is required'),
-  sitePossessionEndDate: yup.string().required('Site possession end date is required'),
+  sitePossessionEndDate: yup.string().required('Site clearing end date is required'),
+  eventStartDate: yup.string().required('Event start date is required'),
+  eventEndDate: yup.string().required('Event end date is required'),
 });
 
 interface CreateProjectModalProps {
@@ -94,6 +96,8 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
       areaUnit: "",
       sitePossessionStartDate: new Date().toISOString().split('T')[0],
       sitePossessionEndDate: new Date().toISOString().split('T')[0],
+      eventStartDate: new Date().toISOString().split('T')[0],
+      eventEndDate: new Date().toISOString().split('T')[0],
     },
   });
 
@@ -340,7 +344,7 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
                 name="sitePossessionEndDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Site Possession End Date</FormLabel>
+                    <FormLabel>Site Clearing End Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -356,7 +360,7 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Date</FormLabel>
+                    <FormLabel>Project Start Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -370,7 +374,37 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
                 name="endDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Date</FormLabel>
+                    <FormLabel>Project End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="eventStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Event Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="eventEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Event End Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
