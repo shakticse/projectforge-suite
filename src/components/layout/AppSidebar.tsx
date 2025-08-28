@@ -40,6 +40,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Work Orders", url: "/work-orders", icon: ClipboardList },
     { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
+    { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Reports", url: "/reports", icon: BarChart3 },
   ];
 

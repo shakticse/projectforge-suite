@@ -7,9 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Truck, ArrowRight, ArrowLeft, Package, User } from "lucide-react";
+import { Plus, Search, Truck, ArrowRight, ArrowLeft, Package, User, ArrowUpDown, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { gatePassSchema } from "@/lib/validations";
 
@@ -28,6 +30,23 @@ interface GatePass {
   createdDate: string;
   completedDate?: string;
 }
+
+interface BOMItem {
+  id: string;
+  name: string;
+  totalQuantity: number;
+  pendingQuantity: number;
+  deliveredQuantity: number;
+  allocatedQuantity?: number;
+}
+
+const mockBOMItems: BOMItem[] = [
+  { id: "1", name: "Steel Rebar", totalQuantity: 200, pendingQuantity: 100, deliveredQuantity: 100 },
+  { id: "2", name: "Cement Bags", totalQuantity: 300, pendingQuantity: 150, deliveredQuantity: 150 },
+  { id: "3", name: "Power Tools", totalQuantity: 20, pendingQuantity: 5, deliveredQuantity: 15 },
+];
+
+const mockVehicles = ["ABC-1234", "XYZ-5678", "DEF-9012", "GHI-3456", "JKL-7890"];
 
 const mockGatePasses: GatePass[] = [
   {
@@ -61,7 +80,15 @@ const mockGatePasses: GatePass[] = [
 export default function GatePass() {
   const [gatePasses] = useState<GatePass[]>(mockGatePasses);
   const [searchTerm, setSearchTerm] = useState("");
+  const [itemNameFilter, setItemNameFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [sortBy, setSortBy] = useState<string>("createdDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
   const [open, setOpen] = useState(false);
+  const [bomItems, setBomItems] = useState<BOMItem[]>(mockBOMItems.map(item => ({ ...item, allocatedQuantity: 0 })));
 
   const form = useForm({
     resolver: yupResolver(gatePassSchema),
@@ -85,11 +112,68 @@ export default function GatePass() {
     }
   };
 
-  const filteredGatePasses = gatePasses.filter(gp =>
-    gp.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    gp.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    gp.driverName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredGatePasses = gatePasses
+    .filter(gp => {
+      const matchesSearch = gp.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        gp.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        gp.driverName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "All" || gp.status === statusFilter;
+      const matchesType = typeFilter === "All" || gp.type === typeFilter;
+      const matchesItemName = itemNameFilter === "" || 
+        gp.items.some(item => item.itemName.toLowerCase().includes(itemNameFilter.toLowerCase()));
+      
+      return matchesSearch && matchesStatus && matchesType && matchesItemName;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      switch (sortBy) {
+        case "id":
+          aValue = a.id;
+          bValue = b.id;
+          break;
+        case "vehicleNumber":
+          aValue = a.vehicleNumber;
+          bValue = b.vehicleNumber;
+          break;
+        case "status":
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          aValue = a.createdDate;
+          bValue = b.createdDate;
+      }
+      
+      if (sortOrder === "asc") {
+        return aValue < bValue ? -1 : 1;
+      } else {
+        return aValue > bValue ? -1 : 1;
+      }
+    });
+
+  const totalPages = Math.ceil(filteredGatePasses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedGatePasses = filteredGatePasses.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
+  const updateBOMItemAllocation = (itemId: string, quantity: number) => {
+    setBomItems(items => 
+      items.map(item => 
+        item.id === itemId 
+          ? { ...item, allocatedQuantity: Math.min(quantity, item.pendingQuantity) }
+          : item
+      )
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -122,75 +206,123 @@ export default function GatePass() {
               Create Gate Pass
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Gate Pass</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Inward">Inward</SelectItem>
+                            <SelectItem value="Outward">Outward</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="vehicleNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vehicle Number</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select vehicle" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mockVehicles.map((vehicle) => (
+                              <SelectItem key={vehicle} value={vehicle}>
+                                {vehicle}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="driverName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Driver Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input placeholder="John Driver" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Inward">Inward</SelectItem>
-                          <SelectItem value="Outward">Outward</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="purpose"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Purpose</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Material delivery, equipment return, etc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
-                <FormField
-                  control={form.control}
-                  name="vehicleNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vehicle Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ABC-1234" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="driverName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Driver Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Driver" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="purpose"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purpose</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Material delivery, equipment return, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">BOM Items Allocation</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead className="text-right">Total Qty</TableHead>
+                        <TableHead className="text-right">Pending Qty</TableHead>
+                        <TableHead className="text-right">Delivered Qty</TableHead>
+                        <TableHead className="text-right">Allocate Qty</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bomItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                          <TableCell className="text-right">{item.pendingQuantity}</TableCell>
+                          <TableCell className="text-right">{item.deliveredQuantity}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.pendingQuantity}
+                              value={item.allocatedQuantity || 0}
+                              onChange={(e) => updateBOMItemAllocation(item.id, parseInt(e.target.value) || 0)}
+                              className="w-20 text-right"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -204,7 +336,7 @@ export default function GatePass() {
         </Dialog>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -214,74 +346,142 @@ export default function GatePass() {
             className="pl-10"
           />
         </div>
+        
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter by item name..."
+            value={itemNameFilter}
+            onChange={(e) => setItemNameFilter(e.target.value)}
+            className="w-48"
+          />
+        </div>
+        
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Status</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Types</SelectItem>
+            <SelectItem value="Inward">Inward</SelectItem>
+            <SelectItem value="Outward">Outward</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredGatePasses.map((gatePass) => {
-          const TypeIcon = getTypeIcon(gatePass.type);
-          return (
-            <Card key={gatePass.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Truck className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">{gatePass.id}</CardTitle>
-                    <TypeIcon className={`h-4 w-4 ${getTypeColor(gatePass.type)}`} />
-                    <Badge variant="outline" className={getTypeColor(gatePass.type)}>
-                      {gatePass.type}
-                    </Badge>
-                  </div>
-                  <Badge variant={getStatusColor(gatePass.status) as any}>
-                    {gatePass.status}
-                  </Badge>
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="cursor-pointer" onClick={() => handleSort("id")}>
+                <div className="flex items-center gap-2">
+                  Gate Pass ID
+                  <ArrowUpDown className="h-4 w-4" />
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Vehicle:</span>
-                    <p className="font-medium">{gatePass.vehicleNumber}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Driver:</span>
-                    <p className="font-medium">{gatePass.driverName}</p>
-                  </div>
+              </TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort("vehicleNumber")}>
+                <div className="flex items-center gap-2">
+                  Vehicle Number
+                  <ArrowUpDown className="h-4 w-4" />
                 </div>
-                
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Purpose:</span>
-                  <p className="font-medium">{gatePass.purpose}</p>
+              </TableHead>
+              <TableHead>Driver Name</TableHead>
+              <TableHead>Purpose</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                <div className="flex items-center gap-2">
+                  Status
+                  <ArrowUpDown className="h-4 w-4" />
                 </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium flex items-center text-sm">
-                    <Package className="h-4 w-4 mr-2" />
-                    Items ({gatePass.items.length})
-                  </h4>
-                  {gatePass.items.slice(0, 2).map((item) => (
-                    <div key={item.itemId} className="flex justify-between text-sm text-muted-foreground">
-                      <span>{item.itemName}</span>
-                      <span>Qty: {item.quantity}</span>
+              </TableHead>
+              <TableHead className="cursor-pointer" onClick={() => handleSort("createdDate")}>
+                <div className="flex items-center gap-2">
+                  Created Date
+                  <ArrowUpDown className="h-4 w-4" />
+                </div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedGatePasses.map((gatePass) => {
+              const TypeIcon = getTypeIcon(gatePass.type);
+              return (
+                <TableRow key={gatePass.id}>
+                  <TableCell className="font-medium">{gatePass.id}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <TypeIcon className={`h-4 w-4 ${getTypeColor(gatePass.type)}`} />
+                      <Badge variant="outline" className={getTypeColor(gatePass.type)}>
+                        {gatePass.type}
+                      </Badge>
                     </div>
-                  ))}
-                  {gatePass.items.length > 2 && (
-                    <p className="text-sm text-muted-foreground">
-                      +{gatePass.items.length - 2} more items
-                    </p>
-                  )}
-                </div>
-                
-                <div className="pt-3 border-t text-sm text-muted-foreground">
-                  <div><strong>Created:</strong> {new Date(gatePass.createdDate).toLocaleDateString()}</div>
-                  {gatePass.completedDate && (
-                    <div><strong>Completed:</strong> {new Date(gatePass.completedDate).toLocaleDateString()}</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  </TableCell>
+                  <TableCell>{gatePass.vehicleNumber}</TableCell>
+                  <TableCell>{gatePass.driverName}</TableCell>
+                  <TableCell className="max-w-xs truncate">{gatePass.purpose}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Package className="h-4 w-4" />
+                      {gatePass.items.length} items
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusColor(gatePass.status) as any}>
+                      {gatePass.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(gatePass.createdDate).toLocaleDateString()}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }
