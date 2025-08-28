@@ -229,7 +229,7 @@ const Users = () => {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Projects</TableHead>
                 <TableHead>Status</TableHead>

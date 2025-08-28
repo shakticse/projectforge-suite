@@ -89,10 +89,25 @@ const SidebarProvider = React.forwardRef<
 
     // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
-      return isMobile
-        ? setOpenMobile((open) => !open)
-        : setOpen((open) => !open)
+      // If we're on mobile or if isMobile is still undefined (during initial load),
+      // we should toggle the mobile menu. This ensures the mobile menu can always be opened.
+      if (isMobile === true) {
+        setOpenMobile((open) => !open)
+      } else if (isMobile === false) {
+        // For desktop, toggle the regular sidebar
+        setOpen((open) => !open)
+      } else {
+        // During initial render when isMobile is undefined, check window width directly
+        // This ensures the mobile menu can be opened even before the hook resolves
+        if (window.innerWidth < 768) {
+          setOpenMobile((open) => !open)
+        } else {
+          setOpen((open) => !open)
+        }
+      }
     }, [isMobile, setOpen, setOpenMobile])
+
+
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Search, Package, FileText, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, History, Eye } from "lucide-react";
+import { ArrowLeft, Search, Package, FileText, Calendar, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, History, Eye } from "lucide-react";
 import ChangeHistoryModal from "@/components/bom/ChangeHistoryModal";
 
 interface BOMConsolidateItem {
@@ -330,7 +330,7 @@ export default function BOMConsolidateDetails() {
       </div>
 
       {/* BOM Summary Card */}
-      <Card>
+      <Card className="pl-2 pt-4">
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-4">
@@ -343,8 +343,10 @@ export default function BOMConsolidateDetails() {
               <p className="text-lg font-semibold">{bomData.itemName}</p>
             </div>
             <div className="space-y-4">
-              <p className="text-sm font-medium text-muted-foreground">Created Date</p>
-              <p className="text-lg font-semibold">{new Date(bomData.createdDate).toLocaleDateString()}</p>
+              <p className="flex items-center">
+                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                {new Date(bomData.createdDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})}
+              </p>
             </div>
           </div>
         </CardContent>

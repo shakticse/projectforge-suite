@@ -284,7 +284,7 @@ const BOMDetails = () => {
       </div>
 
       {/* BOM Summary */}
-      <Card>
+      <Card className="pl-2 pt-4">
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="space-y-4">

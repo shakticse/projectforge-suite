@@ -50,13 +50,13 @@ export const authService = {
         }
       },
       {
-        email: 'store@projecthub.com',
+        email: 'site@projecthub.com',
         password: 'password',
         user: {
           id: '3',
           name: 'Mike Wilson',
-          email: 'store@projecthub.com',
-          role: 'Store In Charge',
+          email: 'site@projecthub.com',
+          role: 'Site Supervisor',
           department: 'Inventory',
           avatar: 'MW'
         }

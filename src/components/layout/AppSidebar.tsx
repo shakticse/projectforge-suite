@@ -54,7 +54,7 @@ const getMenuItems = (userRole: string) => {
 };
 
 export function AppSidebar() {
-  const { state, toggleSidebar } = useSidebar();
+  const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
@@ -64,6 +64,13 @@ export function AppSidebar() {
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";
     return currentPath.startsWith(path);
+  };
+
+  // Function to handle menu item click and auto-close mobile menu
+  const handleMenuClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
   };
 
   const getNavClassName = ({ isActive }: { isActive: boolean }) =>
@@ -99,7 +106,12 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.url === "/"} className={getNavClassName}>
+                    <NavLink 
+                      to={item.url} 
+                      end={item.url === "/"} 
+                      className={getNavClassName}
+                      onClick={handleMenuClick}
+                    >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!collapsed && <span className="font-medium">{item.title}</span>}
                     </NavLink>
@@ -116,7 +128,11 @@ export function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    <NavLink to="/settings" className={getNavClassName}>
+                    <NavLink 
+                      to="/settings" 
+                      className={getNavClassName}
+                      onClick={handleMenuClick}
+                    >
                       <Settings className="h-5 w-5 flex-shrink-0" />
                       {!collapsed && <span className="font-medium">Settings</span>}
                     </NavLink>

@@ -26,6 +26,8 @@ interface PurchaseOrder {
   id: string;
   projectId: string;
   projectName: string;
+  vendor: string;
+  deliveredTo: string;
   bomId: string;
   bomName: string;
   vendorId: string;
@@ -68,6 +70,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     id: "PO-001",
     projectId: "proj-1",
     projectName: "Office Building Construction",
+    vendor: "ABC Supplier",
+    deliveredTo: "Noida",
     bomId: "bom-1",
     bomName: "Steel Structure BOM",
     vendorId: "vendor-1",
@@ -91,6 +95,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     id: "PO-002",
     projectId: "proj-2",
     projectName: "Residential Complex Phase 1",
+    vendor: "BBC Supplier",
+    deliveredTo: "Site",
     bomId: "bom-3",
     bomName: "Foundation BOM",
     vendorId: "vendor-2",
@@ -113,6 +119,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     id: "PO-003",
     projectId: "proj-1",
     projectName: "Office Building Construction",
+    vendor: "BBC Supplier",
+    deliveredTo: "Site",
     bomId: "bom-2",
     bomName: "Electrical Systems BOM",
     vendorId: "vendor-1",
@@ -525,24 +533,42 @@ export default function PurchaseOrders() {
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('vendor')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Vendor Name</span>
+                  <ArrowUpDown className="h-4 w-4" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('deliveredTo')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Delivered To</span>
+                  <ArrowUpDown className="h-4 w-4" />
+                </div>
+              </TableHead>
+              {/* <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('startDate')}
               >
                 <div className="flex items-center space-x-1">
                   <span>Start Date</span>
                   <ArrowUpDown className="h-4 w-4" />
                 </div>
-              </TableHead>
+              </TableHead> */}
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('endDate')}
               >
                 <div className="flex items-center space-x-1">
-                  <span>End Date</span>
+                  <span>Deliver By</span>
                   <ArrowUpDown className="h-4 w-4" />
                 </div>
               </TableHead>
-              <TableHead>Approval Status</TableHead>
-              <TableHead>Completion Date</TableHead>
+              {/* <TableHead>Approval Status</TableHead> */}
+              {/* <TableHead>Completion Date</TableHead> */}
               <TableHead>Status</TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
@@ -555,7 +581,7 @@ export default function PurchaseOrders() {
               </TableHead>
               <TableHead>Updated By</TableHead>
               <TableHead>Created By</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -563,16 +589,18 @@ export default function PurchaseOrders() {
               <TableRow key={po.id} className="hover:bg-muted/50">
                 <TableCell className="font-medium">{po.id}</TableCell>
                 <TableCell>{po.projectName}</TableCell>
-                <TableCell>{new Date(po.startDate).toLocaleDateString()}</TableCell>
+                <TableCell>{po.vendor}</TableCell>
+                <TableCell>{po.deliveredTo}</TableCell>
+                {/* <TableCell>{new Date(po.startDate).toLocaleDateString()}</TableCell> */}
                 <TableCell>{new Date(po.endDate).toLocaleDateString()}</TableCell>
-                <TableCell>
+                {/* <TableCell>
                   <Badge variant={getApprovalColor(po.approvalStatus) as any}>
                     {po.approvalStatus}
                   </Badge>
-                </TableCell>
-                <TableCell>
+                </TableCell> */}
+                {/* <TableCell>
                   {po.completionDate ? new Date(po.completionDate).toLocaleDateString() : "-"}
-                </TableCell>
+                </TableCell> */}
                 <TableCell>
                   <Badge variant={getStatusColor(po.status) as any}>
                     {po.status}
