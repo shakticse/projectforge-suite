@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
   Search,
   Plus,
@@ -15,7 +17,10 @@ import {
   Edit,
   Trash2,
   Eye,
-  Download
+  Download,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import {
   Table,
@@ -32,10 +37,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+type SortField = 'name' | 'sku' | 'category' | 'quantity' | 'unitPrice' | 'location' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [storeFilter, setStoreFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-  // Mock inventory data
+  // Mock inventory data with more items and different stores
   const inventoryItems = [
     {
       id: 1,
@@ -106,6 +121,76 @@ const Inventory = () => {
       supplier: "SafetyFirst Co",
       location: "Noida",
       status: "Critical"
+    },
+    {
+      id: 6,
+      name: "STEEL BEAM 5M",
+      sku: "STL-5M-006",
+      category: "Steel Structure",
+      quantity: 85,
+      minStock: 50,
+      maxStock: 200,
+      unitPrice: 450.00,
+      totalValue: 38250,
+      supplier: "SteelWorks Ltd",
+      location: "Delhi",
+      status: "In Stock"
+    },
+    {
+      id: 7,
+      name: "ALUMINUM PANEL 4X8",
+      sku: "ALU-4X8-007",
+      category: "Panels",
+      quantity: 20,
+      minStock: 30,
+      maxStock: 150,
+      unitPrice: 75.00,
+      totalValue: 1500,
+      supplier: "Panel Systems",
+      location: "Mumbai",
+      status: "Low Stock"
+    },
+    {
+      id: 8,
+      name: "LED SPOTLIGHTS",
+      sku: "LED-SP-008",
+      category: "Lighting",
+      quantity: 200,
+      minStock: 100,
+      maxStock: 500,
+      unitPrice: 25.50,
+      totalValue: 5100,
+      supplier: "LightTech Solutions",
+      location: "Bangalore",
+      status: "In Stock"
+    },
+    {
+      id: 9,
+      name: "CARPET TILES GREY",
+      sku: "CPT-GRY-009",
+      category: "Flooring",
+      quantity: 500,
+      minStock: 200,
+      maxStock: 1000,
+      unitPrice: 12.00,
+      totalValue: 6000,
+      supplier: "FloorCraft",
+      location: "Pune",
+      status: "In Stock"
+    },
+    {
+      id: 10,
+      name: "FABRIC PANELS BLUE",
+      sku: "FAB-BLU-010",
+      category: "Fabric",
+      quantity: 15,
+      minStock: 20,
+      maxStock: 100,
+      unitPrice: 65.00,
+      totalValue: 975,
+      supplier: "TextilePro",
+      location: "Kochi",
+      status: "Low Stock"
     }
   ];
 
@@ -119,9 +204,60 @@ const Inventory = () => {
     }
   };
 
-  const totalValue = inventoryItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = inventoryItems.filter(item => item.quantity <= item.minStock).length;
-  const criticalItems = inventoryItems.filter(item => item.quantity <= item.minStock * 0.5).length;
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
+
+  const getUniqueValues = (field: string) => {
+    return [...new Set(inventoryItems.map(item => item[field as keyof typeof item]))];
+  };
+
+  const categories = getUniqueValues('category');
+  const stores = getUniqueValues('location');
+  const statuses = getUniqueValues('status');
+
+  const filteredItems = inventoryItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+    const matchesStore = storeFilter === "all" || item.location === storeFilter;
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesStore && matchesStatus;
+  });
+
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+    
+    if (sortField === 'quantity' || sortField === 'unitPrice') {
+      aValue = Number(aValue);
+      bValue = Number(bValue);
+    }
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedItems = sortedItems.slice(startIndex, startIndex + itemsPerPage);
+
+  const totalValue = filteredItems.reduce((sum, item) => sum + item.totalValue, 0);
+  const lowStockItems = filteredItems.filter(item => item.quantity <= item.minStock).length;
+  const criticalItems = filteredItems.filter(item => item.quantity <= item.minStock * 0.5).length;
 
   return (
     <div className="space-y-6">
@@ -191,25 +327,65 @@ const Inventory = () => {
       {/* Filters and Search */}
       <Card className="glass-card">
         <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search inventory items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search inventory items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filter
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filter
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
+            
+            <div className="flex flex-wrap gap-4">
+              <Select value={storeFilter} onValueChange={setStoreFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by store" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stores</SelectItem>
+                  {stores.map(store => (
+                    <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={String(category)} value={String(category)}>{String(category)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {statuses.map(status => (
+                    <SelectItem key={String(status)} value={String(status)}>{String(status)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -218,48 +394,90 @@ const Inventory = () => {
       {/* Inventory Table */}
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Inventory Items</CardTitle>
+          <CardTitle>Inventory Items ({sortedItems.length} items)</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Unit Price</TableHead>
-                {/* <TableHead>Total Value</TableHead>
-                <TableHead>Status</TableHead> */}
-                <TableHead>Location</TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('name')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Item {getSortIcon('name')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('sku')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    SKU {getSortIcon('sku')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('category')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Category {getSortIcon('category')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('quantity')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Quantity {getSortIcon('quantity')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('unitPrice')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Unit Price {getSortIcon('unitPrice')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('location')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Location {getSortIcon('location')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('status')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Status {getSortIcon('status')}
+                  </Button>
+                </TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventoryItems.map((item) => (
+              {paginatedItems.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-mono text-sm">{item.name}
-                    {/* <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-muted-foreground">{item.supplier}</div>
-                    </div> */}
-                  </TableCell>
+                  <TableCell className="font-mono text-sm">{item.name}</TableCell>
                   <TableCell className="font-mono text-sm">{item.sku}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{item.category}</Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{item.quantity}
-                    {/* <div>
-                      <div className="font-medium">{item.quantity}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Min: {item.minStock} | Max: {item.maxStock}
-                      </div>
-                    </div> */}
-                  </TableCell>
+                  <TableCell className="font-mono text-sm">{item.quantity}</TableCell>
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                  {/* <TableCell className="font-medium">${item.totalValue.toLocaleString()}</TableCell>
-                  <TableCell>{getStatusBadge(item)}</TableCell> */}
                   <TableCell className="text-sm text-muted-foreground">{item.location}</TableCell>
+                  <TableCell>{getStatusBadge(item)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -289,6 +507,36 @@ const Inventory = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <Pagination className="mt-6">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 };
