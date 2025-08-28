@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Building2, Phone, Mail, User } from "lucide-react";
+import { Plus, Search, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { vendorSchema } from "@/lib/validations";
 
@@ -43,12 +44,50 @@ const mockVendors: Vendor[] = [
     contactPerson: "Sarah Johnson",
     status: "Active",
     joinDate: "2024-02-20"
+  },
+  {
+    id: "3",
+    name: "Global Parts Co",
+    email: "sales@globalparts.com",
+    phone: "+5551234567",
+    address: "789 Trade Center, City",
+    contactPerson: "Mike Wilson",
+    status: "Active",
+    joinDate: "2024-01-20"
+  },
+  {
+    id: "4",
+    name: "Tech Components Ltd",
+    email: "orders@techcomponents.com",
+    phone: "+4449876543",
+    address: "321 Tech Park, City",
+    contactPerson: "Lisa Chen",
+    status: "Inactive",
+    joinDate: "2024-03-10"
+  },
+  {
+    id: "5",
+    name: "Premium Supplies Inc",
+    email: "info@premiumsupplies.com",
+    phone: "+3337654321",
+    address: "654 Premium Plaza, City",
+    contactPerson: "David Brown",
+    status: "Active",
+    joinDate: "2024-02-05"
   }
 ];
+
+type SortField = 'name' | 'email' | 'contactPerson' | 'status' | 'joinDate';
+type SortDirection = 'asc' | 'desc';
 
 export default function Vendors() {
   const [vendors] = useState<Vendor[]>(mockVendors);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -75,10 +114,46 @@ export default function Vendors() {
     }
   };
 
-  const filteredVendors = vendors.filter(vendor =>
-    vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vendor.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const filteredVendors = vendors.filter(vendor => {
+    const matchesSearch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         vendor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || vendor.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const sortedVendors = [...filteredVendors].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+    
+    if (sortField === 'joinDate') {
+      aValue = new Date(aValue as string);
+      bValue = new Date(bValue as string);
+    }
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedVendors.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedVendors = sortedVendors.slice(startIndex, startIndex + itemsPerPage);
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
 
   return (
     <div className="space-y-6">
@@ -204,7 +279,7 @@ export default function Vendors() {
         </Dialog>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-4 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -214,49 +289,118 @@ export default function Vendors() {
             className="pl-10"
           />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVendors.map((vendor) => (
-          <Card key={vendor.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">{vendor.name}</CardTitle>
-                </div>
-                <Badge variant={vendor.status === 'Active' ? 'default' : 'secondary'}>
-                  {vendor.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>{vendor.contactPerson}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>{vendor.email}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>{vendor.phone}</span>
-              </div>
-              
-              <div className="text-sm text-muted-foreground">
-                <strong>Address:</strong> {vendor.address}
-              </div>
-              
-              <div className="text-sm text-muted-foreground">
-                <strong>Joined:</strong> {new Date(vendor.joinDate).toLocaleDateString()}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleSort('name')}
+                  className="h-auto p-0 font-semibold text-left justify-start"
+                >
+                  Vendor Name {getSortIcon('name')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleSort('email')}
+                  className="h-auto p-0 font-semibold text-left justify-start"
+                >
+                  Email {getSortIcon('email')}
+                </Button>
+              </TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleSort('contactPerson')}
+                  className="h-auto p-0 font-semibold text-left justify-start"
+                >
+                  Contact Person {getSortIcon('contactPerson')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleSort('status')}
+                  className="h-auto p-0 font-semibold text-left justify-start"
+                >
+                  Status {getSortIcon('status')}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleSort('joinDate')}
+                  className="h-auto p-0 font-semibold text-left justify-start"
+                >
+                  Join Date {getSortIcon('joinDate')}
+                </Button>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedVendors.map((vendor) => (
+              <TableRow key={vendor.id}>
+                <TableCell className="font-medium">{vendor.name}</TableCell>
+                <TableCell>{vendor.email}</TableCell>
+                <TableCell>{vendor.phone}</TableCell>
+                <TableCell>{vendor.contactPerson}</TableCell>
+                <TableCell>
+                  <Badge variant={vendor.status === 'Active' ? 'default' : 'secondary'}>
+                    {vendor.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{new Date(vendor.joinDate).toLocaleDateString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
+
+      {totalPages > 1 && (
+        <Pagination className="mt-6">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }
