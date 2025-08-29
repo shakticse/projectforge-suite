@@ -290,14 +290,14 @@ export default function GatePass() {
                 </div>
                 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">BOM Items Allocation</h3>
+                  <h3 className="text-lg font-semibold">Allocate Items</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Item Name</TableHead>
-                        <TableHead className="text-right">Total Qty</TableHead>
+                        {/* <TableHead className="text-right">Total Qty</TableHead> */}
                         <TableHead className="text-right">Pending Qty</TableHead>
-                        <TableHead className="text-right">Delivered Qty</TableHead>
+                        {/* <TableHead className="text-right">Delivered Qty</TableHead> */}
                         <TableHead className="text-right">Allocate Qty</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -305,9 +305,9 @@ export default function GatePass() {
                       {bomItems.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                          {/* <TableCell className="text-right">{item.totalQuantity}</TableCell> */}
                           <TableCell className="text-right">{item.pendingQuantity}</TableCell>
-                          <TableCell className="text-right">{item.deliveredQuantity}</TableCell>
+                          {/* <TableCell className="text-right">{item.deliveredQuantity}</TableCell> */}
                           <TableCell className="text-right">
                             <Input
                               type="number"

@@ -28,7 +28,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+// Project Manager
 
+// Project Supervisor
 const getMenuItems = (userRole: string) => {
   const baseItems = [
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -45,9 +47,23 @@ const getMenuItems = (userRole: string) => {
   ];
 
   // Add BOM Status for Store In Charge users
-  if (userRole === 'Store In Charge') {
-    const bomIndex = baseItems.findIndex(item => item.title === 'Bill of Materials');
-    baseItems.splice(bomIndex + 1, 0, { title: "BOM Status", url: "/bom-status", icon: Activity });
+  if (userRole === 'Site Supervisor') {
+    // const arr[] : array of menu which needs to be remove 
+    const arr = [
+      { title: "Projects", url: "/projects", icon: Activity },
+      { title: "Inventory", url: "/inventory", icon: Activity },
+      { title: "Users", url: "/users", icon: Activity },
+      { title: "Vendors", url: "/bom-status", icon: Activity },
+      { title: "Reports", url: "/reports", icon: Activity },
+      { title: "Purchase Orders", url: "/purchase-orders", icon: Activity },
+      { title: "Gate Pass", url: "/gate-pass", icon: Activity },
+    ];
+    arr.forEach(item => {
+      const index = baseItems.findIndex(i => i.title === item.title);
+      if (index !== -1) {
+        baseItems.splice(index, 1);
+      }
+    });
   }
 
   return baseItems;
