@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Search, ArrowUpDown, ChevronUp, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { vendorSchema } from "@/lib/validations";
 
@@ -21,8 +22,21 @@ interface Vendor {
   address: string;
   contactPerson: string;
   status: 'Active' | 'Inactive';
+  categories: string[];
+  isPreferred: boolean;
   joinDate: string;
 }
+
+const vendorCategories = [
+  "Raw Materials",
+  "Equipment",
+  "Services", 
+  "Technology",
+  "Consulting",
+  "Transportation",
+  "Maintenance",
+  "Software"
+];
 
 const mockVendors: Vendor[] = [
   {
@@ -33,6 +47,8 @@ const mockVendors: Vendor[] = [
     address: "123 Business District, City",
     contactPerson: "John Smith",
     status: "Active",
+    categories: ["Raw Materials", "Equipment"],
+    isPreferred: true,
     joinDate: "2024-01-15"
   },
   {
@@ -43,6 +59,8 @@ const mockVendors: Vendor[] = [
     address: "456 Industrial Area, City",
     contactPerson: "Sarah Johnson",
     status: "Active",
+    categories: ["Raw Materials"],
+    isPreferred: false,
     joinDate: "2024-02-20"
   },
   {
@@ -53,6 +71,8 @@ const mockVendors: Vendor[] = [
     address: "789 Trade Center, City",
     contactPerson: "Mike Wilson",
     status: "Active",
+    categories: ["Equipment", "Technology"],
+    isPreferred: true,
     joinDate: "2024-01-20"
   },
   {
@@ -63,6 +83,8 @@ const mockVendors: Vendor[] = [
     address: "321 Tech Park, City",
     contactPerson: "Lisa Chen",
     status: "Inactive",
+    categories: ["Technology", "Software"],
+    isPreferred: false,
     joinDate: "2024-03-10"
   },
   {
@@ -73,6 +95,8 @@ const mockVendors: Vendor[] = [
     address: "654 Premium Plaza, City",
     contactPerson: "David Brown",
     status: "Active",
+    categories: ["Services", "Consulting"],
+    isPreferred: true,
     joinDate: "2024-02-05"
   }
 ];
@@ -89,6 +113,7 @@ export default function Vendors() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   const [open, setOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const form = useForm({
     resolver: yupResolver(vendorSchema),
@@ -99,19 +124,37 @@ export default function Vendors() {
       address: "",
       contactPerson: "",
       status: "Active",
+      isPreferred: false,
     },
   });
 
   const onSubmit = async (data: any) => {
     try {
       // TODO: Implement API call
-      console.log("Creating vendor:", data);
+      const vendorData = {
+        ...data,
+        categories: selectedCategories
+      };
+      console.log("Creating vendor:", vendorData);
       toast.success("Vendor created successfully!");
       setOpen(false);
       form.reset();
+      setSelectedCategories([]);
     } catch (error) {
       toast.error("Failed to create vendor");
     }
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const removeCategory = (category: string) => {
+    setSelectedCategories(prev => prev.filter(c => c !== category));
   };
 
   const handleSort = (field: SortField) => {
@@ -169,103 +212,162 @@ export default function Vendors() {
               Add Vendor
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>Add New Vendor</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vendor Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ABC Suppliers Ltd" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="contact@vendor.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+1234567890" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Business address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="contactPerson"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Person</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vendor Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input placeholder="ABC Suppliers Ltd" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="contact@vendor.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1234567890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="contactPerson"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Person</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Business address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isPreferred"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Preferred Vendor</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <FormLabel>Categories</FormLabel>
+                  <Select onValueChange={toggleCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendorCategories.map((category) => (
+                        <SelectItem 
+                          key={category} 
+                          value={category}
+                          disabled={selectedCategories.includes(category)}
+                        >
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {selectedCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedCategories.map((category) => (
+                        <Badge key={category} variant="secondary" className="flex items-center gap-1">
+                          {category}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-0.5 hover:bg-transparent"
+                            onClick={() => removeCategory(category)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
                   )}
-                />
+                </div>
                 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>

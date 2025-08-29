@@ -58,6 +58,7 @@ export const vendorSchema = yup.object({
   address: yup.string().required('Address is required'),
   contactPerson: yup.string().required('Contact person is required'),
   status: yup.string().oneOf(['Active', 'Inactive']).required('Status is required'),
+  isPreferred: yup.boolean().default(false),
 });
 
 // BOM validation schema
