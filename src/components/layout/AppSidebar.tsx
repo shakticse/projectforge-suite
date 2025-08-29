@@ -46,6 +46,12 @@ const getMenuItems = (userRole: string) => {
     { title: "Reports", url: "/reports", icon: BarChart3 },
   ];
 
+  // Add BOM Action for Project Supervisor users
+  if (userRole === 'Project Supervisor') {
+    const bomIndex = baseItems.findIndex(item => item.title === 'Bill of Materials');
+    baseItems.splice(bomIndex + 1, 0, { title: "BOM Action", url: "/bom-action", icon: Activity });
+  }
+
   // Add BOM Status for Store In Charge users
   if (userRole === 'Site Supervisor') {
     // const arr[] : array of menu which needs to be remove 

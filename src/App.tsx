@@ -22,6 +22,7 @@ import WorkOrders from "./pages/WorkOrders";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import GatePass from "./pages/GatePass";
 import VehicleRequest from "./pages/VehicleRequest";
+import BOMAction from "./pages/BOMAction";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="/purchase-orders" element={<ProtectedRoute><AppLayout><PurchaseOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
           <Route path="/vehicle-request" element={<ProtectedRoute><AppLayout><VehicleRequest /></AppLayout></ProtectedRoute>} />
+          <Route path="/bom-action" element={<ProtectedRoute><AppLayout><BOMAction /></AppLayout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
           
