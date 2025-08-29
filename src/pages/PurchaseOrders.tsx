@@ -18,7 +18,9 @@ interface PurchaseOrderItem {
   itemId: string;
   itemName: string;
   quantity: number;
+  uom: string;
   unitPrice: number;
+  discPercent: number;
   totalPrice: number;
 }
 
@@ -39,6 +41,7 @@ interface PurchaseOrder {
   endDate: string;
   approvalStatus: 'Pending' | 'Approved' | 'Rejected';
   completionDate?: string;
+  deliveryLocation: string;
   lastUpdated: string;
   updatedBy: string;
   createdBy: string;
@@ -77,8 +80,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     vendorId: "vendor-1",
     vendorName: "ABC Suppliers Ltd",
     items: [
-      { rowNum: 1, itemId: "item-1", itemName: "Steel Rebar 12mm", quantity: 100, unitPrice: 15, totalPrice: 1500 },
-      { rowNum: 2, itemId: "item-2", itemName: "Cement 50kg", quantity: 50, unitPrice: 25, totalPrice: 1250 }
+      { rowNum: 1, itemId: "item-1", itemName: "Steel Rebar 12mm", quantity: 100, uom: "Sq.Mtr.", unitPrice: 15, discPercent:12.5, totalPrice: 1500 },
+      { rowNum: 2, itemId: "item-2", itemName: "Cement 50kg", quantity: 50,  uom: "Inch.", unitPrice: 30, discPercent:5, totalPrice: 1250 }
     ],
     totalAmount: 2750,
     status: "In Progress",
@@ -89,7 +92,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     lastUpdated: "2024-01-15",
     updatedBy: "John Smith",
     createdBy: "Alice Johnson",
-    createdDate: "2024-01-10"
+    createdDate: "2024-01-10",
+    deliveryLocation: "Site",
   },
   {
     id: "PO-002",
@@ -102,7 +106,7 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     vendorId: "vendor-2",
     vendorName: "XYZ Materials Inc",
     items: [
-      { rowNum: 1, itemId: "item-3", itemName: "Electrical Wire 2.5mm", quantity: 500, unitPrice: 5, totalPrice: 2500 }
+      { rowNum: 1, itemId: "item-3", itemName: "Electrical Wire 2.5mm", quantity: 500,  uom: "Sq.Mtr.", unitPrice: 15, discPercent:12.5, totalPrice: 2500 }
     ],
     totalAmount: 2500,
     status: "Pending",
@@ -113,7 +117,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     lastUpdated: "2024-01-16",
     updatedBy: "Mike Wilson",
     createdBy: "Bob Davis",
-    createdDate: "2024-01-15"
+    createdDate: "2024-01-15",
+    deliveryLocation: "Noida",
   },
   {
     id: "PO-003",
@@ -126,8 +131,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     vendorId: "vendor-1",
     vendorName: "ABC Suppliers Ltd",
     items: [
-      { rowNum: 1, itemId: "item-4", itemName: "PVC Pipe 4inch", quantity: 200, unitPrice: 12, totalPrice: 2400 },
-      { rowNum: 2, itemId: "item-5", itemName: "Steel Angle 50x50", quantity: 75, unitPrice: 30, totalPrice: 2250 }
+      { rowNum: 1, itemId: "item-4", itemName: "PVC Pipe 4inch", quantity: 200,  uom: "Sq.Mtr.", unitPrice: 100, discPercent:10, totalPrice: 2400 },
+      { rowNum: 2, itemId: "item-5", itemName: "Steel Angle 50x50", quantity: 75,  uom: "Sq.Mtr.", unitPrice: 150, discPercent:5.5, totalPrice: 2250 }
     ],  
     totalAmount: 4650,
     status: "Completed",
@@ -138,7 +143,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
     lastUpdated: "2024-01-25",
     updatedBy: "Sarah Brown",
     createdBy: "Tom Wilson",
-    createdDate: "2024-01-05"
+    createdDate: "2024-01-05",
+    deliveryLocation: "Kasna",
   }
 ];
 
@@ -680,9 +686,9 @@ export default function PurchaseOrders() {
                 <div className="space-y-2">
                   <h3 className="font-semibold">Dates & Status</h3>
                   <div className="space-y-1 text-sm">
-                    <p><strong>Start Date:</strong> {new Date(selectedPO.startDate).toLocaleDateString()}</p>
-                    <p><strong>End Date:</strong> {new Date(selectedPO.endDate).toLocaleDateString()}</p>
-                    <p><strong>Completion Date:</strong> {selectedPO.completionDate ? new Date(selectedPO.completionDate).toLocaleDateString() : "Not completed"}</p>
+                    <p><strong>PO Creation Date:</strong> {new Date(selectedPO.startDate).toLocaleDateString()}</p>
+                    <p><strong>Delivery Location:</strong> {selectedPO.deliveryLocation}</p>
+                    <p><strong>Expected Delivery Date:</strong> {selectedPO.completionDate ? new Date(selectedPO.completionDate).toLocaleDateString() : "Not completed"}</p>
                     <p><strong>Status:</strong> <Badge variant={getStatusColor(selectedPO.status) as any}>{selectedPO.status}</Badge></p>
                     <p><strong>Approval:</strong> <Badge variant={getApprovalColor(selectedPO.approvalStatus) as any}>{selectedPO.approvalStatus}</Badge></p>
                   </div>
@@ -697,7 +703,9 @@ export default function PurchaseOrders() {
                       <TableHead>Row #</TableHead>
                       <TableHead>Item Name</TableHead>
                       <TableHead>Quantity</TableHead>
+                      <TableHead>UOM</TableHead>
                       <TableHead>Unit Price</TableHead>
+                      <TableHead>Disc %</TableHead>
                       <TableHead>Total Price</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -707,8 +715,10 @@ export default function PurchaseOrders() {
                         <TableCell>{item.rowNum}</TableCell>
                         <TableCell>{item.itemName}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>${item.unitPrice}</TableCell>
-                        <TableCell>${item.totalPrice}</TableCell>
+                        <TableCell>{item.uom}</TableCell>
+                        <TableCell>{item.unitPrice}</TableCell>
+                        <TableCell>{item.discPercent}</TableCell>
+                        <TableCell>{item.totalPrice}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

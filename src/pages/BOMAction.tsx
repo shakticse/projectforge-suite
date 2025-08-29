@@ -49,7 +49,9 @@ interface BOM {
   status: 'draft' | 'approved' | 'in-progress' | 'completed';
   totalItems: number;
   completedItems: number;
+  createdBy: string;
   createdDate: string;
+  modifiedDate: string;
   items: BOMItem[];
 }
 
@@ -116,7 +118,9 @@ const mockBOMs: BOM[] = [
     status: 'in-progress',
     totalItems: 4,
     completedItems: 1,
+    createdBy: 'user1',
     createdDate: "2024-01-15",
+    modifiedDate: "2024-01-17",
     items: mockBOMItems
   },
   {
@@ -126,7 +130,9 @@ const mockBOMs: BOM[] = [
     status: 'approved',
     totalItems: 3,
     completedItems: 0,
+    createdBy: 'user2',
     createdDate: "2024-01-20",
+    modifiedDate: "2024-01-22",
     items: mockBOMItems.slice(0, 3)
   },
   {
@@ -136,7 +142,9 @@ const mockBOMs: BOM[] = [
     status: 'draft',
     totalItems: 2,
     completedItems: 0,
+    createdBy: 'user2',
     createdDate: "2024-01-25",
+    modifiedDate: "2024-01-27",
     items: mockBOMItems.slice(0, 2)
   }
 ];
@@ -232,9 +240,9 @@ export default function BOMAction() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">BOM Action</h1>
+          <h1 className="text-3xl font-bold tracking-tight">BOM Allocation</h1>
           <p className="text-muted-foreground">
-            Allocate quantities and manage Bill of Materials
+            Material Allocation
           </p>
         </div>
       </div>
@@ -268,29 +276,32 @@ export default function BOMAction() {
               </SelectContent>
             </Select>
 
-            <Button>
+            {/* <Button>
               <Plus className="h-4 w-4 mr-2" />
               Create BOM
-            </Button>
+            </Button> */}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>BOMs ({filteredBOMs.length})</CardTitle>
+          {/* <CardTitle>BOMs ({filteredBOMs.length})</CardTitle> */}
+          <CardTitle>BOMs</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>BOM Number</TableHead>
+                <TableHead>BOM No.</TableHead>
                 <TableHead>Project Name</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-center">Total Items</TableHead>
-                <TableHead className="text-center">Completed Items</TableHead>
-                <TableHead className="text-center">Progress</TableHead>
-                <TableHead>Created Date</TableHead>
+                <TableHead className="text-center">Created By</TableHead>
+                {/* <TableHead className="text-center">Total Items</TableHead>
+                <TableHead className="text-center">Completed Items</TableHead> */}
+                {/* <TableHead className="text-center">Progress</TableHead> */}
+                <TableHead className="text-center">Created Date</TableHead>
+                <TableHead className="text-center">Updated Date</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -300,9 +311,9 @@ export default function BOMAction() {
                   <TableCell className="font-medium">{bom.bomNumber}</TableCell>
                   <TableCell>{bom.projectName}</TableCell>
                   <TableCell>{getStatusBadge(bom.status)}</TableCell>
-                  <TableCell className="text-center">{bom.totalItems}</TableCell>
-                  <TableCell className="text-center">{bom.completedItems}</TableCell>
-                  <TableCell className="text-center">
+                  {/* <TableCell className="text-center">{bom.totalItems}</TableCell>
+                  <TableCell className="text-center">{bom.completedItems}</TableCell> */}
+                  {/* <TableCell className="text-center">
                     <div className="flex items-center gap-2">
                       <div className="w-full bg-secondary rounded-full h-2">
                         <div 
@@ -312,12 +323,14 @@ export default function BOMAction() {
                       </div>
                       <span className="text-sm text-muted-foreground">
                         {Math.round((bom.completedItems / bom.totalItems) * 100)}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{bom.createdDate}</TableCell>
+                        </span>
+                        </div>
+                        </TableCell> */}
+                  <TableCell className="text-center">{bom.createdBy}</TableCell>
+                  <TableCell className="text-center">{bom.createdDate}</TableCell>
+                  <TableCell className="text-center">{bom.modifiedDate}</TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-right">
                       <Button
                         size="sm"
                         variant="outline"
@@ -326,9 +339,9 @@ export default function BOMAction() {
                         <Edit className="h-4 w-4 mr-1" />
                         Allocate
                       </Button>
-                      <Button size="sm" variant="outline">
+                      {/* <Button size="sm" variant="outline">
                         <Eye className="h-4 w-4" />
-                      </Button>
+                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -363,12 +376,12 @@ export default function BOMAction() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item Name</TableHead>
-                    <TableHead>Specification</TableHead>
-                    <TableHead>Unit</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>UOM</TableHead>
                     <TableHead className="text-right">Required</TableHead>
-                    <TableHead className="text-right">Current Allocated</TableHead>
-                    <TableHead className="text-right">New Allocation</TableHead>
+                    {/* <TableHead className="text-right">Current Allocated</TableHead> */}
                     <TableHead className="text-right">Pending</TableHead>
+                    <TableHead className="text-right">Allocate Qty</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -378,7 +391,10 @@ export default function BOMAction() {
                       <TableCell>{item.specification}</TableCell>
                       <TableCell>{item.unit}</TableCell>
                       <TableCell className="text-right">{item.requiredQuantity}</TableCell>
-                      <TableCell className="text-right">{item.allocatedQuantity}</TableCell>
+                      {/* <TableCell className="text-right">{item.allocatedQuantity}</TableCell> */}
+                      <TableCell className="text-right">
+                        {item.requiredQuantity - (allocationData[item.id] || 0)}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"
@@ -391,9 +407,6 @@ export default function BOMAction() {
                           min={0}
                           max={item.requiredQuantity}
                         />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.requiredQuantity - (allocationData[item.id] || 0)}
                       </TableCell>
                     </TableRow>
                   ))}

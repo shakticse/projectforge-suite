@@ -89,9 +89,17 @@ export const authService = {
   },
 
   async logout() {
-    await api.post('/auth/logout');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    try {
+      // Try to call the logout API, but don't fail if it doesn't work
+      await api.post('/auth/logout');
+    } catch (error) {
+      // Log the error but don't throw - we still want to clear local storage
+      console.warn('Logout API call failed, but continuing with local cleanup:', error);
+    } finally {
+      // Always clear local storage regardless of API call success/failure
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+    }
   },
 
   getCurrentUser(): User | null {

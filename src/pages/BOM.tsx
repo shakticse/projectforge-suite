@@ -21,6 +21,7 @@ interface BOMItem {
   projectId: string;
   projectName: string;
   itemName: string;
+  manager: string;
   materials: Array<{
     materialId: string;
     materialName: string;
@@ -101,6 +102,7 @@ const mockBOMs: BOMItem[] = [
     endDate: "2024-01-30",
     approvalStatus: "Approved",
     lastUpdated: "2024-01-10",
+    manager: "John Doe",
     updatedBy: "John Doe",
     createdBy: "Jane Smith"
   },
@@ -118,6 +120,7 @@ const mockBOMs: BOMItem[] = [
     endDate: "2024-02-15",
     approvalStatus: "Pending",
     lastUpdated: "2024-01-12",
+    manager: "Mike",
     updatedBy: "Mike Johnson",
     createdBy: "Sarah Wilson"
   }
@@ -332,9 +335,9 @@ export default function BOM() {
                     name="itemName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>BOM Details</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Input placeholder="Add Details" {...field} />
+                          <Input placeholder="Add Description" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -566,15 +569,16 @@ export default function BOM() {
                 <TableRow>
                   <TableHead>BOM ID</TableHead>
                   <TableHead>Project Name</TableHead>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead>Start Date</TableHead>
+                  <TableHead>BOM For</TableHead>
+                  <TableHead>Supervisor In-Charge</TableHead>
+                  {/* <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
-                  <TableHead>Total Quantity</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Total Quantity</TableHead> */}
                   <TableHead>Last Updated</TableHead>
                   <TableHead>Updated By</TableHead>
                   <TableHead>Created By</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -588,17 +592,18 @@ export default function BOM() {
                     </TableCell>
                     <TableCell>{bom.projectName}</TableCell>
                     <TableCell>{bom.itemName}</TableCell>
-                    <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{bom.manager}</TableCell>
+                    {/* <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(bom.endDate).toLocaleDateString()}</TableCell>
-                    <TableCell>{bom.totalQuantity}</TableCell>
+                    <TableCell>{bom.totalQuantity}</TableCell> */}
+                    <TableCell>{new Date(bom.lastUpdated).toLocaleDateString()}</TableCell>
+                    <TableCell>{bom.updatedBy}</TableCell>
+                    <TableCell>{bom.createdBy}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(bom.approvalStatus)}>
                         {bom.approvalStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(bom.lastUpdated).toLocaleDateString()}</TableCell>
-                    <TableCell>{bom.updatedBy}</TableCell>
-                    <TableCell>{bom.createdBy}</TableCell>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"

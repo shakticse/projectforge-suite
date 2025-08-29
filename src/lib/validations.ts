@@ -64,7 +64,7 @@ export const vendorSchema = yup.object({
 // BOM validation schema
 export const bomSchema = yup.object({
   projectId: yup.string().required('Project is required'),
-  itemName: yup.string().required('Item name is required'),
+  // itemName: yup.string().required('Item name is required'),
   materials: yup.array().of(
     yup.object({
       materialId: yup.string().required('Material is required'),

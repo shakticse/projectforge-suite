@@ -37,8 +37,10 @@ interface BOMDetails {
 interface BOMItem {
   id: string;
   materialName: string;
+  stockQuantity: number;
   requestedQuantity: number;
   allocatedQuantity: number;
+  pendingQuantity: number;
   unit: string;
   status: 'Available' | 'Partial' | 'Unavailable';
 }
@@ -94,32 +96,40 @@ const BOMDetails = () => {
     {
       id: "1",
       materialName: "GLASS STOPPER PVC",
+      stockQuantity: 0,
       requestedQuantity: 250,
-      allocatedQuantity: 100,
+      allocatedQuantity: 200,
+      pendingQuantity: 50,
       unit: "bags",
       status: "Partial"
     },
     {
       id: "2", 
       materialName: "GLASS SLIDING LOCK",
+      stockQuantity: 660,
       requestedQuantity: 200,
       allocatedQuantity: 200,
+      pendingQuantity: 0,
       unit: "units",
       status: "Available"
     },
     {
       id: "3",
       materialName: "HANGAR 10 MTR ROOF COVER",
+      stockQuantity: 0,
       requestedQuantity: 500,
-      allocatedQuantity: 0,
+      allocatedQuantity: 300,
+      pendingQuantity: 200,
       unit: "pieces",
       status: "Unavailable"
     },
     {
       id: "4",
       materialName: "HAMMER 7 KG",
+      stockQuantity: 0,
       requestedQuantity: 150,
-      allocatedQuantity: 0,
+      allocatedQuantity: 145,
+      pendingQuantity: 5,
       unit: "pieces",
       status: "Unavailable"
     }
@@ -393,10 +403,11 @@ const BOMDetails = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Material Name</TableHead>
+                      <TableHead>Stock Qty</TableHead>
                       <TableHead>Requested Qty</TableHead>
                       <TableHead>Allocated Qty</TableHead>
                       {/* <TableHead>Unit</TableHead> */}
-                      <TableHead>Allocation %</TableHead>
+                      <TableHead>Pending Qty</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -406,15 +417,17 @@ const BOMDetails = () => {
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.materialName}</TableCell>
+                          <TableCell>{item.stockQuantity}</TableCell>
                           <TableCell>{item.requestedQuantity}</TableCell>
                           <TableCell>{item.allocatedQuantity}</TableCell>
+                          <TableCell>{item.pendingQuantity}</TableCell>
                           {/* <TableCell>{item.unit}</TableCell> */}
-                          <TableCell>
+                          {/* <TableCell>
                             <div className="flex items-center space-x-2">
                               <Progress value={percentage} className="w-16 h-2" />
                               <span className="text-sm">{percentage}%</span>
                             </div>
-                          </TableCell>
+                          </TableCell> */}
                           <TableCell>
                             <Badge variant={getStatusColor(item.status)} className="flex items-center gap-1">
                               {getStatusIcon(item.status)}
@@ -447,7 +460,7 @@ const BOMDetails = () => {
                       <TableHead>Items</TableHead>
                       <TableHead>Total Quantity</TableHead>
                       <TableHead>Total Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                      {/* <TableHead>Status</TableHead> */}
                       <TableHead>Created Date</TableHead>
                       <TableHead>Delivery Date</TableHead>
                     </TableRow>
@@ -468,12 +481,12 @@ const BOMDetails = () => {
                         </TableCell>
                         <TableCell className="font-medium">{po.quantity}</TableCell>
                         <TableCell className="font-medium">₹{po.totalAmount.toLocaleString()}</TableCell>
-                        <TableCell>
+                        {/* <TableCell>
                           <Badge variant={getStatusColor(po.status)} className="flex items-center gap-1">
                             {getStatusIcon(po.status)}
                             {po.status}
                           </Badge>
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell>{new Date(po.createdDate).toLocaleDateString()}</TableCell>
                         <TableCell>{new Date(po.deliveryDate).toLocaleDateString()}</TableCell>
                       </TableRow>

@@ -36,20 +36,30 @@ const getMenuItems = (userRole: string) => {
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Inventory", url: "/inventory", icon: Package },
-    { title: "Users", url: "/users", icon: Users },
     { title: "Vendors", url: "/vendors", icon: Building2 },
     { title: "Bill of Materials", url: "/bom", icon: FileText },
+    { title: "BOM Action", url: "/bom-action", icon: Activity },
     { title: "Work Orders", url: "/work-orders", icon: ClipboardList },
     { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
+    { title: "Users", url: "/users", icon: Users },
     { title: "Reports", url: "/reports", icon: BarChart3 },
   ];
 
   // Add BOM Action for Project Supervisor users
   if (userRole === 'Project Supervisor') {
-    const bomIndex = baseItems.findIndex(item => item.title === 'Bill of Materials');
-    baseItems.splice(bomIndex + 1, 0, { title: "BOM Action", url: "/bom-action", icon: Activity });
+    const arr = [
+      { title: "Projects", url: "/projects", icon: Activity },
+      { title: "Inventory", url: "/inventory", icon: Activity },
+      { title: "Users", url: "/users", icon: Activity },
+    ];
+    arr.forEach(item => {
+      const index = baseItems.findIndex(i => i.title === item.title);
+      if (index !== -1) {
+        baseItems.splice(index, 1);
+      }
+    });
   }
 
   // Add BOM Status for Store In Charge users
@@ -59,7 +69,7 @@ const getMenuItems = (userRole: string) => {
       { title: "Projects", url: "/projects", icon: Activity },
       { title: "Inventory", url: "/inventory", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
-      { title: "Vendors", url: "/bom-status", icon: Activity },
+      { title: "Bill of Materials", url: "/bom", icon: Activity },
       { title: "Reports", url: "/reports", icon: Activity },
       { title: "Purchase Orders", url: "/purchase-orders", icon: Activity },
       { title: "Gate Pass", url: "/gate-pass", icon: Activity },

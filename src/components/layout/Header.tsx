@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Bell, Search, User, LogOut, Settings, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,37 +12,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { authService } from "@/services/authService";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Header() {
   const [notifications] = useState(3); // Mock notification count
-  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   
-  // Get current user from auth service or use mock data
-  const currentUser = authService.getCurrentUser();
-  const [user] = useState(currentUser || {
+  // Fallback user data if auth hook doesn't have user yet
+  const currentUser = user || {
     name: "Admin",
     email: "Admin@PavillionsInteriors.com",
     role: "Project Manager",
     avatar: "AD"
-  });
+  };
 
   // Generate initials from name if no avatar
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const displayAvatar = user.avatar || getInitials(user.name);
+  const displayAvatar = currentUser.avatar || getInitials(currentUser.name);
 
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-      toast.success("Logged out successfully");
-      navigate("/login");
-    } catch (error) {
-      toast.error("Logout failed");
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -83,8 +74,8 @@ export function Header() {
                 {displayAvatar}
               </div>
               <div className="hidden md:block text-left">
-                <div className="text-sm font-medium">{user.name}</div>
-                <div className="text-xs text-muted-foreground">{user.role}</div>
+                <div className="text-sm font-medium">{currentUser.name}</div>
+                <div className="text-xs text-muted-foreground">{currentUser.role}</div>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
@@ -92,8 +83,8 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium">{currentUser.name}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
