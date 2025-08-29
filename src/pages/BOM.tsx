@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 
@@ -138,7 +138,6 @@ export default function BOM() {
     resolver: yupResolver(bomSchema),
     defaultValues: {
       projectId: "",
-      itemName: "",
       materials: [],
     },
   });
@@ -330,19 +329,12 @@ export default function BOM() {
                     )}
                   />
                   
-                  <FormField
-                    control={form.control}
-                    name="itemName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Add Description" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div>
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Description
+                    </label>
+                    <Input placeholder="Add Description" className="mt-2" />
+                  </div>
                 </div>
 
                   <div className="space-y-4">
@@ -605,13 +597,31 @@ export default function BOM() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/bom-details/${bom.id}`)}
+                          title="View BOM Items List"
+                        >
+                          <List className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/bom-status/${bom.id}`)}
+                          title="View BOM Item Status"
+                        >
+                          <Activity className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

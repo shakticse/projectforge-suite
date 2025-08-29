@@ -1,157 +1,228 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Search, Filter, Activity, User, Calendar, Package, Truck } from "lucide-react";
 
 interface BOMStatusItem {
   id: string;
-  serialNumber: number;
   itemName: string;
   quantity: number;
-  dateEntered: string;
+  requestDate: string;
   requestedBy: string;
-  status: 'Pending' | 'In Progress' | 'Completed' | 'On Hold';
+  attendedBy?: string;
+  allocatedQty?: number;
+  assignedTo?: 'dispatch' | 'outsourced' | null;
+  dispatchStatus: 'Pending' | 'In Transit' | 'Delivered' | 'Not Dispatched';
 }
 
-// Mock data for BOM status
-const mockBOMData: BOMStatusItem[] = [
-  {
-    id: '1',
-    serialNumber: 1,
-    itemName: 'Steel Rod 12mm',
-    quantity: 100,
-    dateEntered: '2024-01-15',
-    requestedBy: 'John Doe',
-    status: 'Completed'
-  },
-  {
-    id: '2',
-    serialNumber: 2,
-    itemName: 'Cement Bags',
-    quantity: 50,
-    dateEntered: '2024-01-16',
-    requestedBy: 'Jane Smith',
-    status: 'In Progress'
-  },
-  {
-    id: '3',
-    serialNumber: 3,
-    itemName: 'Wire Mesh',
-    quantity: 25,
-    dateEntered: '2024-01-17',
-    requestedBy: 'Mike Johnson',
-    status: 'Pending'
-  },
-  {
-    id: '4',
-    serialNumber: 4,
-    itemName: 'PVC Pipes',
-    quantity: 75,
-    dateEntered: '2024-01-18',
-    requestedBy: 'Sarah Wilson',
-    status: 'On Hold'
-  },
-  {
-    id: '5',
-    serialNumber: 5,
-    itemName: 'Electrical Cable',
-    quantity: 200,
-    dateEntered: '2024-01-19',
-    requestedBy: 'David Brown',
-    status: 'Completed'
-  }
-];
+const mockBOMStatus: Record<string, BOMStatusItem[]> = {
+  "BOM-001": [
+    {
+      id: "item-1",
+      itemName: "Cement",
+      quantity: 50,
+      requestDate: "2024-01-10",
+      requestedBy: "John Doe",
+      attendedBy: "Sarah Wilson",
+      allocatedQty: 45,
+      assignedTo: 'dispatch',
+      dispatchStatus: "In Transit"
+    },
+    {
+      id: "item-2", 
+      itemName: "Steel Rebar",
+      quantity: 100,
+      requestDate: "2024-01-10",
+      requestedBy: "John Doe",
+      attendedBy: "Mike Johnson",
+      allocatedQty: 100,
+      assignedTo: 'outsourced',
+      dispatchStatus: "Pending"
+    }
+  ],
+  "BOM-002": [
+    {
+      id: "item-3",
+      itemName: "Concrete Blocks",
+      quantity: 200,
+      requestDate: "2024-01-12",
+      requestedBy: "Mike Johnson",
+      dispatchStatus: "Not Dispatched"
+    },
+    {
+      id: "item-4",
+      itemName: "Cement",
+      quantity: 75,
+      requestDate: "2024-01-12",
+      requestedBy: "Mike Johnson",
+      attendedBy: "Sarah Wilson",
+      allocatedQty: 70,
+      assignedTo: 'dispatch',
+      dispatchStatus: "Delivered"
+    }
+  ]
+};
 
 export default function BOMStatus() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [bomData] = useState<BOMStatusItem[]>(mockBOMData);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredData = bomData.filter(item =>
+  const items = mockBOMStatus[id || ""] || [];
+  
+  const filteredItems = items.filter(item =>
     item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.requestedBy.toLowerCase().includes(searchTerm.toLowerCase())
+    item.requestedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.attendedBy && item.attendedBy.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const getStatusBadge = (status: string) => {
-    const statusColors = {
-      'Pending': 'bg-yellow-100 text-yellow-800',
-      'In Progress': 'bg-blue-100 text-blue-800',
-      'Completed': 'bg-green-100 text-green-800',
-      'On Hold': 'bg-red-100 text-red-800'
-    };
+  const getDispatchStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Delivered': return 'default';
+      case 'In Transit': return 'secondary';
+      case 'Pending': return 'outline';
+      case 'Not Dispatched': return 'destructive';
+      default: return 'secondary';
+    }
+  };
 
-    return (
-      <Badge className={statusColors[status as keyof typeof statusColors]}>
-        {status}
-      </Badge>
-    );
+  const getAssignmentBadgeVariant = (assignment: string | null | undefined) => {
+    switch (assignment) {
+      case 'dispatch': return 'default';
+      case 'outsourced': return 'secondary';
+      default: return 'outline';
+    }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">BOM Status</h1>
-        <p className="text-muted-foreground">
-          Track and monitor Bill of Materials status and requests
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/bom')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to BOM
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">BOM Item Status</h1>
+            <p className="text-muted-foreground">BOM ID: {id}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button variant="outline" size="sm">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {filteredItems.length} items found
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>BOM Items Status</CardTitle>
-          <CardDescription>
-            View all BOM items with their current status and details
-          </CardDescription>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search items or requested by..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+          <CardTitle className="flex items-center">
+            <Activity className="h-5 w-5 mr-2" />
+            BOM Status Tracking
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px]">S#</TableHead>
-                <TableHead>Item Name</TableHead>
-                <TableHead className="w-[100px]">Qty</TableHead>
-                <TableHead>Date Entered/Updated</TableHead>
-                <TableHead>Requested By</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">
-                    {item.serialNumber}
-                  </TableCell>
-                  <TableCell>{item.itemName}</TableCell>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell>{item.dateEntered}</TableCell>
-                  <TableCell>{item.requestedBy}</TableCell>
-                  <TableCell>
-                    {getStatusBadge(item.status)}
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Request Date</TableHead>
+                  <TableHead>Requested By</TableHead>
+                  <TableHead>Attended By</TableHead>
+                  <TableHead>Allocated Qty</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Dispatch Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredData.length === 0 && (
-            <div className="text-center py-6 text-muted-foreground">
-              No BOM items found matching your search.
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">{item.itemName}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                        {new Date(item.requestDate).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                        {item.requestedBy}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {item.attendedBy ? (
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                          {item.attendedBy}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.allocatedQty ? (
+                        <div className="flex items-center">
+                          <Package className="h-4 w-4 mr-2 text-muted-foreground" />
+                          {item.allocatedQty}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.assignedTo ? (
+                        <Badge variant={getAssignmentBadgeVariant(item.assignedTo)}>
+                          {item.assignedTo === 'dispatch' ? 'Dispatch' : 'Outsourced'}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">Not Assigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Truck className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <Badge variant={getDispatchStatusBadgeVariant(item.dispatchStatus)}>
+                          {item.dispatchStatus}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {filteredItems.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No status information found for this BOM</p>
             </div>
           )}
         </CardContent>

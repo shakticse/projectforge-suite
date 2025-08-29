@@ -1,553 +1,181 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { 
-  ArrowLeft, 
-  Package, 
-  ShoppingCart, 
-  Building2, 
-  FileText,
-  Calendar,
-  User,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  XCircle
-} from "lucide-react";
-import { toast } from "sonner";
-import api from "@/lib/api";
+import { ArrowLeft, Search, Filter, Calendar, User } from "lucide-react";
 
-interface BOMDetails {
+interface BOMDetailItem {
   id: string;
-  projectName: string;
   itemName: string;
-  startDate: string;
-  endDate: string;
-  approvalStatus: string;
-  createdBy: string;
-  updatedBy: string;
-  lastUpdated: string;
-}
-
-interface BOMItem {
-  id: string;
-  materialName: string;
-  stockQuantity: number;
-  requestedQuantity: number;
-  allocatedQuantity: number;
-  pendingQuantity: number;
-  unit: string;
-  status: 'Available' | 'Partial' | 'Unavailable';
-}
-
-interface PurchaseOrderDetail {
-  id: string;
-  poNumber: string;
-  vendorName: string;
-  items: string[];
   quantity: number;
-  totalAmount: number;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'In Progress';
-  createdDate: string;
-  deliveryDate: string;
-}
-
-interface MaterialRequest {
-  id: string;
-  requestId: string;
-  fromLocation: string;
-  toLocation: string;
-  materialName: string;
-  requestedQuantity: number;
-  approvedQuantity: number;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'In Transit' | 'Delivered';
   requestDate: string;
-  expectedDate: string;
+  modifyDate?: string;
+  requestedBy: string;
+  status: 'Pending' | 'Approved' | 'In Progress' | 'Completed';
 }
 
-const BOMDetails = () => {
-  const { bomId } = useParams<{ bomId: string }>();
-  const navigate = useNavigate();
-  const [bomDetails, setBomDetails] = useState<BOMDetails | null>(null);
-  const [bomItems, setBomItems] = useState<BOMItem[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderDetail[]>([]);
-  const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Mock data - replace with API calls
-  const mockBOMDetails: BOMDetails = {
-    id: bomId || "BOM-001",
-    projectName: "Auto Expo",
-    itemName: "Auto Expo, Delhi",
-    startDate: "2024-01-15",
-    endDate: "2024-01-30",
-    approvalStatus: "Approved",
-    createdBy: "Jane Smith",
-    updatedBy: "John Doe",
-    lastUpdated: "2024-01-10"
-  };
-
-  const mockBOMItems: BOMItem[] = [
+const mockBOMDetails: Record<string, BOMDetailItem[]> = {
+  "BOM-001": [
     {
-      id: "1",
-      materialName: "GLASS STOPPER PVC",
-      stockQuantity: 0,
-      requestedQuantity: 250,
-      allocatedQuantity: 200,
-      pendingQuantity: 50,
-      unit: "bags",
-      status: "Partial"
+      id: "item-1",
+      itemName: "Cement",
+      quantity: 50,
+      requestDate: "2024-01-10",
+      modifyDate: "2024-01-12",
+      requestedBy: "John Doe",
+      status: "Approved"
     },
     {
-      id: "2", 
-      materialName: "GLASS SLIDING LOCK",
-      stockQuantity: 660,
-      requestedQuantity: 200,
-      allocatedQuantity: 200,
-      pendingQuantity: 0,
-      unit: "units",
-      status: "Available"
-    },
-    {
-      id: "3",
-      materialName: "HANGAR 10 MTR ROOF COVER",
-      stockQuantity: 0,
-      requestedQuantity: 500,
-      allocatedQuantity: 300,
-      pendingQuantity: 200,
-      unit: "pieces",
-      status: "Unavailable"
-    },
-    {
-      id: "4",
-      materialName: "HAMMER 7 KG",
-      stockQuantity: 0,
-      requestedQuantity: 150,
-      allocatedQuantity: 145,
-      pendingQuantity: 5,
-      unit: "pieces",
-      status: "Unavailable"
+      id: "item-2", 
+      itemName: "Steel Rebar",
+      quantity: 100,
+      requestDate: "2024-01-10",
+      requestedBy: "John Doe",
+      status: "In Progress"
     }
-  ];
-
-  const mockPurchaseOrders: PurchaseOrderDetail[] = [
+  ],
+  "BOM-002": [
     {
-      id: "1",
-      poNumber: "PO-2024-001",
-      vendorName: "ABC Supplies",
-      items: ["GLASS STOPPER PVC"],
-      quantity: 150,
-      totalAmount: 25000,
-      status: "Approved",
-      createdDate: "2024-01-05",
-      deliveryDate: "2024-01-20"
-    },
-    // {
-    //   id: "2",
-    //   poNumber: "PO-2024-002", 
-    //   vendorName: "XYZ Materials",
-    //   items: ["Concrete Blocks"],
-    //   totalAmount: 15000,
-    //   status: "Pending",
-    //   createdDate: "2024-01-08",
-    //   deliveryDate: "2024-01-25"
-    // }
-  ];
-
-  const mockMaterialRequests: MaterialRequest[] = [
-    {
-      id: "1",
-      requestId: "MR-2024-001",
-      fromLocation: "Kasna",
-      toLocation: "Site Store",
-      materialName: "HANGAR 10 MTR ROOF COVER",
-      requestedQuantity: 500,
-      approvedQuantity: 500,
-      status: "Delivered",
+      id: "item-3",
+      itemName: "Concrete Blocks",
+      quantity: 200,
       requestDate: "2024-01-12",
-      expectedDate: "2024-01-15"
+      requestedBy: "Mike Johnson",
+      status: "Pending"
     },
     {
-      id: "2",
-      requestId: "MR-2024-002",
-      fromLocation: "Kasna",
-      toLocation: "Site Store", 
-      materialName: "HAMMER 7 KG",
-      requestedQuantity: 150,
-      approvedQuantity: 150,
-      status: "In Transit",
-      requestDate: "2024-01-14",
-      expectedDate: "2024-01-18"
+      id: "item-4",
+      itemName: "Cement",
+      quantity: 75,
+      requestDate: "2024-01-12",
+      modifyDate: "2024-01-14",
+      requestedBy: "Mike Johnson",
+      status: "Approved"
     }
-  ];
+  ]
+};
 
-  useEffect(() => {
-    const fetchBOMDetails = async () => {
-      try {
-        setLoading(true);
-        // In real implementation, make API calls
-        // const response = await api.get(`/bom/${bomId}`);
-        
-        // Using mock data for now
-        setBomDetails(mockBOMDetails);
-        setBomItems(mockBOMItems);
-        setPurchaseOrders(mockPurchaseOrders);
-        setMaterialRequests(mockMaterialRequests);
-      } catch (error) {
-        console.error("Error fetching BOM details:", error);
-        toast.error("Failed to load BOM details");
-      } finally {
-        setLoading(false);
-      }
-    };
+export default function BOMDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
 
-    fetchBOMDetails();
-  }, [bomId]);
+  const items = mockBOMDetails[id || ""] || [];
+  
+  const filteredItems = items.filter(item =>
+    item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.requestedBy.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'Available':
-      case 'Approved':
-      case 'Delivered':
-        return 'default';
-      case 'Partial':
-      case 'In Transit':
-      case 'In Progress':
-        return 'secondary';
-      case 'Pending':
-        return 'outline';
-      case 'Unavailable':
-      case 'Rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
+      case 'Approved': return 'default';
+      case 'Pending': return 'secondary';
+      case 'In Progress': return 'outline';
+      case 'Completed': return 'secondary';
+      default: return 'secondary';
     }
   };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Available':
-      case 'Approved':
-      case 'Delivered':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'Pending':
-      case 'In Transit':
-        return <Clock className="h-4 w-4" />;
-      case 'Unavailable':
-      case 'Rejected':
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
-    }
-  };
-
-  const calculateAllocationPercentage = (allocated: number, requested: number) => {
-    return requested > 0 ? Math.round((allocated / requested) * 100) : 0;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading BOM details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!bomDetails) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-lg font-medium">BOM not found</p>
-          <p className="text-muted-foreground mb-4">The requested BOM could not be found.</p>
-          <Button onClick={() => navigate('/bom')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to BOM List
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" onClick={() => navigate('/bom')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/bom')}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to BOMs
+            Back to BOM
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">BOM Details</h1>
-            <p className="text-muted-foreground">Detailed view of {bomDetails.id}</p>
+            <h1 className="text-3xl font-bold tracking-tight">BOM Items List</h1>
+            <p className="text-muted-foreground">BOM ID: {id}</p>
           </div>
         </div>
       </div>
 
-      {/* BOM Summary */}
-      <Card className="pl-2 pt-4">
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-4">
-              <p className="text-lg font-semibold">BOM#: {bomDetails.id}</p>
-            </div>
-            <div className="space-y-4">
-              <p className="text-lg font-medium">{bomDetails.projectName}</p>
-            </div>
-            <div className="space-y-4">
-              <p className="text-lg font-medium">{bomDetails.itemName}</p>
-            </div>
-            <div className="space-y-4">
-              <p className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                {new Date(bomDetails.startDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})} - {new Date(bomDetails.endDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})}
-              </p>
-            </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        </CardContent>
-      </Card>
-      {/* <Card>
+          <Button variant="outline" size="sm">
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {filteredItems.length} items found
+        </div>
+      </div>
+
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2" />
-            BOM Summary
+            <Calendar className="h-5 w-5 mr-2" />
+            BOM Items Details
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">BOM ID</p>
-              <p className="text-lg font-semibold">{bomDetails.id}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Project</p>
-              <p className="text-lg font-medium">{bomDetails.projectName}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Item Name</p>
-              <p className="text-lg font-medium">{bomDetails.itemName}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={getStatusColor(bomDetails.approvalStatus)}>
-                {bomDetails.approvalStatus}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Start Date</p>
-              <p className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                {new Date(bomDetails.startDate).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">End Date</p>
-              <p className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                {new Date(bomDetails.endDate).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Created By</p>
-              <p className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                {bomDetails.createdBy}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
-              <p className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                {bomDetails.updatedBy}
-              </p>
-            </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item Name</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Request Date</TableHead>
+                  <TableHead>Last Modified</TableHead>
+                  <TableHead>Requested By</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium">{item.itemName}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>{new Date(item.requestDate).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {item.modifyDate 
+                        ? new Date(item.modifyDate).toLocaleDateString()
+                        : "-"
+                      }
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                        {item.requestedBy}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(item.status)}>
+                        {item.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
+
+          {filteredItems.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No items found for this BOM</p>
+            </div>
+          )}
         </CardContent>
-      </Card> */}
-
-      {/* Detailed Sections */}
-      <Tabs defaultValue="items" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="items" className="flex items-center">
-            <Package className="h-4 w-4 mr-2" />
-            BOM Items
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="flex items-center">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Purchase Orders
-          </TabsTrigger>
-          <TabsTrigger value="material-requests" className="flex items-center">
-            <Building2 className="h-4 w-4 mr-2" />
-            Material Requests
-          </TabsTrigger>
-        </TabsList>
-
-        {/* BOM Items Tab */}
-        <TabsContent value="items">
-          <Card>
-            <CardHeader>
-              <CardTitle>Material Requirements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Material Name</TableHead>
-                      <TableHead>Stock Qty</TableHead>
-                      <TableHead>Requested Qty</TableHead>
-                      <TableHead>Allocated Qty</TableHead>
-                      {/* <TableHead>Unit</TableHead> */}
-                      <TableHead>Pending Qty</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bomItems.map((item) => {
-                      const percentage = calculateAllocationPercentage(item.allocatedQuantity, item.requestedQuantity);
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.materialName}</TableCell>
-                          <TableCell>{item.stockQuantity}</TableCell>
-                          <TableCell>{item.requestedQuantity}</TableCell>
-                          <TableCell>{item.allocatedQuantity}</TableCell>
-                          <TableCell>{item.pendingQuantity}</TableCell>
-                          {/* <TableCell>{item.unit}</TableCell> */}
-                          {/* <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Progress value={percentage} className="w-16 h-2" />
-                              <span className="text-sm">{percentage}%</span>
-                            </div>
-                          </TableCell> */}
-                          <TableCell>
-                            <Badge variant={getStatusColor(item.status)} className="flex items-center gap-1">
-                              {getStatusIcon(item.status)}
-                              {item.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Purchase Orders Tab */}
-        <TabsContent value="purchase-orders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Related Purchase Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>PO Number</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Total Quantity</TableHead>
-                      <TableHead>Total Amount</TableHead>
-                      {/* <TableHead>Status</TableHead> */}
-                      <TableHead>Created Date</TableHead>
-                      <TableHead>Delivery Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {purchaseOrders.map((po) => (
-                      <TableRow key={po.id}>
-                        <TableCell className="font-medium">{po.poNumber}</TableCell>
-                        <TableCell>{po.vendorName}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {po.items.map((item, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {item}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{po.quantity}</TableCell>
-                        <TableCell className="font-medium">₹{po.totalAmount.toLocaleString()}</TableCell>
-                        {/* <TableCell>
-                          <Badge variant={getStatusColor(po.status)} className="flex items-center gap-1">
-                            {getStatusIcon(po.status)}
-                            {po.status}
-                          </Badge>
-                        </TableCell> */}
-                        <TableCell>{new Date(po.createdDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(po.deliveryDate).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Material Requests Tab */}
-        <TabsContent value="material-requests">
-          <Card>
-            <CardHeader>
-              <CardTitle>Inter-Store Material Requests</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request ID</TableHead>
-                      <TableHead>Material</TableHead>
-                      <TableHead>From Location</TableHead>
-                      <TableHead>To Location</TableHead>
-                      <TableHead>Requested Qty</TableHead>
-                      <TableHead>Approved Qty</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Request Date</TableHead>
-                      <TableHead>Expected Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {materialRequests.map((request) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="font-medium">{request.requestId}</TableCell>
-                        <TableCell>{request.materialName}</TableCell>
-                        <TableCell>{request.fromLocation}</TableCell>
-                        <TableCell>{request.toLocation}</TableCell>
-                        <TableCell>{request.requestedQuantity}</TableCell>
-                        <TableCell>{request.approvedQuantity}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusColor(request.status)} className="flex items-center gap-1">
-                            {getStatusIcon(request.status)}
-                            {request.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(request.requestDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(request.expectedDate).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      </Card>
     </div>
   );
-};
-
-export default BOMDetails;
+}
