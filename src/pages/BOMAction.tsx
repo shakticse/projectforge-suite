@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Edit, Save, X, Plus } from "lucide-react";
+import { Search, Edit, Save, X, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface BOMItem {
@@ -33,6 +40,17 @@ interface BOMItem {
   priority: 'low' | 'medium' | 'high';
   category: string;
   supplier: string;
+}
+
+interface BOM {
+  id: string;
+  projectName: string;
+  bomNumber: string;
+  status: 'draft' | 'approved' | 'in-progress' | 'completed';
+  totalItems: number;
+  completedItems: number;
+  createdDate: string;
+  items: BOMItem[];
 }
 
 const mockBOMItems: BOMItem[] = [
@@ -90,86 +108,108 @@ const mockBOMItems: BOMItem[] = [
   }
 ];
 
-const projects = [
-  { id: "1", name: "Residential Complex A" },
-  { id: "2", name: "Commercial Plaza B" },
-  { id: "3", name: "Industrial Warehouse C" }
+const mockBOMs: BOM[] = [
+  {
+    id: "BOM001",
+    projectName: "Residential Complex A",
+    bomNumber: "BOM-2024-001",
+    status: 'in-progress',
+    totalItems: 4,
+    completedItems: 1,
+    createdDate: "2024-01-15",
+    items: mockBOMItems
+  },
+  {
+    id: "BOM002",
+    projectName: "Commercial Plaza B", 
+    bomNumber: "BOM-2024-002",
+    status: 'approved',
+    totalItems: 3,
+    completedItems: 0,
+    createdDate: "2024-01-20",
+    items: mockBOMItems.slice(0, 3)
+  },
+  {
+    id: "BOM003",
+    projectName: "Industrial Warehouse C",
+    bomNumber: "BOM-2024-003", 
+    status: 'draft',
+    totalItems: 2,
+    completedItems: 0,
+    createdDate: "2024-01-25",
+    items: mockBOMItems.slice(0, 2)
+  }
 ];
 
 export default function BOMAction() {
-  const [bomItems, setBOMItems] = useState<BOMItem[]>(mockBOMItems);
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [boms, setBOMs] = useState<BOM[]>(mockBOMs);
+  const [selectedBOM, setSelectedBOM] = useState<BOM | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<BOMItem>>({});
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [allocationData, setAllocationData] = useState<Record<string, number>>({});
 
-  const filteredItems = bomItems.filter(item => {
-    const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.specification.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || item.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || item.priority === filterPriority;
+  const filteredBOMs = boms.filter(bom => {
+    const matchesSearch = bom.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         bom.bomNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "all" || bom.status === filterStatus;
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus;
   });
 
-  const handleEdit = (item: BOMItem) => {
-    setEditingId(item.id);
-    setEditData(item);
+  const openAllocationModal = (bom: BOM) => {
+    setSelectedBOM(bom);
+    const initialData: Record<string, number> = {};
+    bom.items.forEach(item => {
+      initialData[item.id] = item.allocatedQuantity;
+    });
+    setAllocationData(initialData);
+    setIsAllocationModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (!editingId) return;
+  const handleBulkUpdate = () => {
+    if (!selectedBOM) return;
     
-    setBOMItems(items => 
-      items.map(item => 
-        item.id === editingId 
-          ? { 
-              ...item, 
-              ...editData,
-              pendingQuantity: (editData.requiredQuantity || item.requiredQuantity) - (editData.allocatedQuantity || item.allocatedQuantity),
-              status: (editData.allocatedQuantity || item.allocatedQuantity) === 0 ? 'pending' as const :
-                      (editData.allocatedQuantity || item.allocatedQuantity) >= (editData.requiredQuantity || item.requiredQuantity) ? 'complete' as const : 'partial' as const
-            }
-          : item
-      )
-    );
-    
-    setEditingId(null);
-    setEditData({});
-    toast.success("BOM item updated successfully");
-  };
-
-  const handleCancel = () => {
-    setEditingId(null);
-    setEditData({});
-  };
-
-  const handleAllocateQuantity = (itemId: string, quantity: number) => {
-    setBOMItems(items =>
-      items.map(item => {
-        if (item.id === itemId) {
-          const newAllocated = Math.min(quantity, item.requiredQuantity);
-          const newPending = item.requiredQuantity - newAllocated;
-          const newStatus = newAllocated === 0 ? 'pending' as const :
-                           newAllocated >= item.requiredQuantity ? 'complete' as const : 'partial' as const;
+    setBOMs(boms =>
+      boms.map(bom => {
+        if (bom.id === selectedBOM.id) {
+          const updatedItems = bom.items.map(item => {
+            const newAllocated = allocationData[item.id] || 0;
+            const newPending = item.requiredQuantity - newAllocated;
+            const newStatus = newAllocated === 0 ? 'pending' as const :
+                             newAllocated >= item.requiredQuantity ? 'complete' as const : 'partial' as const;
+            
+            return {
+              ...item,
+              allocatedQuantity: newAllocated,
+              pendingQuantity: newPending,
+              status: newStatus
+            };
+          });
+          
+          const completedItems = updatedItems.filter(item => item.status === 'complete').length;
           
           return {
-            ...item,
-            allocatedQuantity: newAllocated,
-            pendingQuantity: newPending,
-            status: newStatus
+            ...bom,
+            items: updatedItems,
+            completedItems
           };
         }
-        return item;
+        return bom;
       })
     );
-    toast.success("Quantity allocated successfully");
+    
+    setIsAllocationModalOpen(false);
+    setSelectedBOM(null);
+    toast.success("BOM quantities updated successfully");
   };
 
   const getStatusBadge = (status: string) => {
     const variants = {
+      draft: "secondary",
+      approved: "outline",
+      "in-progress": "secondary",
+      completed: "default",
       pending: "destructive",
       partial: "secondary", 
       complete: "default"
@@ -201,27 +241,14 @@ export default function BOMAction() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Project Selection & Filters</CardTitle>
+          <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search items..."
+                placeholder="Search BOMs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -234,27 +261,16 @@ export default function BOMAction() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
 
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Add Item
+              Create BOM
             </Button>
           </div>
         </CardContent>
@@ -262,121 +278,58 @@ export default function BOMAction() {
 
       <Card>
         <CardHeader>
-          <CardTitle>BOM Items ({filteredItems.length})</CardTitle>
+          <CardTitle>BOMs ({filteredBOMs.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>Specification</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Required Qty</TableHead>
-                <TableHead className="text-right">Allocated Qty</TableHead>
-                <TableHead className="text-right">Pending Qty</TableHead>
+                <TableHead>BOM Number</TableHead>
+                <TableHead>Project Name</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Supplier</TableHead>
+                <TableHead className="text-center">Total Items</TableHead>
+                <TableHead className="text-center">Completed Items</TableHead>
+                <TableHead className="text-center">Progress</TableHead>
+                <TableHead>Created Date</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">
-                    {editingId === item.id ? (
-                      <Input
-                        value={editData.itemName || item.itemName}
-                        onChange={(e) => setEditData({...editData, itemName: e.target.value})}
-                        className="w-full"
-                      />
-                    ) : (
-                      item.itemName
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === item.id ? (
-                      <Input
-                        value={editData.specification || item.specification}
-                        onChange={(e) => setEditData({...editData, specification: e.target.value})}
-                        className="w-full"
-                      />
-                    ) : (
-                      item.specification
-                    )}
-                  </TableCell>
-                  <TableCell>{item.unit}</TableCell>
-                  <TableCell className="text-right">
-                    {editingId === item.id ? (
-                      <Input
-                        type="number"
-                        value={editData.requiredQuantity || item.requiredQuantity}
-                        onChange={(e) => setEditData({...editData, requiredQuantity: Number(e.target.value)})}
-                        className="w-20 text-right"
-                      />
-                    ) : (
-                      item.requiredQuantity
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {editingId === item.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={editData.allocatedQuantity || item.allocatedQuantity}
-                          onChange={(e) => setEditData({...editData, allocatedQuantity: Number(e.target.value)})}
-                          className="w-20 text-right"
-                          max={editData.requiredQuantity || item.requiredQuantity}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAllocateQuantity(item.id, editData.allocatedQuantity || item.allocatedQuantity)}
-                        >
-                          Allocate
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span>{item.allocatedQuantity}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const quantity = prompt("Enter quantity to allocate:", item.allocatedQuantity.toString());
-                            if (quantity && !isNaN(Number(quantity))) {
-                              handleAllocateQuantity(item.id, Number(quantity));
-                            }
-                          }}
-                        >
-                          Quick Allocate
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">{item.pendingQuantity}</TableCell>
-                  <TableCell>{getStatusBadge(item.status)}</TableCell>
-                  <TableCell>{getPriorityBadge(item.priority)}</TableCell>
-                  <TableCell>{item.supplier}</TableCell>
+              {filteredBOMs.map((bom) => (
+                <TableRow key={bom.id}>
+                  <TableCell className="font-medium">{bom.bomNumber}</TableCell>
+                  <TableCell>{bom.projectName}</TableCell>
+                  <TableCell>{getStatusBadge(bom.status)}</TableCell>
+                  <TableCell className="text-center">{bom.totalItems}</TableCell>
+                  <TableCell className="text-center">{bom.completedItems}</TableCell>
                   <TableCell className="text-center">
-                    {editingId === item.id ? (
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" onClick={handleSave}>
-                          <Save className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleCancel}>
-                          <X className="h-4 w-4" />
-                        </Button>
+                    <div className="flex items-center gap-2">
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full" 
+                          style={{ width: `${(bom.completedItems / bom.totalItems) * 100}%` }}
+                        />
                       </div>
-                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {Math.round((bom.completedItems / bom.totalItems) * 100)}%
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{bom.createdDate}</TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleEdit(item)}
+                        onClick={() => openAllocationModal(bom)}
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4 mr-1" />
+                        Allocate
                       </Button>
-                    )}
+                      <Button size="sm" variant="outline">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -384,6 +337,81 @@ export default function BOMAction() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isAllocationModalOpen} onOpenChange={setIsAllocationModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Allocate Quantities - {selectedBOM?.bomNumber}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedBOM && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <span className="text-sm font-medium">Project:</span>
+                  <p className="text-sm text-muted-foreground">{selectedBOM.projectName}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">BOM Number:</span>
+                  <p className="text-sm text-muted-foreground">{selectedBOM.bomNumber}</p>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Specification</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Required</TableHead>
+                    <TableHead className="text-right">Current Allocated</TableHead>
+                    <TableHead className="text-right">New Allocation</TableHead>
+                    <TableHead className="text-right">Pending</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedBOM.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell>{item.specification}</TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                      <TableCell className="text-right">{item.requiredQuantity}</TableCell>
+                      <TableCell className="text-right">{item.allocatedQuantity}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={allocationData[item.id] || 0}
+                          onChange={(e) => setAllocationData({
+                            ...allocationData,
+                            [item.id]: Number(e.target.value)
+                          })}
+                          className="w-20 text-right"
+                          min={0}
+                          max={item.requiredQuantity}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {item.requiredQuantity - (allocationData[item.id] || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setIsAllocationModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBulkUpdate}>
+                  Update Allocations
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
