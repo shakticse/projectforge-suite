@@ -91,7 +91,7 @@ export const workOrderSchema = yup.object({
 });
 
 // Purchase Order validation schema
-export const purchaseOrderSchema = yup.object({
+export const purchaseRequestSchema = yup.object({
   projectId: yup.string().required('Project is required'),
   bomId: yup.string().required('BOM is required'),
   vendorId: yup.string().required('Vendor is required'),

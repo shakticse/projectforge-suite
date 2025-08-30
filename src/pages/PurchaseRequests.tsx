@@ -11,9 +11,9 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Plus, Search, Eye, ArrowUpDown, Filter, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { purchaseOrderSchema } from "@/lib/validations";
+import { purchaseRequestSchema } from "@/lib/validations";
 
-interface PurchaseOrderItem {
+interface PurchaseRequestItem {
   rowNum: number;
   itemId: string;
   itemName: string;
@@ -24,7 +24,7 @@ interface PurchaseOrderItem {
   totalPrice: number;
 }
 
-interface PurchaseOrder {
+interface PurchaseRequest {
   id: string;
   projectId: string;
   projectName: string;
@@ -34,7 +34,7 @@ interface PurchaseOrder {
   bomName: string;
   vendorId: string;
   vendorName: string;
-  items: PurchaseOrderItem[];
+  items: PurchaseRequestItem[];
   totalAmount: number;
   status: 'Pending' | 'Approved' | 'Rejected' | 'In Progress' | 'Completed';
   startDate: string;
@@ -68,7 +68,7 @@ const mockItems = [
   { id: "item-5", name: "Steel Angle 50x50", unitPrice: 30 },
 ];
 
-const mockPurchaseOrders: PurchaseOrder[] = [
+const mockPurchaseRequests: PurchaseRequest[] = [
   {
     id: "PO-001",
     projectId: "proj-1",
@@ -148,8 +148,8 @@ const mockPurchaseOrders: PurchaseOrder[] = [
   }
 ];
 
-export default function PurchaseOrders() {
-  const [purchaseOrders] = useState<PurchaseOrder[]>(mockPurchaseOrders);
+export default function PurchaseRequests() {
+  const [purchaseRequests] = useState<PurchaseRequest[]>(mockPurchaseRequests);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [approvalFilter, setApprovalFilter] = useState("all");
@@ -158,11 +158,11 @@ export default function PurchaseOrders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [selectedPO, setSelectedPO] = useState<PurchaseRequest | null>(null);
   const itemsPerPage = 10;
 
   const form = useForm({
-    resolver: yupResolver(purchaseOrderSchema),
+    resolver: yupResolver(purchaseRequestSchema),
     defaultValues: {
       projectId: "",
       bomId: "",
@@ -188,7 +188,7 @@ export default function PurchaseOrders() {
   const totalQuantity = watchedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   const filteredAndSortedPOs = useMemo(() => {
-    let filtered = purchaseOrders.filter(po => {
+    let filtered = purchaseRequests.filter(po => {
       const matchesSearch = 
         po.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         po.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -202,8 +202,8 @@ export default function PurchaseOrders() {
 
     if (sortColumn) {
       filtered.sort((a, b) => {
-        let aValue = a[sortColumn as keyof PurchaseOrder];
-        let bValue = b[sortColumn as keyof PurchaseOrder];
+        let aValue = a[sortColumn as keyof PurchaseRequest];
+        let bValue = b[sortColumn as keyof PurchaseRequest];
         
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -215,7 +215,7 @@ export default function PurchaseOrders() {
     }
 
     return filtered;
-  }, [purchaseOrders, searchTerm, statusFilter, approvalFilter, sortColumn, sortDirection]);
+  }, [purchaseRequests, searchTerm, statusFilter, approvalFilter, sortColumn, sortDirection]);
 
   const paginatedPOs = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -239,12 +239,12 @@ export default function PurchaseOrders() {
 
   const onSubmit = async (data: any) => {
     try {
-      console.log("Creating purchase order:", data);
-      toast.success("Purchase order created successfully!");
+      console.log("Creating purchase Request:", data);
+      toast.success("Purchase Request created successfully!");
       setOpen(false);
       form.reset();
     } catch (error) {
-      toast.error("Failed to create purchase order");
+      toast.error("Failed to create purchase Request");
     }
   };
 
@@ -272,19 +272,19 @@ export default function PurchaseOrders() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Purchase Orders</h1>
-          <p className="text-muted-foreground">Manage procurement and supplier orders</p>
+          <h1 className="text-3xl font-bold tracking-tight">Purchase Requests</h1>
+          <p className="text-muted-foreground">Create Purchase Request</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Create Purchase Order
+              Create Purchase Request
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Purchase Order</DialogTitle>
+              <DialogTitle>Create New Purchase Request</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -467,7 +467,7 @@ export default function PurchaseOrders() {
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Create Purchase Order</Button>
+                  <Button type="submit">Create Purchase Request</Button>
                 </div>
               </form>
             </Form>
@@ -480,7 +480,7 @@ export default function PurchaseOrders() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search purchase orders..."
+            placeholder="Search purchase requests..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -668,7 +668,7 @@ export default function PurchaseOrders() {
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Purchase Order Details - {selectedPO?.id}</DialogTitle>
+            <DialogTitle>Purchase Request Details - {selectedPO?.id}</DialogTitle>
           </DialogHeader>
           {selectedPO && (
             <div className="space-y-6">

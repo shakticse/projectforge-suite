@@ -40,7 +40,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Bill of Materials", url: "/bom", icon: FileText },
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Work Request", url: "/work-orders", icon: ClipboardList },
-    { title: "Purchase Orders", url: "/purchase-orders", icon: ShoppingCart },
+    { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
@@ -71,7 +71,7 @@ const getMenuItems = (userRole: string) => {
       { title: "Users", url: "/users", icon: Activity },
       { title: "Reports", url: "/reports", icon: Activity },
       { title: "BOM Allocation", url: "/bom-action", icon: Activity },
-      { title: "Purchase Orders", url: "/purchase-orders", icon: Activity },
+      { title: "Purchase Request", url: "/purchase-requests", icon: Activity },
       { title: "Gate Pass", url: "/gate-pass", icon: Activity },
     ];
     arr.forEach(item => {
