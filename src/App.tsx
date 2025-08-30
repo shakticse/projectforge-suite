@@ -54,7 +54,7 @@ const App = () => (
           <Route path="/bom-status/:id" element={<ProtectedRoute><AppLayout><BOMStatus /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-consolidate/:bomId" element={<ProtectedRoute><AppLayout><BOMConsolidateDetails /></AppLayout></ProtectedRoute>} />
           <Route path="/work-orders" element={<ProtectedRoute><AppLayout><WorkOrders /></AppLayout></ProtectedRoute>} />
-          <Route path="/work-order-requests" element={<ProtectedRoute><AppLayout><WorkOrderRequests /></AppLayout></ProtectedRoute>} />
+          <Route path="/work-requests" element={<ProtectedRoute><AppLayout><WorkOrderRequests /></AppLayout></ProtectedRoute>} />
           <Route path="/purchase-requests" element={<ProtectedRoute><AppLayout><PurchaseRequest /></AppLayout></ProtectedRoute>} />
           <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
           <Route path="/vehicle-request" element={<ProtectedRoute><AppLayout><VehicleRequest /></AppLayout></ProtectedRoute>} />
