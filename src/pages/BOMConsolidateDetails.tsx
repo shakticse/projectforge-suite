@@ -496,7 +496,7 @@ export default function BOMConsolidateDetails() {
                       {getSortIcon('status')}
                     </div>
                   </TableHead>
-                  <TableHead className="text-right">Completion %</TableHead>
+                  {/* <TableHead className="text-right">Completion %</TableHead> */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -538,7 +538,7 @@ export default function BOMConsolidateDetails() {
                           {item.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      {/* <TableCell className="text-right">
                         <div className="flex items-center space-x-2">
                           <div className="flex-1 bg-gray-200 rounded-full h-2">
                             <div 
@@ -554,7 +554,7 @@ export default function BOMConsolidateDetails() {
                             {completionPercentage}%
                           </span>
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   );
                 })}

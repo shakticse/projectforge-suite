@@ -14,45 +14,70 @@ interface BOMDetailItem {
   requestDate: string;
   modifyDate?: string;
   requestedBy: string;
-  status: 'Pending' | 'Approved' | 'In Progress' | 'Completed';
+  categoryHead: string;
+  status: 'Pending' | 'Approved' | 'In Progress' | 'Completed' | 'Allocated';
 }
 
 const mockBOMDetails: Record<string, BOMDetailItem[]> = {
   "BOM-001": [
     {
       id: "item-1",
-      itemName: "Cement",
+      itemName: "GLASS STOPPER PVC",
       quantity: 50,
       requestDate: "2024-01-10",
       modifyDate: "2024-01-12",
-      requestedBy: "John Doe",
-      status: "Approved"
+      requestedBy: "Mike",
+      categoryHead: "Dave",
+      status: "Allocated"
     },
     {
       id: "item-2", 
-      itemName: "Steel Rebar",
+      itemName: "HANGAR 10 MTR ROOF COVER",
       quantity: 100,
       requestDate: "2024-01-10",
-      requestedBy: "John Doe",
-      status: "In Progress"
+      requestedBy: "John",
+      categoryHead: "Harry",
+      status: "Pending"
+    },
+    {
+      id: "item-3",
+      itemName: "GLASS STOPPER PVC",
+      quantity: 150,
+      requestDate: "2024-01-11",
+      modifyDate: "2024-01-12",
+      requestedBy: "John",
+      categoryHead: "Harry",
+      status: "Pending"
     }
   ],
   "BOM-002": [
     {
       id: "item-3",
-      itemName: "Concrete Blocks",
+      itemName: "HAMMER 7 KG",
       quantity: 200,
       requestDate: "2024-01-12",
       requestedBy: "Mike Johnson",
+      categoryHead: "Dave",
       status: "Pending"
     },
     {
       id: "item-4",
-      itemName: "Cement",
+      itemName: "GLASS STOPPER PVC",
       quantity: 75,
       requestDate: "2024-01-12",
       modifyDate: "2024-01-14",
       requestedBy: "Mike Johnson",
+      categoryHead: "Harry",
+      status: "Approved"
+    },
+    {
+      id: "item-4",
+      itemName: "GLASS STOPPER PVC",
+      quantity: 55,
+      requestDate: "2024-01-13",
+      modifyDate: "2024-01-14",
+      requestedBy: "Mike Johnson",
+      categoryHead: "Dave",
       status: "Approved"
     }
   ]
@@ -93,7 +118,7 @@ export default function BOMDetails() {
             Back to BOM
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">BOM Items List</h1>
+            <h1 className="text-3xl font-bold tracking-tight">BOM List View</h1>
             <p className="text-muted-foreground">BOM ID: {id}</p>
           </div>
         </div>
@@ -137,6 +162,7 @@ export default function BOMDetails() {
                   <TableHead>Request Date</TableHead>
                   <TableHead>Last Modified</TableHead>
                   <TableHead>Requested By</TableHead>
+                  <TableHead>Category Head</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -158,6 +184,7 @@ export default function BOMDetails() {
                         {item.requestedBy}
                       </div>
                     </TableCell>
+                    <TableCell className="font-medium">{item.categoryHead}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(item.status)}>
                         {item.status}

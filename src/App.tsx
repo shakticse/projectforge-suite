@@ -16,6 +16,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Vendors from "./pages/Vendors";
 import BOM from "./pages/BOM";
 import BOMDetails from "./pages/BOMDetails";
+import BOMSummary from "./pages/BOMSummary";
 import BOMConsolidateDetails from "./pages/BOMConsolidateDetails";
 import BOMStatus from "./pages/BOMStatus";
 import WorkOrders from "./pages/WorkOrders";
@@ -47,6 +48,7 @@ const App = () => (
           <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
           <Route path="/vendors" element={<ProtectedRoute><AppLayout><Vendors /></AppLayout></ProtectedRoute>} />
           <Route path="/bom" element={<ProtectedRoute><AppLayout><BOM /></AppLayout></ProtectedRoute>} />
+          <Route path="/bom/:bomId" element={<ProtectedRoute><AppLayout><BOMSummary /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-details/:id" element={<ProtectedRoute><AppLayout><BOMDetails /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-status/:id" element={<ProtectedRoute><AppLayout><BOMStatus /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-consolidate/:bomId" element={<ProtectedRoute><AppLayout><BOMConsolidateDetails /></AppLayout></ProtectedRoute>} />

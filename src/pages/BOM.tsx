@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +129,7 @@ const mockBOMs: BOMItem[] = [
 
 export default function BOM() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [boms] = useState<BOMItem[]>(mockBOMs);
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
@@ -290,17 +292,18 @@ export default function BOM() {
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
           <p className="text-muted-foreground">Manage project material requirements</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create BOM
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New BOM</DialogTitle>
-            </DialogHeader>
+        {user?.role === 'Project Manager' ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create BOM
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New BOM</DialogTitle>
+              </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -524,6 +527,11 @@ export default function BOM() {
             </Form>
           </DialogContent>
         </Dialog>
+        ) : (
+          <div className="text-muted-foreground text-sm">
+            Only Project Managers can create BOMs
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -575,10 +583,16 @@ export default function BOM() {
               </TableHeader>
               <TableBody>
                 {paginatedBOMs.map((bom) => (
-                  <TableRow key={bom.id} className="hover:bg-muted/50 cursor-pointer">
+                  <TableRow key={bom.id} className={`${
+                    user?.role === 'Project Manager' ? 'hover:bg-muted/50 cursor-pointer' : ''
+                  }`}>
                     <TableCell 
-                      className="font-medium text-primary hover:underline cursor-pointer"
-                      onClick={() => navigate(`/bom/${bom.id}`)}
+                      className={`font-medium ${
+                        user?.role === 'Project Manager' 
+                          ? 'text-primary hover:underline cursor-pointer' 
+                          : 'text-foreground'
+                      }`}
+                      onClick={user?.role === 'Project Manager' ? () => navigate(`/bom/${bom.id}`) : undefined}
                     >
                       {bom.id}
                     </TableCell>
@@ -598,29 +612,35 @@ export default function BOM() {
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/bom-details/${bom.id}`)}
-                          title="View BOM Items List"
-                        >
-                          <List className="h-4 w-4" />
-                        </Button>
-                        <Button
+                        {user?.role ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/bom-details/${bom.id}`)}
+                              title="View BOM Items List"
+                            >
+                              <List className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">View Only</span>
+                        )}
+                        {/* <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => navigate(`/bom-status/${bom.id}`)}
                           title="View BOM Item Status"
                         >
                           <Activity className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        </Button> */}
                       </div>
                     </TableCell>
                   </TableRow>

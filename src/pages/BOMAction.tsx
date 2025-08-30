@@ -355,7 +355,7 @@ export default function BOMAction() {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Allocate Quantities - {selectedBOM?.bomNumber}
+              In-House Allocation - {selectedBOM?.bomNumber}
             </DialogTitle>
           </DialogHeader>
           
