@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Eye, ArrowUpDown, Filter, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, ArrowUpDown, Filter, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { purchaseRequestSchema } from "@/lib/validations";
 
@@ -22,6 +22,16 @@ interface PurchaseRequestItem {
   unitPrice: number;
   discPercent: number;
   totalPrice: number;
+}
+
+interface BOMItem {
+  id: string;
+  itemName: string;
+  requestedQty: number;
+  allocatedQty: number;
+  pendingQty: number;
+  unit: string;
+  unitPrice: number;
 }
 
 interface PurchaseRequest {
@@ -59,6 +69,22 @@ const mockBOMs = [
   { id: "bom-2", name: "Electrical Systems BOM", projectId: "proj-1" },
   { id: "bom-3", name: "Foundation BOM", projectId: "proj-2" },
 ];
+
+const mockBOMItems: Record<string, BOMItem[]> = {
+  "bom-1": [
+    { id: "item-1", itemName: "Steel Rebar 12mm", requestedQty: 100, allocatedQty: 30, pendingQty: 70, unit: "Kg", unitPrice: 15 },
+    { id: "item-2", itemName: "Cement 50kg", requestedQty: 200, allocatedQty: 50, pendingQty: 150, unit: "Bags", unitPrice: 25 },
+    { id: "item-5", itemName: "Steel Angle 50x50", requestedQty: 75, allocatedQty: 25, pendingQty: 50, unit: "Mtr", unitPrice: 30 },
+  ],
+  "bom-2": [
+    { id: "item-3", itemName: "Electrical Wire 2.5mm", requestedQty: 500, allocatedQty: 200, pendingQty: 300, unit: "Mtr", unitPrice: 5 },
+    { id: "item-4", itemName: "PVC Pipe 4inch", requestedQty: 150, allocatedQty: 50, pendingQty: 100, unit: "Mtr", unitPrice: 12 },
+  ],
+  "bom-3": [
+    { id: "item-1", itemName: "Steel Rebar 12mm", requestedQty: 250, allocatedQty: 100, pendingQty: 150, unit: "Kg", unitPrice: 15 },
+    { id: "item-2", itemName: "Cement 50kg", requestedQty: 300, allocatedQty: 100, pendingQty: 200, unit: "Bags", unitPrice: 25 },
+  ],
+};
 
 const mockItems = [
   { id: "item-1", name: "Steel Rebar 12mm", unitPrice: 15 },
@@ -159,6 +185,8 @@ export default function PurchaseRequests() {
   const [open, setOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseRequest | null>(null);
+  const [bomItems, setBomItems] = useState<BOMItem[]>([]);
+  const [purchaseOrderQtys, setPurchaseOrderQtys] = useState<Record<string, number>>({});
   const itemsPerPage = 10;
 
   const form = useForm({
@@ -178,14 +206,33 @@ export default function PurchaseRequests() {
   });
 
   const selectedProjectId = form.watch("projectId");
+  const selectedBomId = form.watch("bomId");
   const watchedItems = form.watch("items");
 
   const availableBOMs = useMemo(() => {
     return mockBOMs.filter(bom => bom.projectId === selectedProjectId);
   }, [selectedProjectId]);
 
-  const totalItemCount = watchedItems.length;
-  const totalQuantity = watchedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  // Load BOM items when BOM is selected
+  useMemo(() => {
+    if (selectedBomId && mockBOMItems[selectedBomId]) {
+      const items = mockBOMItems[selectedBomId];
+      setBomItems(items);
+      // Initialize purchase order quantities to 0
+      const initialQtys: Record<string, number> = {};
+      items.forEach(item => {
+        initialQtys[item.id] = 0;
+      });
+      setPurchaseOrderQtys(initialQtys);
+    } else {
+      setBomItems([]);
+      setPurchaseOrderQtys({});
+    }
+  }, [selectedBomId]);
+
+  const totalItemCount = bomItems.length;
+  const totalPurchaseOrderQty = Object.values(purchaseOrderQtys).reduce((sum, qty) => sum + (qty || 0), 0);
+  const validItemsCount = Object.values(purchaseOrderQtys).filter(qty => qty > 0).length;
 
   const filteredAndSortedPOs = useMemo(() => {
     let filtered = purchaseRequests.filter(po => {
@@ -233,16 +280,37 @@ export default function PurchaseRequests() {
     }
   };
 
-  const addRow = () => {
-    append({ itemId: "", quantity: 1 });
+  const handlePurchaseOrderQtyChange = (itemId: string, qty: number) => {
+    setPurchaseOrderQtys(prev => ({
+      ...prev,
+      [itemId]: qty
+    }));
   };
 
   const onSubmit = async (data: any) => {
     try {
-      console.log("Creating purchase Request:", data);
-      toast.success("Purchase Request created successfully!");
+      // Get items with valid purchase order quantities
+      const itemsForPO = bomItems.filter(item => purchaseOrderQtys[item.id] > 0)
+        .map(item => ({
+          itemId: item.id,
+          itemName: item.itemName,
+          quantity: purchaseOrderQtys[item.id],
+          unitPrice: item.unitPrice
+        }));
+
+      const purchaseRequestData = {
+        ...data,
+        items: itemsForPO,
+        totalItems: itemsForPO.length,
+        totalQuantity: totalPurchaseOrderQty
+      };
+
+      console.log("Creating purchase Request:", purchaseRequestData);
+      toast.success(`Purchase Request created successfully for ${itemsForPO.length} items!`);
       setOpen(false);
       form.reset();
+      setBomItems([]);
+      setPurchaseOrderQtys({});
     } catch (error) {
       toast.error("Failed to create purchase Request");
     }
@@ -376,98 +444,107 @@ export default function PurchaseRequests() {
                   />
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">Items</h3>
-                    <Button type="button" onClick={addRow} size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Row
-                    </Button>
-                  </div>
+                {selectedBomId && bomItems.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">BOM Items</h3>
+                      <Badge variant="outline">
+                        {validItemsCount} of {totalItemCount} items selected
+                      </Badge>
+                    </div>
 
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-20">Row #</TableHead>
-                          <TableHead>Item</TableHead>
-                          <TableHead className="w-32">Quantity</TableHead>
-                          <TableHead className="w-20">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {fields.map((field, index) => (
-                          <TableRow key={field.id}>
-                            <TableCell className="font-medium">{index + 1}</TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.itemId`}
-                                render={({ field }) => (
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select item" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {mockItems.map(item => (
-                                        <SelectItem key={item.id} value={item.id}>
-                                          {item.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.quantity`}
-                                render={({ field }) => (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Item Name</TableHead>
+                            <TableHead className="w-24">Requested Qty</TableHead>
+                            <TableHead className="w-24">Allocated Qty</TableHead>
+                            <TableHead className="w-24">Pending Qty</TableHead>
+                            <TableHead className="w-24">Unit</TableHead>
+                            <TableHead className="w-32">Purchase Order Qty</TableHead>
+                            <TableHead className="w-24">Unit Price</TableHead>
+                            <TableHead className="w-24">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {bomItems.map((item) => {
+                            const poQty = purchaseOrderQtys[item.id] || 0;
+                            const total = poQty * item.unitPrice;
+                            return (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.itemName}</TableCell>
+                                <TableCell>{item.requestedQty}</TableCell>
+                                <TableCell>{item.allocatedQty}</TableCell>
+                                <TableCell>
+                                  <Badge variant={item.pendingQty > 0 ? "destructive" : "default"}>
+                                    {item.pendingQty}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{item.unit}</TableCell>
+                                <TableCell>
                                   <Input
                                     type="number"
-                                    min="1"
-                                    {...field}
-                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                    min="0"
+                                    max={item.pendingQty}
+                                    value={poQty}
+                                    onChange={(e) => handlePurchaseOrderQtyChange(item.id, parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                    className="w-full"
                                   />
-                                )}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {fields.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => remove(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                </TableCell>
+                                <TableCell>${item.unitPrice}</TableCell>
+                                <TableCell className="font-medium">
+                                  ${total.toFixed(2)}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
 
-                  <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
-                    <div className="space-x-6">
-                      <span className="text-sm font-medium">
-                        Total Items: <span className="text-primary">{totalItemCount}</span>
-                      </span>
-                      <span className="text-sm font-medium">
-                        Total Quantity: <span className="text-primary">{totalQuantity}</span>
-                      </span>
+                    <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                      <div className="space-x-6">
+                        <span className="text-sm font-medium">
+                          Total Items: <span className="text-primary">{totalItemCount}</span>
+                        </span>
+                        <span className="text-sm font-medium">
+                          Items for PO: <span className="text-primary">{validItemsCount}</span>
+                        </span>
+                        <span className="text-sm font-medium">
+                          Total PO Quantity: <span className="text-primary">{totalPurchaseOrderQty}</span>
+                        </span>
+                        <span className="text-sm font-medium">
+                          Total Value: <span className="text-primary">
+                            ${bomItems.reduce((sum, item) => sum + ((purchaseOrderQtys[item.id] || 0) * item.unitPrice), 0).toFixed(2)}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : selectedBomId ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No items found in the selected BOM</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Please select a BOM to view items</p>
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Create Purchase Request</Button>
+                  <Button 
+                    type="submit" 
+                    disabled={validItemsCount === 0}
+                  >
+                    Create Purchase Request ({validItemsCount} items)
+                  </Button>
                 </div>
               </form>
             </Form>
