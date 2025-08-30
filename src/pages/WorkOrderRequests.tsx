@@ -7,15 +7,18 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import * as yup from "yup";
 
 interface WorkOrderRequestItem {
   id: string;
-  item: string;
+  materialId: string;
+  materialName: string;
   category: string;
   uom: string;
   qty: number;
@@ -25,22 +28,28 @@ interface WorkOrderRequest {
   id: string;
   requestNumber: string;
   requestedBy: string;
-  department: string;
-  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  project: string;
+  bom: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'In Progress' | 'Completed';
   requestDate: string;
+  completeByDate: string;
   items: WorkOrderRequestItem[];
   totalItems: number;
 }
 
+interface MaterialOption {
+  id: string;
+  name: string;
+  category: string;
+  uom: string;
+}
+
 const workOrderRequestSchema = yup.object({
-  department: yup.string().required("Department is required"),
-  priority: yup.string().required("Priority is required"),
+  project: yup.string().required("Project is required"),
+  bom: yup.string().required("BOM is required"),
   items: yup.array().of(
     yup.object({
-      item: yup.string().required("Item is required"),
-      category: yup.string().required("Category is required"),
-      uom: yup.string().required("UOM is required"),
+      materialId: yup.string().required("Material is required"),
       qty: yup.number().min(1, "Quantity must be at least 1").required("Quantity is required"),
     })
   ).min(1, "At least one item is required"),
@@ -51,13 +60,14 @@ const mockWorkOrderRequests: WorkOrderRequest[] = [
     id: "1",
     requestNumber: "WOR-2024-001",
     requestedBy: "John Smith",
-    department: "Production",
-    priority: "High",
+    project: "G20 Project",
+    bom: "BOM-001",
     status: "Pending",
     requestDate: "2024-01-15",
+    completeByDate: "2024-01-25",
     items: [
-      { id: "1", item: "Steel Rods", category: "Raw Materials", uom: "Tons", qty: 5 },
-      { id: "2", item: "Concrete Mix", category: "Construction", uom: "Bags", qty: 100 }
+      { id: "1", materialId: "mat-1", materialName: "Steel Rods", category: "Raw Materials", uom: "Tons", qty: 5 },
+      { id: "2", materialId: "mat-2", materialName: "Concrete Mix", category: "Construction", uom: "Bags", qty: 100 }
     ],
     totalItems: 2
   },
@@ -65,60 +75,102 @@ const mockWorkOrderRequests: WorkOrderRequest[] = [
     id: "2",
     requestNumber: "WOR-2024-002",
     requestedBy: "Sarah Johnson", 
-    department: "Manufacturing",
-    priority: "Medium",
+    project: "India Energy Week",
+    bom: "BOM-002",
     status: "Approved",
     requestDate: "2024-01-20",
+    completeByDate: "2024-01-24",
     items: [
-      { id: "3", item: "Electrical Cables", category: "Electrical", uom: "Meters", qty: 500 }
+      { id: "3", materialId: "mat-3", materialName: "Electrical Cables", category: "Electrical", uom: "Meters", qty: 500 }
     ],
     totalItems: 1
   }
 ];
 
-const categories = ["Raw Materials", "Construction", "Electrical", "Mechanical", "Tools", "Safety Equipment"];
-const departments = ["Production", "Manufacturing", "Engineering", "Quality Control", "Maintenance"];
-const uomOptions = ["Pieces", "Meters", "Kilograms", "Tons", "Liters", "Bags", "Boxes"];
+const mockMaterials: MaterialOption[] = [
+  { id: "mat-1", name: "Steel Rods", category: "Raw Materials", uom: "Tons" },
+  { id: "mat-2", name: "Concrete Mix", category: "Construction", uom: "Bags" },
+  { id: "mat-3", name: "Electrical Cables", category: "Electrical", uom: "Meters" },
+  { id: "mat-4", name: "BELT TIGHTNER", category: "Mechanical", uom: "Pieces" },
+  { id: "mat-5", name: "MDF 17MM 8'X4'", category: "Construction", uom: "Sheets" },
+  { id: "mat-6", name: "PAPER BLADE 9MM", category: "Tools", uom: "Pieces" },
+  { id: "mat-7", name: "CUTTER WIRE ROPE", category: "Tools", uom: "Meters" },
+  { id: "mat-8", name: "CANOPY BEAM 3 MTR", category: "Construction", uom: "Pieces" }
+];
+
+const projects = ["G20 Project", "India Energy Week", "Kochi Metro"];
+const bomOptions = ["BOM-001", "BOM-002", "BOM-003", "BOM-004"];
 
 export default function WorkOrderRequests() {
   const [workOrderRequests, setWorkOrderRequests] = useState<WorkOrderRequest[]>(mockWorkOrderRequests);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<string>("requestDate");
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [open, setOpen] = useState(false);
+  const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
 
   const form = useForm({
     resolver: yupResolver(workOrderRequestSchema),
     defaultValues: {
-      department: "",
-      priority: "Medium",
-      items: [{ item: "", category: "", uom: "", qty: 1 }],
+      project: "",
+      bom: "",
+      items: [],
     },
   });
 
-
-  const [formItems, setFormItems] = useState([
-    { item: "", category: "", uom: "", qty: 1 }
-  ]);
+  const [formItems, setFormItems] = useState<Array<{
+    id: number;
+    materialId: string;
+    materialName: string;
+    category: string;
+    uom: string;
+    qty: number;
+  }>>([]);
 
   const addNewRow = () => {
-    setFormItems([...formItems, { item: "", category: "", uom: "", qty: 1 }]);
+    const newId = formItems.length > 0 ? Math.max(...formItems.map(item => item.id)) + 1 : 1;
+    setFormItems([...formItems, { 
+      id: newId, 
+      materialId: "", 
+      materialName: "",
+      category: "", 
+      uom: "", 
+      qty: 1
+    }]);
   };
 
-  const removeRow = (index: number) => {
-    if (formItems.length > 1) {
-      setFormItems(formItems.filter((_, i) => i !== index));
-    }
+  const removeRow = (id: number) => {
+    setFormItems(formItems.filter(item => item.id !== id));
   };
 
-  const updateFormItem = (index: number, field: string, value: any) => {
-    const updatedItems = [...formItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setFormItems(updatedItems);
+  const updateFormItem = (id: number, field: string, value: any) => {
+    setFormItems(currentItems => {
+      const updatedItems = [...currentItems];
+      const itemIndex = updatedItems.findIndex(item => item.id === id);
+      
+      if (itemIndex === -1) return currentItems;
+      
+      const updated = { ...updatedItems[itemIndex], [field]: value };
+      
+      if (field === 'materialId') {
+        const selectedMaterial = mockMaterials.find(mat => mat.id === value);
+        if (selectedMaterial) {
+          updated.materialName = selectedMaterial.name;
+          updated.category = selectedMaterial.category;
+          updated.uom = selectedMaterial.uom;
+        }
+        
+        // Close the popover
+        setOpenPopovers(prev => ({ ...prev, [id]: false }));
+      }
+      
+      updatedItems[itemIndex] = updated;
+      return updatedItems;
+    });
   };
 
   const onSubmit = async (data: any) => {
@@ -127,22 +179,26 @@ export default function WorkOrderRequests() {
         id: (workOrderRequests.length + 1).toString(),
         requestNumber: `WOR-2024-${String(workOrderRequests.length + 1).padStart(3, '0')}`,
         requestedBy: "Current User",
-        department: data.department,
-        priority: data.priority,
+        project: data.project,
+        bom: data.bom,
         status: "Pending",
         requestDate: new Date().toISOString().split('T')[0],
-        items: formItems.filter(item => item.item.trim() !== "").map((item, index) => ({
+        items: formItems.filter(item => item.materialId.trim() !== "").map((item, index) => ({
           id: (index + 1).toString(),
-          ...item
+          materialId: item.materialId,
+          materialName: item.materialName,
+          category: item.category,
+          uom: item.uom,
+          qty: item.qty
         })),
-        totalItems: formItems.filter(item => item.item.trim() !== "").length
+        totalItems: formItems.filter(item => item.materialId.trim() !== "").length
       };
 
       setWorkOrderRequests([newRequest, ...workOrderRequests]);
       toast.success("Work order request created successfully!");
       setOpen(false);
       form.reset();
-      setFormItems([{ item: "", category: "", uom: "", qty: 1 }]);
+      setFormItems([]);
     } catch (error) {
       toast.error("Failed to create work order request");
     }
@@ -161,10 +217,15 @@ export default function WorkOrderRequests() {
     .filter(request => {
       const matchesSearch = request.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.requestedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.department.toLowerCase().includes(searchTerm.toLowerCase());
+                          request.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.bom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.items.some(item => 
+                            item.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            item.category.toLowerCase().includes(searchTerm.toLowerCase())
+                          );
       const matchesStatus = statusFilter === "all" || request.status === statusFilter;
-      const matchesPriority = priorityFilter === "all" || request.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesProject = projectFilter === "all" || request.project === projectFilter;
+      return matchesSearch && matchesStatus && matchesProject;
     })
     .sort((a, b) => {
       let aValue = a[sortField as keyof WorkOrderRequest];
@@ -183,16 +244,6 @@ export default function WorkOrderRequests() {
   const totalPages = Math.ceil(filteredAndSortedRequests.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRequests = filteredAndSortedRequests.slice(startIndex, startIndex + itemsPerPage);
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Critical': return 'destructive';
-      case 'High': return 'destructive';
-      case 'Medium': return 'default';
-      case 'Low': return 'secondary';
-      default: return 'secondary';
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -216,7 +267,7 @@ export default function WorkOrderRequests() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Create Request
+              Create Work Order Request
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -228,19 +279,19 @@ export default function WorkOrderRequests() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="department"
+                    name="project"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Department</FormLabel>
+                        <FormLabel>Project</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select department" />
+                              <SelectValue placeholder="Select project" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                            {projects.map((project) => (
+                              <SelectItem key={project} value={project}>{project}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -251,21 +302,20 @@ export default function WorkOrderRequests() {
                   
                   <FormField
                     control={form.control}
-                    name="priority"
+                    name="bom"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Priority</FormLabel>
+                        <FormLabel>BOM</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Select BOM" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Low">Low</SelectItem>
-                            <SelectItem value="Medium">Medium</SelectItem>
-                            <SelectItem value="High">High</SelectItem>
-                            <SelectItem value="Critical">Critical</SelectItem>
+                            {bomOptions.map((bom) => (
+                              <SelectItem key={bom} value={bom}>{bom}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -275,81 +325,156 @@ export default function WorkOrderRequests() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium">Request Items</h3>
-                    <Button type="button" onClick={addNewRow} variant="outline" size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Row
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" onClick={addNewRow} size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Row
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {formItems.map((formItem, index) => (
-                      <div key={index} className="grid grid-cols-5 gap-3 items-end">
-                        <div>
-                          <label className="text-sm font-medium">Item</label>
-                          <Input
-                            placeholder="Enter item name"
-                            value={formItem.item}
-                            onChange={(e) => updateFormItem(index, 'item', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Category</label>
-                          <Select
-                            value={formItem.category}
-                            onValueChange={(value) => updateFormItem(index, 'category', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {categories.map((cat) => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">UOM</label>
-                          <Select
-                            value={formItem.uom}
-                            onValueChange={(value) => updateFormItem(index, 'uom', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select UOM" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {uomOptions.map((uom) => (
-                                <SelectItem key={uom} value={uom}>{uom}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">Qty</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={formItem.qty}
-                            onChange={(e) => updateFormItem(index, 'qty', parseInt(e.target.value) || 1)}
-                          />
-                        </div>
-                        <div>
-                          {formItems.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeRow(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  {formItems.length > 0 && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Row #</TableHead>
+                            <TableHead>Item</TableHead>
+                            {/* <TableHead>Material Name</TableHead> */}
+                            <TableHead>Category</TableHead>
+                            <TableHead>UOM</TableHead>
+                            <TableHead className="w-32">Quantity</TableHead>
+                            <TableHead className="w-16">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {formItems.map((formItem, index) => (
+                            <TableRow key={formItem.id}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>
+                                <Popover 
+                                  open={openPopovers[formItem.id] || false}
+                                  onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [formItem.id]: open }))}
+                                >
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      aria-expanded={openPopovers[formItem.id] || false}
+                                      className="w-full justify-between"
+                                    >
+                                      {formItem.materialId ? 
+                                        mockMaterials.find(mat => mat.id === formItem.materialId)?.name || "Select material..." 
+                                        : "Select material..."
+                                      }
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-full p-0" align="start">
+                                    <Command>
+                                      <CommandInput placeholder="Search items..." />
+                                      <CommandList>
+                                        <CommandEmpty>No material found.</CommandEmpty>
+                                        <CommandGroup>
+                                          {mockMaterials.map((material) => (
+                                            <CommandItem
+                                              key={material.id}
+                                              value={material.name}
+                                              onSelect={() => updateFormItem(formItem.id, 'materialId', material.id)}
+                                            >
+                                              <Check
+                                                className={`mr-2 h-4 w-4 ${
+                                                  formItem.materialId === material.id ? "opacity-100" : "opacity-0"
+                                                }`}
+                                              />
+                                              <div className="flex flex-col">
+                                                <span>{material.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {material.category} • {material.uom}
+                                                </span>
+                                              </div>
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
+                              </TableCell>
+                              {/* <TableCell>
+                                <Input
+                                  value={formItem.materialName}
+                                  onChange={(e) => updateFormItem(formItem.id, 'materialName', e.target.value)}
+                                  disabled
+                                  className="bg-muted"
+                                />
+                              </TableCell> */}
+                              <TableCell>
+                                <Input
+                                  value={formItem.category}
+                                  onChange={(e) => updateFormItem(formItem.id, 'category', e.target.value)}
+                                  disabled
+                                  className="bg-muted"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  value={formItem.uom}
+                                  onChange={(e) => updateFormItem(formItem.id, 'uom', e.target.value)}
+                                  disabled
+                                  className="bg-muted"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={formItem.qty}
+                                  onChange={(e) => updateFormItem(formItem.id, 'qty', parseInt(e.target.value) || 1)}
+                                  placeholder="0"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeRow(formItem.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {formItems.length === 0 && (
+                    <div className="border border-dashed rounded-lg p-8 text-center">
+                      <div className="h-12 w-12 mx-auto text-muted-foreground mb-4 flex items-center justify-center">
+                        <Plus className="h-6 w-6" />
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-muted-foreground">No items added yet</p>
+                      <p className="text-sm text-muted-foreground">Click "Add Row" to get started</p>
+                    </div>
+                  )}
+
+                  {formItems.length > 0 && (
+                    <div className="flex justify-end space-x-6 pt-4 border-t bg-muted/50 p-4 rounded-lg">
+                      <div className="text-sm">
+                        <span className="font-medium">Total Items: </span>
+                        <span>{formItems.filter(item => item.materialId.trim() !== "").length}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Total Quantity: </span>
+                        <span>{formItems.reduce((sum, item) => sum + (item.qty || 0), 0)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-2">
@@ -392,16 +517,15 @@ export default function WorkOrderRequests() {
                 <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Filter by priority" />
+                <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="Low">Low</SelectItem>
-                <SelectItem value="Medium">Medium</SelectItem>
-                <SelectItem value="High">High</SelectItem>
-                <SelectItem value="Critical">Critical</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project} value={project}>{project}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -430,11 +554,16 @@ export default function WorkOrderRequests() {
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer"
-                  onClick={() => handleSort('department')}
+                  onClick={() => handleSort('project')}
                 >
-                  Department <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                  Project <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                 </TableHead>
-                <TableHead>Priority</TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('bom')}
+                >
+                  BOM <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead 
                   className="cursor-pointer"
@@ -442,7 +571,13 @@ export default function WorkOrderRequests() {
                 >
                   Request Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                 </TableHead>
-                <TableHead>Total Items</TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('completeByDate')}
+                >
+                  CompleteBy Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                {/* <TableHead>Total Items</TableHead> */}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -450,12 +585,8 @@ export default function WorkOrderRequests() {
                 <TableRow key={request.id}>
                   <TableCell className="font-medium">{request.requestNumber}</TableCell>
                   <TableCell>{request.requestedBy}</TableCell>
-                  <TableCell>{request.department}</TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityColor(request.priority) as any}>
-                      {request.priority}
-                    </Badge>
-                  </TableCell>
+                  <TableCell>{request.project}</TableCell>
+                  <TableCell>{request.bom}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusColor(request.status) as any}>
                       {request.status}
@@ -464,7 +595,10 @@ export default function WorkOrderRequests() {
                   <TableCell>
                     {new Date(request.requestDate).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>{request.totalItems}</TableCell>
+                  <TableCell>
+                    {new Date(request.completeByDate).toLocaleDateString()}
+                  </TableCell>
+                  {/* <TableCell>{request.totalItems}</TableCell> */}
                 </TableRow>
               ))}
             </TableBody>
