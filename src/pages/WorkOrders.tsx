@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, ClipboardList, Calendar, User, AlertTriangle } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { workOrderSchema } from "@/lib/validations";
 
@@ -53,12 +54,44 @@ const mockWorkOrders: WorkOrder[] = [
     status: "Planned",
     dueDate: "2024-02-28",
     createdDate: "2024-01-20"
+  },
+  {
+    id: "3",
+    projectId: "proj-1",
+    projectName: "Office Building Construction",
+    title: "HVAC System Setup",
+    description: "Install heating, ventilation, and air conditioning systems",
+    assignedTo: "user-3",
+    assigneeName: "Mike Wilson",
+    priority: "Critical",
+    status: "Completed",
+    dueDate: "2024-01-30",
+    createdDate: "2024-01-10"
+  },
+  {
+    id: "4",
+    projectId: "proj-3",
+    projectName: "Factory Renovation",
+    title: "Floor Renovation",
+    description: "Complete renovation of production floor area",
+    assignedTo: "user-1",
+    assigneeName: "John Smith",
+    priority: "Low",
+    status: "On Hold",
+    dueDate: "2024-03-15",
+    createdDate: "2024-01-25"
   }
 ];
 
 export default function WorkOrders() {
-  const [workOrders] = useState<WorkOrder[]>(mockWorkOrders);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(mockWorkOrders);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("createdDate");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -75,7 +108,23 @@ export default function WorkOrders() {
 
   const onSubmit = async (data: any) => {
     try {
-      console.log("Creating work order:", data);
+      const newWorkOrder: WorkOrder = {
+        id: (workOrders.length + 1).toString(),
+        projectId: data.projectId,
+        projectName: data.projectId === "proj-1" ? "Office Building Construction" : 
+                    data.projectId === "proj-2" ? "Residential Complex" : "Factory Renovation",
+        title: data.title,
+        description: data.description,
+        assignedTo: data.assignedTo,
+        assigneeName: data.assignedTo === "user-1" ? "John Smith" : 
+                     data.assignedTo === "user-2" ? "Sarah Johnson" : "Mike Wilson",
+        priority: data.priority,
+        status: "Planned",
+        dueDate: data.dueDate,
+        createdDate: new Date().toISOString().split('T')[0]
+      };
+
+      setWorkOrders([newWorkOrder, ...workOrders]);
       toast.success("Work order created successfully!");
       setOpen(false);
       form.reset();
@@ -84,10 +133,41 @@ export default function WorkOrders() {
     }
   };
 
-  const filteredWorkOrders = workOrders.filter(wo =>
-    wo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    wo.projectName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredAndSortedWorkOrders = workOrders
+    .filter(wo => {
+      const matchesSearch = wo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          wo.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          wo.assigneeName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || wo.priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesPriority;
+    })
+    .sort((a, b) => {
+      let aValue: any = a[sortField as keyof WorkOrder];
+      let bValue: any = b[sortField as keyof WorkOrder];
+      
+      if (sortField === 'dueDate' || sortField === 'createdDate') {
+        aValue = new Date(aValue as string).getTime();
+        bValue = new Date(bValue as string).getTime();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  const totalPages = Math.ceil(filteredAndSortedWorkOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedWorkOrders = filteredAndSortedWorkOrders.slice(startIndex, startIndex + itemsPerPage);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -144,6 +224,7 @@ export default function WorkOrders() {
                         <SelectContent>
                           <SelectItem value="proj-1">Office Building Construction</SelectItem>
                           <SelectItem value="proj-2">Residential Complex</SelectItem>
+                          <SelectItem value="proj-3">Factory Renovation</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -252,65 +333,153 @@ export default function WorkOrders() {
         </Dialog>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search work orders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters & Search</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search work orders..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Planned">Planned</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="On Hold">On Hold</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="Low">Low</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="High">High</SelectItem>
+                <SelectItem value="Critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredWorkOrders.map((workOrder) => (
-          <Card key={workOrder.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-2">
-                  <ClipboardList className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">{workOrder.title}</CardTitle>
-                </div>
-                <div className="flex space-x-2">
-                  <Badge variant={getPriorityColor(workOrder.priority) as any}>
-                    {workOrder.priority}
-                  </Badge>
-                  <Badge variant={getStatusColor(workOrder.status) as any}>
-                    {workOrder.status}
-                  </Badge>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">{workOrder.projectName}</p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm">{workOrder.description}</p>
-              
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>Assigned to: {workOrder.assigneeName}</span>
-              </div>
-              
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Due: {new Date(workOrder.dueDate).toLocaleDateString()}</span>
-              </div>
-              
-              {workOrder.priority === 'Critical' || workOrder.priority === 'High' ? (
-                <div className="flex items-center space-x-2 text-sm text-destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>High priority work order</span>
-                </div>
-              ) : null}
-              
-              <div className="text-sm text-muted-foreground">
-                <strong>Created:</strong> {new Date(workOrder.createdDate).toLocaleDateString()}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Work Orders</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead 
+                  className="cursor-pointer" 
+                  onClick={() => handleSort('title')}
+                >
+                  Title <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('projectName')}
+                >
+                  Project <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('assigneeName')}
+                >
+                  Assigned To <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('dueDate')}
+                >
+                  Due Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('createdDate')}
+                >
+                  Created Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                <TableHead>Description</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedWorkOrders.map((workOrder) => (
+                <TableRow key={workOrder.id}>
+                  <TableCell className="font-medium">{workOrder.title}</TableCell>
+                  <TableCell>{workOrder.projectName}</TableCell>
+                  <TableCell>{workOrder.assigneeName}</TableCell>
+                  <TableCell>
+                    <Badge variant={getPriorityColor(workOrder.priority) as any}>
+                      {workOrder.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusColor(workOrder.status) as any}>
+                      {workOrder.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(workOrder.dueDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(workOrder.createdDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate" title={workOrder.description}>
+                    {workOrder.description}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAndSortedWorkOrders.length)} of {filteredAndSortedWorkOrders.length} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
