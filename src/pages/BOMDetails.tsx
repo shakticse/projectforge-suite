@@ -265,7 +265,6 @@ export default function BOMDetails() {
       <Tabs defaultValue="material-requests" className="space-y-6">
         <TabsList>
           <TabsTrigger value="material-requests">Material Requests</TabsTrigger>
-          <TabsTrigger value="work-orders">Work Orders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="material-requests" className="space-y-6">
@@ -344,89 +343,6 @@ export default function BOMDetails() {
               {filteredItems.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No items found for this BOM</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="work-orders" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search work orders..."
-                  value={workOrderSearchTerm}
-                  onChange={(e) => setWorkOrderSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Filter
-              </Button>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredWorkOrders.length} work orders found
-            </div>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2" />
-                Work Orders
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Work Order ID</TableHead>
-                      <TableHead>Created By</TableHead>
-                      <TableHead>Created Date</TableHead>
-                      <TableHead>Last Updated Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredWorkOrders.map((workOrder) => (
-                      <TableRow key={workOrder.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{workOrder.workOrderId}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                            {workOrder.createdBy}
-                          </div>
-                        </TableCell>
-                        <TableCell>{new Date(workOrder.createdDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(workOrder.lastUpdatedDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Badge className={getWorkOrderStatusColor(workOrder.status)}>
-                            {workOrder.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewWorkOrderItems(workOrder)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {filteredWorkOrders.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No work orders found for this BOM</p>
                 </div>
               )}
             </CardContent>

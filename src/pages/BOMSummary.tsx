@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   ArrowLeft, 
   Package, 
@@ -17,7 +18,8 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -70,6 +72,25 @@ interface MaterialRequest {
   expectedDate: string;
 }
 
+interface WorkOrder {
+  id: string;
+  workOrderId: string;
+  createdBy: string;
+  createdDate: string;
+  lastUpdatedDate: string;
+  status: 'Open' | 'In Progress' | 'Completed' | 'Cancelled';
+}
+
+interface WorkOrderItem {
+  id: string;
+  itemName: string;
+  category: string;
+  uom: string;
+  quantity: number;
+  allocatedQty: number;
+  pendingQty: number;
+}
+
 const BOMSummary = () => {
   const { bomId } = useParams<{ bomId: string }>();
   const navigate = useNavigate();
@@ -77,6 +98,9 @@ const BOMSummary = () => {
   const [bomItems, setBomItems] = useState<BOMItem[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderDetail[]>([]);
   const [materialRequests, setMaterialRequests] = useState<MaterialRequest[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [isWorkOrderItemsDialogOpen, setIsWorkOrderItemsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Mock data - replace with API calls
@@ -186,6 +210,78 @@ const BOMSummary = () => {
     }
   ];
 
+  const mockWorkOrders: WorkOrder[] = [
+    {
+      id: "wo-1",
+      workOrderId: "WO-2024-001",
+      createdBy: "John Smith",
+      createdDate: "2024-01-15",
+      lastUpdatedDate: "2024-01-16",
+      status: "In Progress"
+    },
+    {
+      id: "wo-2",
+      workOrderId: "WO-2024-002",
+      createdBy: "Mike Johnson",
+      createdDate: "2024-01-14",
+      lastUpdatedDate: "2024-01-18",
+      status: "Completed"
+    },
+    {
+      id: "wo-3",
+      workOrderId: "WO-2024-003",
+      createdBy: "Sarah Wilson",
+      createdDate: "2024-01-12",
+      lastUpdatedDate: "2024-01-17",
+      status: "Open"
+    }
+  ];
+
+  const mockWorkOrderItems: Record<string, WorkOrderItem[]> = {
+    "WO-2024-001": [
+      {
+        id: "woi-1",
+        itemName: "GLASS STOPPER PVC",
+        category: "Hardware",
+        uom: "PCS",
+        quantity: 50,
+        allocatedQty: 30,
+        pendingQty: 20
+      },
+      {
+        id: "woi-2",
+        itemName: "HANGAR 10 MTR ROOF COVER",
+        category: "Roofing",
+        uom: "MTR",
+        quantity: 100,
+        allocatedQty: 60,
+        pendingQty: 40
+      }
+    ],
+    "WO-2024-002": [
+      {
+        id: "woi-3",
+        itemName: "STEEL BEAM 20FT",
+        category: "Structural",
+        uom: "PCS",
+        quantity: 25,
+        allocatedQty: 25,
+        pendingQty: 0
+      }
+    ],
+    "WO-2024-003": [
+      {
+        id: "woi-4",
+        itemName: "CEMENT BAG 50KG",
+        category: "Materials",
+        uom: "BAG",
+        quantity: 200,
+        allocatedQty: 0,
+        pendingQty: 200
+      }
+    ]
+  };
+
   useEffect(() => {
     const fetchBOMDetails = async () => {
       try {
@@ -198,6 +294,7 @@ const BOMSummary = () => {
         setBomItems(mockBOMItems);
         setPurchaseOrders(mockPurchaseOrders);
         setMaterialRequests(mockMaterialRequests);
+        setWorkOrders(mockWorkOrders);
       } catch (error) {
         console.error("Error fetching BOM details:", error);
         toast.error("Failed to load BOM details");
@@ -248,6 +345,21 @@ const BOMSummary = () => {
 
   const calculateAllocationPercentage = (allocated: number, requested: number) => {
     return requested > 0 ? Math.round((allocated / requested) * 100) : 0;
+  };
+
+  const getWorkOrderStatusColor = (status: string) => {
+    switch (status) {
+      case 'Open': return 'bg-blue-100 text-blue-800';
+      case 'In Progress': return 'bg-yellow-100 text-yellow-800'; 
+      case 'Completed': return 'bg-green-100 text-green-800';
+      case 'Cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleViewWorkOrderItems = (workOrder: WorkOrder) => {
+    setSelectedWorkOrder(workOrder);
+    setIsWorkOrderItemsDialogOpen(true);
   };
 
   if (loading) {
@@ -376,7 +488,7 @@ const BOMSummary = () => {
 
       {/* Detailed Sections */}
       <Tabs defaultValue="items" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="items" className="flex items-center">
             <Package className="h-4 w-4 mr-2" />
             BOM Items
@@ -388,6 +500,10 @@ const BOMSummary = () => {
           <TabsTrigger value="material-requests" className="flex items-center">
             <Building2 className="h-4 w-4 mr-2" />
             Material Requests
+          </TabsTrigger>
+          <TabsTrigger value="work-orders" className="flex items-center">
+            <FileText className="h-4 w-4 mr-2" />
+            Work Orders
           </TabsTrigger>
         </TabsList>
 
@@ -545,7 +661,115 @@ const BOMSummary = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Work Orders Tab */}
+        <TabsContent value="work-orders">
+          <Card>
+            <CardHeader>
+              <CardTitle>Work Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Work Order ID</TableHead>
+                      <TableHead>Created By</TableHead>
+                      <TableHead>Created Date</TableHead>
+                      <TableHead>Last Updated Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {workOrders.map((workOrder) => (
+                      <TableRow key={workOrder.id}>
+                        <TableCell className="font-medium">{workOrder.workOrderId}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {workOrder.createdBy}
+                          </div>
+                        </TableCell>
+                        <TableCell>{new Date(workOrder.createdDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(workOrder.lastUpdatedDate).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Badge className={getWorkOrderStatusColor(workOrder.status)}>
+                            {workOrder.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewWorkOrderItems(workOrder)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Work Order Items Dialog */}
+      <Dialog open={isWorkOrderItemsDialogOpen} onOpenChange={setIsWorkOrderItemsDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              Work Order Items - {selectedWorkOrder?.workOrderId}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedWorkOrder && (
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <span className="text-sm text-muted-foreground">Created By:</span>
+                  <p className="font-medium">{selectedWorkOrder.createdBy}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status:</span>
+                  <Badge className={`ml-2 ${getWorkOrderStatusColor(selectedWorkOrder.status)}`}>
+                    {selectedWorkOrder.status}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>UOM</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Allocated Qty</TableHead>
+                    <TableHead>Pending Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedWorkOrder && mockWorkOrderItems[selectedWorkOrder.workOrderId]?.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell>{item.category}</TableCell>
+                      <TableCell>{item.uom}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell className="text-green-600 font-medium">{item.allocatedQty}</TableCell>
+                      <TableCell className="text-orange-600 font-medium">{item.pendingQty}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
