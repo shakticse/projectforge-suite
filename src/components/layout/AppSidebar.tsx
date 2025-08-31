@@ -41,6 +41,7 @@ const getMenuItems = (userRole: string) => {
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Work Order", url: "/work-orders", icon: ClipboardList },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+    { title: "Material Request", url: "/material-request", icon: Building2 },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
@@ -85,6 +86,7 @@ const getMenuItems = (userRole: string) => {
         { title: "BOM Allocation", url: "/bom-action", icon: Activity },
         { title: "Gate Pass", url: "/gate-pass", icon: Truck },
         { title: "Reports", url: "/reports", icon: BarChart3 },
+        { title: "Material Request", url: "/material-request", icon: Building2 },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
