@@ -162,7 +162,10 @@ const Login = () => {
                   <strong>Project Supervisor:</strong> <span className="font-mono">supervisor@projecthub.com</span> / <span className="font-mono">password</span>
                 </p>
                 <p className="text-center">
-                  <strong>Site Supervisor:</strong> <span className="font-mono">site@projecthub.com</span> / <span className="font-mono">password</span>
+                  <strong>Store Supervisor:</strong> <span className="font-mono">store@projecthub.com</span> / <span className="font-mono">password</span>
+                </p>
+                <p className="text-center">
+                  <strong>Purchase:</strong> <span className="font-mono">purchase@projecthub.com</span> / <span className="font-mono">password</span>
                 </p>
               </div>
             </div>

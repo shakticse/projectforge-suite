@@ -39,7 +39,6 @@ const getMenuItems = (userRole: string) => {
     { title: "Vendors", url: "/vendors", icon: Building2 },
     { title: "Bill of Materials", url: "/bom", icon: FileText },
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
-    { title: "Work Request", url: "/work-requests", icon: ClipboardList },
     { title: "Work Order", url: "/work-orders", icon: ClipboardList },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
@@ -54,6 +53,8 @@ const getMenuItems = (userRole: string) => {
       { title: "Projects", url: "/projects", icon: Activity },
       { title: "Inventory", url: "/inventory", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
+      { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+      { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -63,17 +64,27 @@ const getMenuItems = (userRole: string) => {
     });
   }
 
-  // Add BOM Status for Store In Charge users
-  if (userRole === 'Site Supervisor') {
-    // const arr[] : array of menu which needs to be remove 
+  if (userRole === 'Store Supervisor') {
     const arr = [
       { title: "Projects", url: "/projects", icon: Activity },
-      { title: "Inventory", url: "/inventory", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
-      { title: "Reports", url: "/reports", icon: Activity },
-      { title: "BOM Allocation", url: "/bom-action", icon: Activity },
-      { title: "Purchase Request", url: "/purchase-requests", icon: Activity },
-      { title: "Gate Pass", url: "/gate-pass", icon: Activity },
+    ];
+    arr.forEach(item => {
+      const index = baseItems.findIndex(i => i.title === item.title);
+      if (index !== -1) {
+        baseItems.splice(index, 1);
+      }
+    });
+  }
+
+  if (userRole === 'Purchase') {
+    // const arr[] : array of menu which needs to be remove 
+    const arr = [
+        { title: "Dashboard", url: "/", icon: LayoutDashboard },
+        { title: "Bill of Materials", url: "/bom", icon: FileText },
+        { title: "BOM Allocation", url: "/bom-action", icon: Activity },
+        { title: "Gate Pass", url: "/gate-pass", icon: Truck },
+        { title: "Reports", url: "/reports", icon: BarChart3 },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);

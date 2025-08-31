@@ -33,7 +33,7 @@ export const authService = {
           name: 'John Doe',
           email: 'pm@projecthub.com',
           role: 'Project Manager',
-          department: 'Operations',
+          department: 'Admin',
           avatar: 'JD'
         }
       },
@@ -50,15 +50,27 @@ export const authService = {
         }
       },
       {
-        email: 'site@projecthub.com',
+        email: 'store@projecthub.com',
         password: 'password',
         user: {
           id: '3',
           name: 'Mike Wilson',
-          email: 'site@projecthub.com',
-          role: 'Site Supervisor',
-          department: 'Inventory',
+          email: 'store@projecthub.com',
+          role: 'Store Supervisor',
+          department: 'Store',
           avatar: 'MW'
+        }
+      },
+      {
+        email: 'purchase@projecthub.com',
+        password: 'password',
+        user: {
+          id: '4',
+          name: 'Dave',
+          email: 'purchase@projecthub.com',
+          role: 'Purchase',
+          department: 'Store',
+          avatar: 'DS'
         }
       }
     ];

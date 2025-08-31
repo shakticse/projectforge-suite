@@ -175,24 +175,25 @@ export default function WorkOrderRequests() {
 
   const onSubmit = async (data: any) => {
     try {
-      const newRequest: WorkOrderRequest = {
-        id: (workOrderRequests.length + 1).toString(),
-        requestNumber: `WOR-2024-${String(workOrderRequests.length + 1).padStart(3, '0')}`,
-        requestedBy: "Current User",
-        project: data.project,
-        bom: data.bom,
-        status: "Pending",
-        requestDate: new Date().toISOString().split('T')[0],
-        items: formItems.filter(item => item.materialId.trim() !== "").map((item, index) => ({
-          id: (index + 1).toString(),
-          materialId: item.materialId,
-          materialName: item.materialName,
-          category: item.category,
-          uom: item.uom,
-          qty: item.qty
-        })),
-        totalItems: formItems.filter(item => item.materialId.trim() !== "").length
-      };
+             const newRequest: WorkOrderRequest = {
+         id: (workOrderRequests.length + 1).toString(),
+         requestNumber: `WOR-2024-${String(workOrderRequests.length + 1).padStart(3, '0')}`,
+         requestedBy: "Current User",
+         project: data.project,
+         bom: data.bom,
+         status: "Pending",
+         requestDate: new Date().toISOString().split('T')[0],
+         completeByDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 10 days from now
+         items: formItems.filter(item => item.materialId.trim() !== "").map((item, index) => ({
+           id: (index + 1).toString(),
+           materialId: item.materialId,
+           materialName: item.materialName,
+           category: item.category,
+           uom: item.uom,
+           qty: item.qty
+         })),
+         totalItems: formItems.filter(item => item.materialId.trim() !== "").length
+       };
 
       setWorkOrderRequests([newRequest, ...workOrderRequests]);
       toast.success("Work order request created successfully!");
@@ -270,13 +271,13 @@ export default function WorkOrderRequests() {
               Create Work Order Request
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                     <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             <DialogHeader>
               <DialogTitle>Create Work Order Request</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="project"
@@ -337,119 +338,121 @@ export default function WorkOrderRequests() {
 
                   {formItems.length > 0 && (
                     <div className="border rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-16">Row #</TableHead>
-                            <TableHead>Item</TableHead>
-                            {/* <TableHead>Material Name</TableHead> */}
-                            <TableHead>Category</TableHead>
-                            <TableHead>UOM</TableHead>
-                            <TableHead className="w-32">Quantity</TableHead>
-                            <TableHead className="w-16">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {formItems.map((formItem, index) => (
-                            <TableRow key={formItem.id}>
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell>
-                                <Popover 
-                                  open={openPopovers[formItem.id] || false}
-                                  onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [formItem.id]: open }))}
-                                >
-                                  <PopoverTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      role="combobox"
-                                      aria-expanded={openPopovers[formItem.id] || false}
-                                      className="w-full justify-between"
-                                    >
-                                      {formItem.materialId ? 
-                                        mockMaterials.find(mat => mat.id === formItem.materialId)?.name || "Select material..." 
-                                        : "Select material..."
-                                      }
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-full p-0" align="start">
-                                    <Command>
-                                      <CommandInput placeholder="Search items..." />
-                                      <CommandList>
-                                        <CommandEmpty>No material found.</CommandEmpty>
-                                        <CommandGroup>
-                                          {mockMaterials.map((material) => (
-                                            <CommandItem
-                                              key={material.id}
-                                              value={material.name}
-                                              onSelect={() => updateFormItem(formItem.id, 'materialId', material.id)}
-                                            >
-                                              <Check
-                                                className={`mr-2 h-4 w-4 ${
-                                                  formItem.materialId === material.id ? "opacity-100" : "opacity-0"
-                                                }`}
-                                              />
-                                              <div className="flex flex-col">
-                                                <span>{material.name}</span>
-                                                <span className="text-xs text-muted-foreground">
-                                                  {material.category} • {material.uom}
-                                                </span>
-                                              </div>
-                                            </CommandItem>
-                                          ))}
-                                        </CommandGroup>
-                                      </CommandList>
-                                    </Command>
-                                  </PopoverContent>
-                                </Popover>
-                              </TableCell>
-                              {/* <TableCell>
-                                <Input
-                                  value={formItem.materialName}
-                                  onChange={(e) => updateFormItem(formItem.id, 'materialName', e.target.value)}
-                                  disabled
-                                  className="bg-muted"
-                                />
-                              </TableCell> */}
-                              <TableCell>
-                                <Input
-                                  value={formItem.category}
-                                  onChange={(e) => updateFormItem(formItem.id, 'category', e.target.value)}
-                                  disabled
-                                  className="bg-muted"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  value={formItem.uom}
-                                  onChange={(e) => updateFormItem(formItem.id, 'uom', e.target.value)}
-                                  disabled
-                                  className="bg-muted"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={formItem.qty}
-                                  onChange={(e) => updateFormItem(formItem.id, 'qty', parseInt(e.target.value) || 1)}
-                                  placeholder="0"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeRow(formItem.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-16">Row #</TableHead>
+                              <TableHead>Item</TableHead>
+                              <TableHead className="hidden md:table-cell">Category</TableHead>
+                              <TableHead className="hidden md:table-cell">UOM</TableHead>
+                              <TableHead className="w-32">Quantity</TableHead>
+                              <TableHead className="w-16">Action</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {formItems.map((formItem, index) => (
+                              <TableRow key={formItem.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>
+                                  <Popover 
+                                    open={openPopovers[formItem.id] || false}
+                                    onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [formItem.id]: open }))}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openPopovers[formItem.id] || false}
+                                        className="w-full justify-between"
+                                      >
+                                        {formItem.materialId ? 
+                                          mockMaterials.find(mat => mat.id === formItem.materialId)?.name || "Select material..." 
+                                          : "Select material..."
+                                        }
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                      <Command>
+                                        <CommandInput placeholder="Search items..." />
+                                        <CommandList>
+                                          <CommandEmpty>No material found.</CommandEmpty>
+                                          <CommandGroup>
+                                            {mockMaterials.map((material) => (
+                                              <CommandItem
+                                                key={material.id}
+                                                value={material.name}
+                                                onSelect={() => updateFormItem(formItem.id, 'materialId', material.id)}
+                                              >
+                                                <Check
+                                                  className={`mr-2 h-4 w-4 ${
+                                                    formItem.materialId === material.id ? "opacity-100" : "opacity-0"
+                                                  }`}
+                                                />
+                                                <div className="flex flex-col">
+                                                  <span>{material.name}</span>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {material.category} • {material.uom}
+                                                  </span>
+                                                </div>
+                                              </CommandItem>
+                                            ))}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
+                                  {/* Mobile view: Show category and UOM below item */}
+                                  <div className="md:hidden mt-2 space-y-1">
+                                    <div className="text-xs text-muted-foreground">
+                                      <span className="font-medium">Category:</span> {formItem.category || 'Not selected'}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      <span className="font-medium">UOM:</span> {formItem.uom || 'Not selected'}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                  <Input
+                                    value={formItem.category}
+                                    onChange={(e) => updateFormItem(formItem.id, 'category', e.target.value)}
+                                    disabled
+                                    className="bg-muted"
+                                  />
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                  <Input
+                                    value={formItem.uom}
+                                    onChange={(e) => updateFormItem(formItem.id, 'uom', e.target.value)}
+                                    disabled
+                                    className="bg-muted"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={formItem.qty}
+                                    onChange={(e) => updateFormItem(formItem.id, 'qty', parseInt(e.target.value) || 1)}
+                                    placeholder="0"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeRow(formItem.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   )}
 
@@ -494,7 +497,7 @@ export default function WorkOrderRequests() {
           <CardTitle>Filters & Search</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -537,72 +540,83 @@ export default function WorkOrderRequests() {
           <CardTitle>Work Order Requests</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead 
-                  className="cursor-pointer" 
-                  onClick={() => handleSort('requestNumber')}
-                >
-                  Request # <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('requestedBy')}
-                >
-                  Requested By <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('project')}
-                >
-                  Project <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('bom')}
-                >
-                  BOM <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('requestDate')}
-                >
-                  Request Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('completeByDate')}
-                >
-                  CompleteBy Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
-                {/* <TableHead>Total Items</TableHead> */}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedRequests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell className="font-medium">{request.requestNumber}</TableCell>
-                  <TableCell>{request.requestedBy}</TableCell>
-                  <TableCell>{request.project}</TableCell>
-                  <TableCell>{request.bom}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(request.status) as any}>
-                      {request.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(request.requestDate).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(request.completeByDate).toLocaleDateString()}
-                  </TableCell>
-                  {/* <TableCell>{request.totalItems}</TableCell> */}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                     <div className="overflow-x-auto">
+             <Table>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead 
+                     className="cursor-pointer" 
+                     onClick={() => handleSort('requestNumber')}
+                   >
+                     Request # <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead 
+                     className="cursor-pointer"
+                     onClick={() => handleSort('requestedBy')}
+                   >
+                     Requested By <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead 
+                     className="hidden md:table-cell cursor-pointer"
+                     onClick={() => handleSort('project')}
+                   >
+                     Project <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead 
+                     className="hidden md:table-cell cursor-pointer"
+                     onClick={() => handleSort('bom')}
+                   >
+                     BOM <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead>Status</TableHead>
+                   <TableHead 
+                     className="hidden md:table-cell cursor-pointer"
+                     onClick={() => handleSort('requestDate')}
+                   >
+                     Request Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead 
+                     className="hidden md:table-cell cursor-pointer"
+                     onClick={() => handleSort('completeByDate')}
+                   >
+                     CompleteBy Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                 </TableRow>
+               </TableHeader>
+                          <TableBody>
+                {paginatedRequests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell className="font-medium">{request.requestNumber}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{request.requestedBy}</div>
+                        {/* Mobile view: Show project and BOM below requested by */}
+                        <div className="md:hidden text-xs text-muted-foreground space-y-1">
+                          <div><span className="font-medium">Project:</span> {request.project}</div>
+                          <div><span className="font-medium">BOM:</span> {request.bom}</div>
+                          <div><span className="font-medium">Request Date:</span> {new Date(request.requestDate).toLocaleDateString()}</div>
+                          <div><span className="font-medium">Complete By:</span> {new Date(request.completeByDate).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{request.project}</TableCell>
+                    <TableCell className="hidden md:table-cell">{request.bom}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusColor(request.status) as any}>
+                        {request.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {new Date(request.requestDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {new Date(request.completeByDate).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
