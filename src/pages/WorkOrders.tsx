@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Plus, Search, ChevronLeft, ChevronRight, ArrowUpDown, Edit } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { workOrderSchema } from "@/lib/validations";
 
@@ -35,16 +34,38 @@ interface BOMItem {
   bomId: string;
   materialName: string;
   quantity: number;
+  unit: string;
   status: 'Pending' | 'In Progress' | 'Completed';
 }
 
+interface BOM {
+  id: string;
+  name: string;
+  projectId: string;
+}
+
+interface WorkOrderItem {
+  bomItemId: string;
+  quantity: number;
+}
+
+const mockBOMs: BOM[] = [
+  { id: "BOM-001", name: "Foundation Work BOM", projectId: "proj-1" },
+  { id: "BOM-002", name: "Electrical Work BOM", projectId: "proj-1" },
+  { id: "BOM-003", name: "Plumbing BOM", projectId: "proj-2" },
+  { id: "BOM-004", name: "HVAC BOM", projectId: "proj-2" },
+  { id: "BOM-005", name: "Renovation BOM", projectId: "proj-3" },
+];
+
 const mockBOMItems: BOMItem[] = [
-  { id: "bom-item-1", bomId: "BOM-001", materialName: "Cement", quantity: 50, status: "Pending" },
-  { id: "bom-item-2", bomId: "BOM-001", materialName: "Steel Rebar", quantity: 100, status: "Pending" },
-  { id: "bom-item-3", bomId: "BOM-002", materialName: "Concrete Blocks", quantity: 200, status: "Pending" },
-  { id: "bom-item-4", bomId: "BOM-002", materialName: "Mortar Mix", quantity: 75, status: "In Progress" },
-  { id: "bom-item-5", bomId: "BOM-003", materialName: "Electrical Cables", quantity: 300, status: "Pending" },
-  { id: "bom-item-6", bomId: "BOM-003", materialName: "Circuit Breakers", quantity: 25, status: "Pending" },
+  { id: "bom-item-1", bomId: "BOM-001", materialName: "Cement", quantity: 50, unit: "bags", status: "Pending" },
+  { id: "bom-item-2", bomId: "BOM-001", materialName: "Steel Rebar", quantity: 100, unit: "kg", status: "Pending" },
+  { id: "bom-item-3", bomId: "BOM-002", materialName: "Electrical Cables", quantity: 300, unit: "meters", status: "Pending" },
+  { id: "bom-item-4", bomId: "BOM-002", materialName: "Circuit Breakers", quantity: 25, unit: "units", status: "Pending" },
+  { id: "bom-item-5", bomId: "BOM-003", materialName: "PVC Pipes", quantity: 200, unit: "meters", status: "Pending" },
+  { id: "bom-item-6", bomId: "BOM-003", materialName: "Water Pumps", quantity: 5, unit: "units", status: "Pending" },
+  { id: "bom-item-7", bomId: "BOM-004", materialName: "Air Conditioners", quantity: 10, unit: "units", status: "Pending" },
+  { id: "bom-item-8", bomId: "BOM-005", materialName: "Floor Tiles", quantity: 500, unit: "sq ft", status: "Pending" },
 ];
 
 const mockWorkOrders: WorkOrder[] = [
@@ -113,7 +134,8 @@ export default function WorkOrders() {
   const [itemsPerPage] = useState(10);
   const [open, setOpen] = useState(false);
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
-  const [selectedBOMItems, setSelectedBOMItems] = useState<string[]>([]);
+  const [selectedBomId, setSelectedBomId] = useState<string>("");
+  const [workOrderItems, setWorkOrderItems] = useState<Record<string, number>>({});
 
   const form = useForm({
     resolver: yupResolver(workOrderSchema),
@@ -127,8 +149,40 @@ export default function WorkOrders() {
     },
   });
 
+  // Get BOMs for selected project
+  const selectedProjectBOMs = form.watch("projectId") 
+    ? mockBOMs.filter(bom => bom.projectId === form.watch("projectId"))
+    : [];
+
+  // Get pending BOM items for selected BOM
+  const selectedBOMItems = selectedBomId 
+    ? mockBOMItems.filter(item => item.bomId === selectedBomId && item.status === 'Pending')
+    : [];
+
+  const handleProjectChange = (projectId: string) => {
+    form.setValue("projectId", projectId);
+    setSelectedBomId("");
+    setWorkOrderItems({});
+  };
+
+  const handleBOMChange = (bomId: string) => {
+    setSelectedBomId(bomId);
+    setWorkOrderItems({});
+  };
+
+  const handleQuantityChange = (itemId: string, quantity: number) => {
+    setWorkOrderItems(prev => ({
+      ...prev,
+      [itemId]: quantity
+    }));
+  };
+
   const onSubmit = async (data: any) => {
     try {
+      const selectedItemsForSubmission = Object.keys(workOrderItems).filter(
+        itemId => workOrderItems[itemId] > 0
+      );
+
       if (editingWorkOrder) {
         // Update existing work order
         const updatedWorkOrder: WorkOrder = {
@@ -143,7 +197,7 @@ export default function WorkOrders() {
                        data.assignedTo === "user-2" ? "Sarah Johnson" : "Mike Wilson",
           priority: data.priority,
           dueDate: data.dueDate,
-          bomItems: selectedBOMItems
+          bomItems: selectedItemsForSubmission
         };
 
         setWorkOrders(workOrders.map(wo => wo.id === editingWorkOrder.id ? updatedWorkOrder : wo));
@@ -164,7 +218,7 @@ export default function WorkOrders() {
           status: "Planned",
           dueDate: data.dueDate,
           createdDate: new Date().toISOString().split('T')[0],
-          bomItems: selectedBOMItems
+          bomItems: selectedItemsForSubmission
         };
 
         setWorkOrders([newWorkOrder, ...workOrders]);
@@ -174,7 +228,8 @@ export default function WorkOrders() {
       setOpen(false);
       form.reset();
       setEditingWorkOrder(null);
-      setSelectedBOMItems([]);
+      setSelectedBomId("");
+      setWorkOrderItems({});
     } catch (error) {
       toast.error(editingWorkOrder ? "Failed to update work order" : "Failed to create work order");
     }
@@ -188,24 +243,19 @@ export default function WorkOrders() {
     form.setValue("assignedTo", workOrder.assignedTo);
     form.setValue("priority", workOrder.priority);
     form.setValue("dueDate", workOrder.dueDate);
-    setSelectedBOMItems(workOrder.bomItems || []);
+    setSelectedBomId("");
+    setWorkOrderItems({});
     setOpen(true);
   };
 
   const handleCreateNew = () => {
     setEditingWorkOrder(null);
     form.reset();
-    setSelectedBOMItems([]);
+    setSelectedBomId("");
+    setWorkOrderItems({});
     setOpen(true);
   };
 
-  const handleBOMItemToggle = (itemId: string) => {
-    setSelectedBOMItems(prev => 
-      prev.includes(itemId) 
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
-    );
-  };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -398,42 +448,71 @@ export default function WorkOrders() {
                 />
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Pending BOM Items</h3>
-                  <div className="border rounded-lg max-h-60 overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12"></TableHead>
-                          <TableHead>BOM ID</TableHead>
-                          <TableHead>Material Name</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockBOMItems.filter(item => item.status === 'Pending').map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedBOMItems.includes(item.id)}
-                                onCheckedChange={() => handleBOMItemToggle(item.id)}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{item.bomId}</TableCell>
-                            <TableCell>{item.materialName}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{item.status}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  {selectedBOMItems.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedBOMItems.length} item(s) selected for this work order
-                    </p>
+                  {/* BOM Selection */}
+                  {form.watch("projectId") && (
+                    <div>
+                      <label className="text-sm font-medium">Select BOM</label>
+                      <Select value={selectedBomId} onValueChange={handleBOMChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select BOM to assign items" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {selectedProjectBOMs.map((bom) => (
+                            <SelectItem key={bom.id} value={bom.id}>
+                              {bom.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* BOM Items with Quantity Assignment */}
+                  {selectedBomId && selectedBOMItems.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold">Assign Quantities for BOM Items</h3>
+                      <div className="border rounded-lg max-h-60 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Material Name</TableHead>
+                              <TableHead>Available Qty</TableHead>
+                              <TableHead>Unit</TableHead>
+                              <TableHead>Work Order Qty</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedBOMItems.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.materialName}</TableCell>
+                                <TableCell>{item.quantity}</TableCell>
+                                <TableCell>{item.unit}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
+                                    min="0"
+                                    max={item.quantity}
+                                    value={workOrderItems[item.id] || ""}
+                                    onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 0)}
+                                    className="w-20"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {Object.keys(workOrderItems).filter(id => workOrderItems[id] > 0).length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {Object.keys(workOrderItems).filter(id => workOrderItems[id] > 0).length} item(s) assigned for this work order
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedBomId && selectedBOMItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No pending items found in selected BOM.</p>
                   )}
                 </div>
                 
