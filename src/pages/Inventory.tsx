@@ -52,8 +52,9 @@ const Inventory = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showStoreBreakdown, setShowStoreBreakdown] = useState(false);
 
-  // Mock inventory data with more items and different stores
+  // Mock inventory data with items across multiple stores
   const inventoryItems = [
+    // MAXIMA VERTICAL 2.5 MTR - Available in 3 stores
     {
       id: 1,
       name: "MAXIMA VERTICAL 2.5 MTR",
@@ -68,20 +69,64 @@ const Inventory = () => {
       location: "Noida",
       status: "In Stock"
     },
-    {  
-      id: 2,
-      name: "OCTONORM VERTICAL 2.5 MTR",
-      sku: "ALU-P2-002", 
-      category: "Octonorm",
-      quantity: 45,
+    {
+      id: 11,
+      name: "MAXIMA VERTICAL 2.5 MTR",
+      sku: "STL-4X8-001",
+      category: "Maxima 80 MM",
+      quantity: 75,
       minStock: 50,
+      maxStock: 300,
+      unitPrice: 125.50,
+      totalValue: 9412.50,
+      supplier: "MetalCorp Industries",
+      location: "Delhi",
+      status: "In Stock"
+    },
+    {
+      id: 12,
+      name: "MAXIMA VERTICAL 2.5 MTR",
+      sku: "STL-4X8-001",
+      category: "Maxima 80 MM",
+      quantity: 25,
+      minStock: 30,
       maxStock: 200,
-      unitPrice: 35.75,
-      totalValue: 1608.75,
-      supplier: "Aluminum Solutions",
-      location: "Kasna",
+      unitPrice: 125.50,
+      totalValue: 3137.50,
+      supplier: "MetalCorp Industries",
+      location: "Mumbai",
       status: "Low Stock"
     },
+    // LED SPOTLIGHTS - Available in 2 stores
+    {
+      id: 2,
+      name: "LED SPOTLIGHTS",
+      sku: "LED-SP-008",
+      category: "Lighting",
+      quantity: 200,
+      minStock: 100,
+      maxStock: 500,
+      unitPrice: 25.50,
+      totalValue: 5100,
+      supplier: "LightTech Solutions",
+      location: "Bangalore",
+      status: "In Stock"
+    },
+    {
+      id: 13,
+      name: "LED SPOTLIGHTS",
+      sku: "LED-SP-008",
+      category: "Lighting",
+      quantity: 80,
+      minStock: 50,
+      maxStock: 300,
+      unitPrice: 25.50,
+      totalValue: 2040,
+      supplier: "LightTech Solutions",
+      location: "Chennai",
+      status: "In Stock"
+    },
+    // GLASS STOPPER PVC - Available in 2 stores
     {
       id: 3,
       name: "GLASS STOPPER PVC",
@@ -97,35 +142,37 @@ const Inventory = () => {
       status: "In Stock"
     },
     {
-      id: 4,
-      name: "GLASS SLIDING LOCK",
-      sku: "MOT-5HP-004",
-      category: "Hardware",
-      quantity: 12,
-      minStock: 10,
-      maxStock: 30,
-      unitPrice: 850.00,
-      totalValue: 10200,
-      supplier: "ElectroMotors Inc",
-      location: "Chennai",
+      id: 14,
+      name: "GLASS STOPPER PVC",
+      sku: "SCR-M8-003",
+      category: "Hardware", 
+      quantity: 1200,
+      minStock: 800,
+      maxStock: 3000,
+      unitPrice: 0.25,
+      totalValue: 300,
+      supplier: "FastenTech",
+      location: "Pune",
       status: "In Stock"
     },
+    // OCTONORM VERTICAL 2.5 MTR - Single store
+    {  
+      id: 4,
+      name: "OCTONORM VERTICAL 2.5 MTR",
+      sku: "ALU-P2-002", 
+      category: "Octonorm",
+      quantity: 45,
+      minStock: 50,
+      maxStock: 200,
+      unitPrice: 35.75,
+      totalValue: 1608.75,
+      supplier: "Aluminum Solutions",
+      location: "Kasna",
+      status: "Low Stock"
+    },
+    // STEEL BEAM 5M - Available in 2 stores
     {
       id: 5,
-      name: "HANGAR 10 MTR ROOF COVER",
-      sku: "SAF-HLM-005",
-      category: "Hangar 10 Mtr",
-      quantity: 3,
-      minStock: 25,
-      maxStock: 100,
-      unitPrice: 25.00,
-      totalValue: 75,
-      supplier: "SafetyFirst Co",
-      location: "Noida",
-      status: "Critical"
-    },
-    {
-      id: 6,
       name: "STEEL BEAM 5M",
       sku: "STL-5M-006",
       category: "Steel Structure",
@@ -139,7 +186,50 @@ const Inventory = () => {
       status: "In Stock"
     },
     {
+      id: 15,
+      name: "STEEL BEAM 5M",
+      sku: "STL-5M-006",
+      category: "Steel Structure",
+      quantity: 40,
+      minStock: 30,
+      maxStock: 150,
+      unitPrice: 450.00,
+      totalValue: 18000,
+      supplier: "SteelWorks Ltd",
+      location: "Noida",
+      status: "In Stock"
+    },
+    // Single store items
+    {
+      id: 6,
+      name: "GLASS SLIDING LOCK",
+      sku: "MOT-5HP-004",
+      category: "Hardware",
+      quantity: 12,
+      minStock: 10,
+      maxStock: 30,
+      unitPrice: 850.00,
+      totalValue: 10200,
+      supplier: "ElectroMotors Inc",
+      location: "Chennai",
+      status: "In Stock"
+    },
+    {
       id: 7,
+      name: "HANGAR 10 MTR ROOF COVER",
+      sku: "SAF-HLM-005",
+      category: "Hangar 10 Mtr",
+      quantity: 3,
+      minStock: 25,
+      maxStock: 100,
+      unitPrice: 25.00,
+      totalValue: 75,
+      supplier: "SafetyFirst Co",
+      location: "Noida",
+      status: "Critical"
+    },
+    {
+      id: 8,
       name: "ALUMINUM PANEL 4X8",
       sku: "ALU-4X8-007",
       category: "Panels",
@@ -151,20 +241,6 @@ const Inventory = () => {
       supplier: "Panel Systems",
       location: "Mumbai",
       status: "Low Stock"
-    },
-    {
-      id: 8,
-      name: "LED SPOTLIGHTS",
-      sku: "LED-SP-008",
-      category: "Lighting",
-      quantity: 200,
-      minStock: 100,
-      maxStock: 500,
-      unitPrice: 25.50,
-      totalValue: 5100,
-      supplier: "LightTech Solutions",
-      location: "Bangalore",
-      status: "In Stock"
     },
     {
       id: 9,
