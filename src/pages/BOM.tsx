@@ -161,24 +161,24 @@ export default function BOM() {
 
   const addMaterialRow = () => {
     const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
-    setMaterials([...materials, { 
+    setMaterials([{ 
       id: newId, 
       materialId: "", 
       quantity: 0, 
       availableStock: 0 
-    }]);
+    }, ...materials]);
   };
 
   const addCustomMaterialRow = () => {
     const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
-    setMaterials([...materials, { 
+    setMaterials([{ 
       id: newId, 
       materialId: `custom-${newId}`, 
       quantity: 0, 
       availableStock: 0,
       isCustom: true,
       customName: ""
-    }]);
+    }, ...materials]);
   };
 
   const removeMaterialRow = (id: number) => {
@@ -217,7 +217,17 @@ export default function BOM() {
             childMultiplier: child.quantity,
             childPerUnitQty: child.perunit
           }));
-          updatedMaterials.push(...childItems);
+          // Find parent row index
+          const parentIndex = updatedMaterials.findIndex(m => m.id === id);
+
+          if (parentIndex !== -1) {
+            // Insert child items right after parent
+            updatedMaterials.splice(parentIndex + 1, 0, ...childItems);
+          } else {
+            // fallback: push at the end (shouldn't normally happen)
+            updatedMaterials.push(...childItems);
+          }
+          // updatedMaterials.push(...childItems);
         }
         
         // Close the popover
@@ -317,7 +327,7 @@ export default function BOM() {
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
           <p className="text-muted-foreground">Manage project material requirements</p>
         </div>
-        {user?.role === 'Project Manager' ? (
+        {user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor' ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleCreateNew}>
@@ -375,7 +385,7 @@ export default function BOM() {
                       </Button>
                       <Button type="button" onClick={addCustomMaterialRow} size="sm" variant="outline">
                         <Type className="h-4 w-4 mr-2" />
-                        Add Custom Item
+                        Add Miscellaneous Item
                       </Button>
                     </div>
                   </div>

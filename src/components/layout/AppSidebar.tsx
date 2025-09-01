@@ -14,7 +14,11 @@ import {
   Settings,
   ChevronLeft,
   Building2,
-  Activity
+  Activity,
+  CogIcon,
+  ChartBarStackedIcon,
+  PencilRulerIcon,
+  FileQuestionIcon
 } from "lucide-react";
 
 import {
@@ -39,23 +43,30 @@ const getMenuItems = (userRole: string) => {
     { title: "Vendors", url: "/vendors", icon: Building2 },
     { title: "Bill of Materials", url: "/bom", icon: FileText },
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
-    { title: "Work Order", url: "/work-orders", icon: ClipboardList },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
     { title: "Material Request", url: "/material-request", icon: Building2 },
+    { title: "MRN List/Challan", url: "/", icon: Building2 },
+    { title: "Work Order", url: "/work-orders", icon: ClipboardList },
+    { title: "Service Request", url: "/", icon: CogIcon },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
+    { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+    { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
+    { title: "Quert/Issue Log", url: "/", icon: FileQuestionIcon },
     { title: "Reports", url: "/reports", icon: BarChart3 },
   ];
 
   // Add BOM Action for Project Supervisor users
   if (userRole === 'Project Supervisor') {
     const arr = [
-      { title: "Projects", url: "/projects", icon: Activity },
       { title: "Inventory", url: "/inventory", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
+      { title: "BOM Allocation", url: "/bom-action", icon: Activity },
       { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
-      { title: "Gate Pass", url: "/gate-pass", icon: Truck },
+      { title: "Material Request", url: "/material-request", icon: Building2 },
+      { title: "Vendors", url: "/vendors", icon: Building2 },
+      { title: "MRN List/Challan", url: "/", icon: Building2 },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -69,6 +80,10 @@ const getMenuItems = (userRole: string) => {
     const arr = [
       { title: "Projects", url: "/projects", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
+      { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+      { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
+      { title: "Vendors", url: "/vendors", icon: Building2 },
+      { title: "MRN List/Challan", url: "/", icon: Building2 },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -86,7 +101,8 @@ const getMenuItems = (userRole: string) => {
         { title: "BOM Allocation", url: "/bom-action", icon: Activity },
         { title: "Gate Pass", url: "/gate-pass", icon: Truck },
         { title: "Reports", url: "/reports", icon: BarChart3 },
-        { title: "Material Request", url: "/material-request", icon: Building2 },
+        { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+        { title: "Users", url: "/users", icon: Users },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);

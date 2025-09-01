@@ -356,8 +356,29 @@ export default function WorkOrders() {
                       </FormItem>
                     )}
                   />
+
+                  <div className="space-y-4">
+                    {/* BOM Selection */}
+                    {form.watch("projectId") && (
+                      <div>
+                        <label className="text-sm font-medium">Select BOM</label>
+                        <Select value={selectedBomId} onValueChange={handleBOMChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select BOM to assign items" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            {selectedProjectBOMs.map((bom) => (
+                              <SelectItem key={bom.id} value={bom.id}>
+                                {bom.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
                   
-                  <FormField
+                  {/* <FormField
                     control={form.control}
                     name="title"
                     render={({ field }) => (
@@ -369,9 +390,9 @@ export default function WorkOrders() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  /> */}
                   
-                  <FormField
+                  {/* <FormField
                     control={form.control}
                     name="assignedTo"
                     render={({ field }) => (
@@ -392,9 +413,9 @@ export default function WorkOrders() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  /> */}
                   
-                  <FormField
+                  {/* <FormField
                     control={form.control}
                     name="priority"
                     render={({ field }) => (
@@ -416,8 +437,20 @@ export default function WorkOrders() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
-                  
+                  /> */}
+                  <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Detailed description of the work to be done" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                   <FormField
                     control={form.control}
                     name="dueDate"
@@ -433,40 +466,7 @@ export default function WorkOrders() {
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Detailed description of the work to be done" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-4">
-                  {/* BOM Selection */}
-                  {form.watch("projectId") && (
-                    <div>
-                      <label className="text-sm font-medium">Select BOM</label>
-                      <Select value={selectedBomId} onValueChange={handleBOMChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select BOM to assign items" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {selectedProjectBOMs.map((bom) => (
-                            <SelectItem key={bom.id} value={bom.id}>
-                              {bom.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-1">
                   {/* BOM Items with Quantity Assignment */}
                   {selectedBomId && selectedBOMItems.length > 0 && (
                     <div>
@@ -476,7 +476,7 @@ export default function WorkOrders() {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Material Name</TableHead>
-                              <TableHead>Available Qty</TableHead>
+                              <TableHead>Pending Qty</TableHead>
                               <TableHead>Unit</TableHead>
                               <TableHead>Work Order Qty</TableHead>
                             </TableRow>
@@ -515,7 +515,7 @@ export default function WorkOrders() {
                     <p className="text-sm text-muted-foreground">No pending items found in selected BOM.</p>
                   )}
                 </div>
-                
+
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
@@ -597,21 +597,22 @@ export default function WorkOrders() {
                 >
                   Assigned To <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                 </TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('dueDate')}
-                >
-                  Due Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                </TableHead>
+                {/* <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead> */}
+                
                 <TableHead 
                   className="cursor-pointer"
                   onClick={() => handleSort('createdDate')}
                 >
                   Created Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                 </TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead 
+                  className="cursor-pointer"
+                  onClick={() => handleSort('dueDate')}
+                >
+                  Due Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                </TableHead>
+                {/* <TableHead>Description</TableHead> */}
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -621,7 +622,7 @@ export default function WorkOrders() {
                   <TableCell className="font-medium">{workOrder.title}</TableCell>
                   <TableCell>{workOrder.projectName}</TableCell>
                   <TableCell>{workOrder.assigneeName}</TableCell>
-                  <TableCell>
+                  {/* <TableCell>
                     <Badge variant={getPriorityColor(workOrder.priority) as any}>
                       {workOrder.priority}
                     </Badge>
@@ -630,16 +631,16 @@ export default function WorkOrders() {
                     <Badge variant={getStatusColor(workOrder.status) as any}>
                       {workOrder.status}
                     </Badge>
+                  </TableCell> */}
+                  <TableCell>
+                    {new Date(workOrder.createdDate).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     {new Date(workOrder.dueDate).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
-                    {new Date(workOrder.createdDate).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate" title={workOrder.description}>
+                  {/* <TableCell className="max-w-xs truncate" title={workOrder.description}>
                     {workOrder.description}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="text-center">
                     <Button
                       variant="ghost"

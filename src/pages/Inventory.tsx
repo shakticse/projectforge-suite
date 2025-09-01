@@ -650,23 +650,23 @@ const Inventory = () => {
               <h3 className="font-semibold">Stock by Store</h3>
               <div className="space-y-2">
                 {selectedItem?.stores?.map((store: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={index} className="flex items-center justify-between pl-2 pr-2 border bg-background z-50">
                     <div>
                       <p className="font-medium">{store.location}</p>
-                      <p className="text-sm text-muted-foreground">
+                      {/* <p className="text-sm text-muted-foreground">
                         Min: {store.minStock} | Max: {store.maxStock}
-                      </p>
+                      </p> */}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-lg">{store.quantity}</span>
-                      <Badge 
+                      {/* <Badge 
                         variant={
                           store.quantity <= store.minStock * 0.5 ? "destructive" : 
                           store.quantity <= store.minStock ? "warning" : "success"
                         }
                       >
                         {store.status}
-                      </Badge>
+                      </Badge> */}
                     </div>
                   </div>
                 ))}
