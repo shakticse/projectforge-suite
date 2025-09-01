@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, ArrowUpDown, Edit } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { workOrderSchema } from "@/lib/validations";
 
@@ -26,7 +27,25 @@ interface WorkOrder {
   status: 'Planned' | 'In Progress' | 'Completed' | 'On Hold';
   dueDate: string;
   createdDate: string;
+  bomItems?: string[];
 }
+
+interface BOMItem {
+  id: string;
+  bomId: string;
+  materialName: string;
+  quantity: number;
+  status: 'Pending' | 'In Progress' | 'Completed';
+}
+
+const mockBOMItems: BOMItem[] = [
+  { id: "bom-item-1", bomId: "BOM-001", materialName: "Cement", quantity: 50, status: "Pending" },
+  { id: "bom-item-2", bomId: "BOM-001", materialName: "Steel Rebar", quantity: 100, status: "Pending" },
+  { id: "bom-item-3", bomId: "BOM-002", materialName: "Concrete Blocks", quantity: 200, status: "Pending" },
+  { id: "bom-item-4", bomId: "BOM-002", materialName: "Mortar Mix", quantity: 75, status: "In Progress" },
+  { id: "bom-item-5", bomId: "BOM-003", materialName: "Electrical Cables", quantity: 300, status: "Pending" },
+  { id: "bom-item-6", bomId: "BOM-003", materialName: "Circuit Breakers", quantity: 25, status: "Pending" },
+];
 
 const mockWorkOrders: WorkOrder[] = [
   {
@@ -93,6 +112,8 @@ export default function WorkOrders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [open, setOpen] = useState(false);
+  const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
+  const [selectedBOMItems, setSelectedBOMItems] = useState<string[]>([]);
 
   const form = useForm({
     resolver: yupResolver(workOrderSchema),
@@ -108,29 +129,82 @@ export default function WorkOrders() {
 
   const onSubmit = async (data: any) => {
     try {
-      const newWorkOrder: WorkOrder = {
-        id: (workOrders.length + 1).toString(),
-        projectId: data.projectId,
-        projectName: data.projectId === "proj-1" ? "Office Building Construction" : 
-                    data.projectId === "proj-2" ? "Residential Complex" : "Factory Renovation",
-        title: data.title,
-        description: data.description,
-        assignedTo: data.assignedTo,
-        assigneeName: data.assignedTo === "user-1" ? "John Smith" : 
-                     data.assignedTo === "user-2" ? "Sarah Johnson" : "Mike Wilson",
-        priority: data.priority,
-        status: "Planned",
-        dueDate: data.dueDate,
-        createdDate: new Date().toISOString().split('T')[0]
-      };
+      if (editingWorkOrder) {
+        // Update existing work order
+        const updatedWorkOrder: WorkOrder = {
+          ...editingWorkOrder,
+          projectId: data.projectId,
+          projectName: data.projectId === "proj-1" ? "Office Building Construction" : 
+                      data.projectId === "proj-2" ? "Residential Complex" : "Factory Renovation",
+          title: data.title,
+          description: data.description,
+          assignedTo: data.assignedTo,
+          assigneeName: data.assignedTo === "user-1" ? "John Smith" : 
+                       data.assignedTo === "user-2" ? "Sarah Johnson" : "Mike Wilson",
+          priority: data.priority,
+          dueDate: data.dueDate,
+          bomItems: selectedBOMItems
+        };
 
-      setWorkOrders([newWorkOrder, ...workOrders]);
-      toast.success("Work order created successfully!");
+        setWorkOrders(workOrders.map(wo => wo.id === editingWorkOrder.id ? updatedWorkOrder : wo));
+        toast.success("Work order updated successfully!");
+      } else {
+        // Create new work order
+        const newWorkOrder: WorkOrder = {
+          id: (workOrders.length + 1).toString(),
+          projectId: data.projectId,
+          projectName: data.projectId === "proj-1" ? "Office Building Construction" : 
+                      data.projectId === "proj-2" ? "Residential Complex" : "Factory Renovation",
+          title: data.title,
+          description: data.description,
+          assignedTo: data.assignedTo,
+          assigneeName: data.assignedTo === "user-1" ? "John Smith" : 
+                       data.assignedTo === "user-2" ? "Sarah Johnson" : "Mike Wilson",
+          priority: data.priority,
+          status: "Planned",
+          dueDate: data.dueDate,
+          createdDate: new Date().toISOString().split('T')[0],
+          bomItems: selectedBOMItems
+        };
+
+        setWorkOrders([newWorkOrder, ...workOrders]);
+        toast.success("Work order created successfully!");
+      }
+      
       setOpen(false);
       form.reset();
+      setEditingWorkOrder(null);
+      setSelectedBOMItems([]);
     } catch (error) {
-      toast.error("Failed to create work order");
+      toast.error(editingWorkOrder ? "Failed to update work order" : "Failed to create work order");
     }
+  };
+
+  const handleEditWorkOrder = (workOrder: WorkOrder) => {
+    setEditingWorkOrder(workOrder);
+    form.setValue("projectId", workOrder.projectId);
+    form.setValue("title", workOrder.title);
+    form.setValue("description", workOrder.description);
+    form.setValue("assignedTo", workOrder.assignedTo);
+    form.setValue("priority", workOrder.priority);
+    form.setValue("dueDate", workOrder.dueDate);
+    setSelectedBOMItems(workOrder.bomItems || []);
+    setOpen(true);
+  };
+
+  const handleCreateNew = () => {
+    setEditingWorkOrder(null);
+    form.reset();
+    setSelectedBOMItems([]);
+    setOpen(true);
+  };
+
+  const handleBOMItemToggle = (itemId: string) => {
+    setSelectedBOMItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
   };
 
   const handleSort = (field: string) => {
@@ -198,54 +272,117 @@ export default function WorkOrders() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleCreateNew}>
               <Plus className="h-4 w-4 mr-2" />
               Create Work Order
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Work Order</DialogTitle>
+              <DialogTitle>{editingWorkOrder ? "Update Work Order" : "Create New Work Order"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="projectId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select project" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="proj-1">Office Building Construction</SelectItem>
+                            <SelectItem value="proj-2">Residential Complex</SelectItem>
+                            <SelectItem value="proj-3">Factory Renovation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select project" />
-                          </SelectTrigger>
+                          <Input placeholder="Install Electrical Wiring" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="proj-1">Office Building Construction</SelectItem>
-                          <SelectItem value="proj-2">Residential Complex</SelectItem>
-                          <SelectItem value="proj-3">Factory Renovation</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Install Electrical Wiring" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="assignedTo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assign To</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select assignee" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="user-1">John Smith</SelectItem>
+                            <SelectItem value="user-2">Sarah Johnson</SelectItem>
+                            <SelectItem value="user-3">Mike Wilson</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="Low">Low</SelectItem>
+                            <SelectItem value="Medium">Medium</SelectItem>
+                            <SelectItem value="High">High</SelectItem>
+                            <SelectItem value="Critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="dueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Due Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
                   name="description"
@@ -259,73 +396,52 @@ export default function WorkOrders() {
                     </FormItem>
                   )}
                 />
-                
-                <FormField
-                  control={form.control}
-                  name="assignedTo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assign To</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select assignee" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="user-1">John Smith</SelectItem>
-                          <SelectItem value="user-2">Sarah Johnson</SelectItem>
-                          <SelectItem value="user-3">Mike Wilson</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Pending BOM Items</h3>
+                  <div className="border rounded-lg max-h-60 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12"></TableHead>
+                          <TableHead>BOM ID</TableHead>
+                          <TableHead>Material Name</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {mockBOMItems.filter(item => item.status === 'Pending').map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedBOMItems.includes(item.id)}
+                                onCheckedChange={() => handleBOMItemToggle(item.id)}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{item.bomId}</TableCell>
+                            <TableCell>{item.materialName}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{item.status}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {selectedBOMItems.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedBOMItems.length} item(s) selected for this work order
+                    </p>
                   )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </div>
                 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Create Work Order</Button>
+                  <Button type="submit">{editingWorkOrder ? "Update Work Order" : "Create Work Order"}</Button>
                 </div>
               </form>
             </Form>
@@ -417,6 +533,7 @@ export default function WorkOrders() {
                   Created Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                 </TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -443,6 +560,16 @@ export default function WorkOrders() {
                   </TableCell>
                   <TableCell className="max-w-xs truncate" title={workOrder.description}>
                     {workOrder.description}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditWorkOrder(workOrder)}
+                      title="Edit Work Order"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
