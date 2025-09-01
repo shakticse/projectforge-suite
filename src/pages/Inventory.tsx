@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
   Search,
@@ -37,18 +38,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SortField = 'name' | 'sku' | 'category' | 'quantity' | 'unitPrice' | 'location' | 'status';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice';
 type SortDirection = 'asc' | 'desc';
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [showStoreBreakdown, setShowStoreBreakdown] = useState(false);
 
   // Mock inventory data with more items and different stores
   const inventoryItems = [
@@ -194,14 +196,52 @@ const Inventory = () => {
     }
   ];
 
-  const getStatusBadge = (item: any) => {
-    if (item.quantity <= item.minStock * 0.5) {
+  // Consolidate inventory items by name/SKU across all stores
+  const consolidatedItems = inventoryItems.reduce((acc, item) => {
+    const key = `${item.name}-${item.sku}`;
+    if (!acc[key]) {
+      acc[key] = {
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        category: item.category,
+        unitPrice: item.unitPrice,
+        totalQuantity: 0,
+        totalValue: 0,
+        minStock: 0,
+        maxStock: 0,
+        stores: []
+      };
+    }
+    acc[key].totalQuantity += item.quantity;
+    acc[key].totalValue += item.totalValue;
+    acc[key].minStock += item.minStock;
+    acc[key].maxStock += item.maxStock;
+    acc[key].stores.push({
+      location: item.location,
+      quantity: item.quantity,
+      status: item.status,
+      minStock: item.minStock,
+      maxStock: item.maxStock
+    });
+    return acc;
+  }, {} as Record<string, any>);
+
+  const consolidatedInventory = Object.values(consolidatedItems);
+
+  const getConsolidatedStatusBadge = (item: any) => {
+    if (item.totalQuantity <= item.minStock * 0.5) {
       return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Critical</Badge>;
-    } else if (item.quantity <= item.minStock) {
+    } else if (item.totalQuantity <= item.minStock) {
       return <Badge variant="warning" className="gap-1"><TrendingDown className="h-3 w-3" />Low Stock</Badge>;
     } else {
       return <Badge variant="success" className="gap-1"><TrendingUp className="h-3 w-3" />In Stock</Badge>;
     }
+  };
+
+  const handleViewStoreBreakdown = (item: any) => {
+    setSelectedItem(item);
+    setShowStoreBreakdown(true);
   };
 
   const handleSort = (field: SortField) => {
@@ -227,21 +267,20 @@ const Inventory = () => {
   const stores = getUniqueValues('location');
   const statuses = getUniqueValues('status');
 
-  const filteredItems = inventoryItems.filter(item => {
+  const filteredItems = consolidatedInventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    const matchesStore = storeFilter === "all" || item.location === storeFilter;
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-    return matchesSearch && matchesCategory && matchesStore && matchesStatus;
+    const matchesStore = storeFilter === "all" || item.stores.some((store: any) => store.location === storeFilter);
+    return matchesSearch && matchesCategory && matchesStore;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
     
-    if (sortField === 'quantity' || sortField === 'unitPrice') {
+    if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
       aValue = Number(aValue);
       bValue = Number(bValue);
     }
@@ -256,8 +295,8 @@ const Inventory = () => {
   const paginatedItems = sortedItems.slice(startIndex, startIndex + itemsPerPage);
 
   const totalValue = filteredItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = filteredItems.filter(item => item.quantity <= item.minStock).length;
-  const criticalItems = filteredItems.filter(item => item.quantity <= item.minStock * 0.5).length;
+  const lowStockItems = filteredItems.filter(item => item.totalQuantity <= item.minStock).length;
+  const criticalItems = filteredItems.filter(item => item.totalQuantity <= item.minStock * 0.5).length;
 
   return (
     <div className="space-y-6">
@@ -375,17 +414,6 @@ const Inventory = () => {
                 </SelectContent>
               </Select>
               
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {statuses.map(status => (
-                    <SelectItem key={String(status)} value={String(status)}>{String(status)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardContent>
@@ -430,10 +458,10 @@ const Inventory = () => {
                 <TableHead>
                   <Button 
                     variant="ghost" 
-                    onClick={() => handleSort('quantity')}
+                    onClick={() => handleSort('totalQuantity')}
                     className="h-auto p-0 font-semibold text-left justify-start"
                   >
-                    Quantity {getSortIcon('quantity')}
+                    Total Quantity {getSortIcon('totalQuantity')}
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -443,24 +471,6 @@ const Inventory = () => {
                     className="h-auto p-0 font-semibold text-left justify-start"
                   >
                     Unit Price {getSortIcon('unitPrice')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('location')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Location {getSortIcon('location')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('status')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Status {getSortIcon('status')}
                   </Button>
                 </TableHead>
                 <TableHead></TableHead>
@@ -474,32 +484,36 @@ const Inventory = () => {
                   <TableCell>
                     <Badge variant="outline" className="text-xs">{item.category}</Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{item.quantity}</TableCell>
+                  <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{item.location}</TableCell>
-                  <TableCell>{getStatusBadge(item)}</TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Item
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewStoreBreakdown(item)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Item
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -537,6 +551,61 @@ const Inventory = () => {
           </PaginationContent>
         </Pagination>
       )}
+
+      {/* Store Breakdown Dialog */}
+      <Dialog open={showStoreBreakdown} onOpenChange={setShowStoreBreakdown}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Store Breakdown - {selectedItem?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">SKU</p>
+                <p className="font-mono">{selectedItem?.sku}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Category</p>
+                <p>{selectedItem?.category}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <h3 className="font-semibold">Stock by Store</h3>
+              <div className="space-y-2">
+                {selectedItem?.stores?.map((store: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{store.location}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Min: {store.minStock} | Max: {store.maxStock}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-lg">{store.quantity}</span>
+                      <Badge 
+                        variant={
+                          store.quantity <= store.minStock * 0.5 ? "destructive" : 
+                          store.quantity <= store.minStock ? "warning" : "success"
+                        }
+                      >
+                        {store.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="border-t pt-3">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">Total Quantity:</span>
+                <span className="text-lg font-mono">{selectedItem?.totalQuantity}</span>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
