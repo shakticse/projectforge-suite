@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 
@@ -133,6 +133,7 @@ export default function BOM() {
   const [boms] = useState<BOMItem[]>(mockBOMs);
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
+  const [editingBOM, setEditingBOM] = useState<BOMItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -252,14 +253,38 @@ export default function BOM() {
           availableStock: m.availableStock
         }))
       };
-      console.log("Creating BOM:", formData);
-      toast.success("BOM created successfully!");
+      console.log(editingBOM ? "Updating BOM:" : "Creating BOM:", formData);
+      toast.success(editingBOM ? "BOM updated successfully!" : "BOM created successfully!");
       setOpen(false);
       form.reset();
       setMaterials([]);
+      setEditingBOM(null);
     } catch (error) {
-      toast.error("Failed to create BOM");
+      toast.error(editingBOM ? "Failed to update BOM" : "Failed to create BOM");
     }
+  };
+
+  const handleEditBOM = (bom: BOMItem) => {
+    setEditingBOM(bom);
+    form.setValue("projectId", bom.projectId);
+    
+    // Convert BOM materials to the format expected by the materials state
+    const bomMaterials = bom.materials.map((material, index) => ({
+      id: index + 1,
+      materialId: material.materialId,
+      quantity: material.quantity,
+      availableStock: material.availableStock,
+    }));
+    
+    setMaterials(bomMaterials);
+    setOpen(true);
+  };
+
+  const handleCreateNew = () => {
+    setEditingBOM(null);
+    form.reset();
+    setMaterials([]);
+    setOpen(true);
   };
 
   const filteredBOMs = boms.filter(bom =>
@@ -295,14 +320,14 @@ export default function BOM() {
         {user?.role === 'Project Manager' ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={handleCreateNew}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create BOM
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New BOM</DialogTitle>
+                <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
               </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -520,7 +545,7 @@ export default function BOM() {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={materials.length === 0}>
-                    Create BOM
+                    {editingBOM ? "Update BOM" : "Create BOM"}
                   </Button>
                 </div>
               </form>
@@ -610,39 +635,49 @@ export default function BOM() {
                         {bom.approvalStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {user?.role ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/bom-details/${bom.id}`)}
-                              title="View BOM Items List"
-                            >
-                              <List className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">View Only</span>
-                        )}
-                        {/* <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/bom-status/${bom.id}`)}
-                          title="View BOM Item Status"
-                        >
-                          <Activity className="h-4 w-4" />
-                        </Button> */}
-                      </div>
-                    </TableCell>
+                     <TableCell className="text-center">
+                       <div className="flex items-center justify-center gap-2">
+                         {user?.role ? (
+                           <>
+                             {user?.role === 'Project Manager' && (
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => handleEditBOM(bom)}
+                                 title="Edit BOM"
+                               >
+                                 <Edit className="h-4 w-4" />
+                               </Button>
+                             )}
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                             >
+                               <Eye className="h-4 w-4" />
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => navigate(`/bom-details/${bom.id}`)}
+                               title="View BOM Items List"
+                             >
+                               <List className="h-4 w-4" />
+                             </Button>
+                           </>
+                         ) : (
+                           <span className="text-muted-foreground text-sm">View Only</span>
+                         )}
+                         {/* <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => navigate(`/bom-status/${bom.id}`)}
+                           title="View BOM Item Status"
+                         >
+                           <Activity className="h-4 w-4" />
+                         </Button> */}
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
