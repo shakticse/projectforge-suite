@@ -63,35 +63,35 @@ export default function ChangeHistoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[95vh] overflow-y-auto mx-auto">
         <DialogHeader>
-          <DialogTitle>Change History Details</DialogTitle>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-muted/30 rounded-lg">
+          <DialogTitle className="text-lg sm:text-xl">Change History Details</DialogTitle>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-4 p-3 sm:p-4 bg-muted/30 rounded-lg">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">#</p>
-              <p className="text-sm font-semibold">{transactionId}</p>
+              <p className="text-sm sm:text-base font-semibold">{transactionId}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Updated By</p>
-              <p className="text-sm font-semibold">{updatedBy}</p>
+              <p className="text-sm sm:text-base font-semibold">{updatedBy}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Update Date</p>
-              <p className="text-sm font-semibold">{new Date(updateDate).toLocaleString()}</p>
+              <p className="text-sm sm:text-base font-semibold">{new Date(updateDate).toLocaleString()}</p>
             </div>
           </div>
         </DialogHeader>
         
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold mb-4">Changes Made ({changes.length} items)</h4>
-          <div className="overflow-x-auto">
+        <div className="mt-4 sm:mt-6">
+          <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Changes Made ({changes.length} items)</h4>
+          
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Action</TableHead>
                   <TableHead>Material Name</TableHead>
-                  {/* <TableHead>Description</TableHead>
-                  <TableHead>Field</TableHead> */}
                   <TableHead>Old Value</TableHead>
                   <TableHead>New Value</TableHead>
                 </TableRow>
@@ -108,16 +108,6 @@ export default function ChangeHistoryModal({
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{change.materialName}</TableCell>
-                    {/* <TableCell className="text-sm text-muted-foreground">
-                      {formatChangeDescription(change)}
-                    </TableCell>
-                    <TableCell>
-                      {change.field && (
-                        <Badge variant="outline" className="text-xs">
-                          {change.field}
-                        </Badge>
-                      )}
-                    </TableCell> */}
                     <TableCell>
                       {change.oldValue && (
                         <span className="text-sm text-red-600 line-through">
@@ -136,6 +126,52 @@ export default function ChangeHistoryModal({
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="sm:hidden space-y-3">
+            {changes.map((change) => (
+              <div key={change.id} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {getActionIcon(change.action)}
+                    <Badge variant={getActionBadgeVariant(change.action)} className="text-xs">
+                      {change.action.charAt(0).toUpperCase() + change.action.slice(1)}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-muted-foreground">Material Name</p>
+                  <p className="font-medium text-base">{change.materialName}</p>
+                </div>
+                
+                {(change.oldValue || change.newValue) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Old Value</p>
+                      {change.oldValue ? (
+                        <span className="text-sm text-red-600 line-through">
+                          {change.oldValue}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">New Value</p>
+                      {change.newValue ? (
+                        <span className="text-sm text-green-600 font-medium">
+                          {change.newValue}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </DialogContent>

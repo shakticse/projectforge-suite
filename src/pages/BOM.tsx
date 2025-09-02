@@ -321,42 +321,42 @@ export default function BOM() {
   const totalQuantity = materials.reduce((sum, m) => sum + (m.quantity || 0), 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
-          <p className="text-muted-foreground">Manage project material requirements</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Bill of Materials</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage project material requirements</p>
         </div>
         {user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor' ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleCreateNew}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button onClick={handleCreateNew} className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                <Plus className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                 Create BOM
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] max-w-4xl max-h-[95vh] overflow-y-auto mx-auto">
               <DialogHeader>
                 <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
               </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:gap-6">
                   <FormField
                     control={form.control}
                     name="projectId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Project Name</FormLabel>
+                        <FormLabel className="text-base sm:text-sm">Project Name</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-12 sm:h-10 text-base sm:text-sm">
                               <SelectValue placeholder="Select project" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {mockProjects.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
+                              <SelectItem key={project.id} value={project.id} className="text-base sm:text-sm">
                                 {project.name}
                               </SelectItem>
                             ))}
@@ -368,181 +368,312 @@ export default function BOM() {
                   />
                   
                   <div>
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <label className="text-base sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                       Description
                     </label>
-                    <Input placeholder="Add Description" className="mt-2" />
+                    <Input placeholder="Add Description" className="h-12 sm:h-10 text-base sm:text-sm mt-2" />
                   </div>
                 </div>
 
                   <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <h3 className="text-lg font-semibold">Materials</h3>
-                    <div className="flex gap-2">
-                      <Button type="button" onClick={addMaterialRow} size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button type="button" onClick={addMaterialRow} className="h-12 sm:h-9 text-base sm:text-sm">
+                        <Plus className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                         Add Material
                       </Button>
-                      <Button type="button" onClick={addCustomMaterialRow} size="sm" variant="outline">
-                        <Type className="h-4 w-4 mr-2" />
+                      <Button type="button" onClick={addCustomMaterialRow} variant="outline" className="h-12 sm:h-9 text-base sm:text-sm">
+                        <Type className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                         Add Miscellaneous Item
                       </Button>
                     </div>
                   </div>
 
                   {materials.length > 0 && (
-                    <div className="border rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-16">Row #</TableHead>
-                            <TableHead>Material</TableHead>
-                            <TableHead className="w-32">Available Stock</TableHead>
-                            <TableHead className="w-32">Required Quantity</TableHead>
-                            <TableHead className="w-16">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {materials.map((material, index) => {
-                            const materialData = material.isChild 
-                              ? mockMaterials.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
-                              : mockMaterials.find(m => m.id === material.materialId);
-                            
-                            return (
-                              <TableRow 
-                                key={material.id} 
-                                className={material.isChild ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
-                              >
-                                <TableCell>
-                                  {material.isChild ? (
-                                    <span className="text-muted-foreground ml-4">
-                                      {index + 1}
-                                    </span>
-                                  ) : (
-                                    index + 1
-                                  )}
-                                </TableCell>
-                                 <TableCell>
-                                   {material.isChild ? (
-                                     <div className="pl-4">
-                                       <span className="text-sm font-medium">
-                                         └&gt; {materialData?.name || 'N/A'}
-                                       </span>
-                                     </div>
-                                   ) : material.isCustom ? (
-                                     <Input
-                                       placeholder="Enter custom item name"
-                                       value={material.customName || ""}
-                                       onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
-                                       className="w-full"
-                                     />
-                                   ) : (
-                                     <Popover
-                                       open={openPopovers[material.id] || false}
-                                       onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
-                                     >
-                                       <PopoverTrigger asChild>
-                                         <Button
-                                           variant="outline"
-                                           role="combobox"
-                                           aria-expanded={openPopovers[material.id] || false}
-                                           className="w-full justify-between"
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden sm:block border rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-16">Row #</TableHead>
+                                <TableHead>Material</TableHead>
+                                <TableHead className="w-32">Available Stock</TableHead>
+                                <TableHead className="w-32">Required Quantity</TableHead>
+                                <TableHead className="w-16">Action</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {materials.map((material, index) => {
+                                const materialData = material.isChild 
+                                  ? mockMaterials.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
+                                  : mockMaterials.find(m => m.id === material.materialId);
+                                
+                                return (
+                                  <TableRow 
+                                    key={material.id} 
+                                    className={material.isChild ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
+                                  >
+                                    <TableCell>
+                                      {material.isChild ? (
+                                        <span className="text-muted-foreground ml-4">
+                                          {index + 1}
+                                        </span>
+                                      ) : (
+                                        index + 1
+                                      )}
+                                    </TableCell>
+                                     <TableCell>
+                                       {material.isChild ? (
+                                         <div className="pl-4">
+                                           <span className="text-sm font-medium">
+                                             └&gt; {materialData?.name || 'N/A'}
+                                           </span>
+                                         </div>
+                                       ) : material.isCustom ? (
+                                         <Input
+                                           placeholder="Enter custom item name"
+                                           value={material.customName || ""}
+                                           onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
+                                           className="w-full"
+                                         />
+                                       ) : (
+                                         <Popover
+                                           open={openPopovers[material.id] || false}
+                                           onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
                                          >
-                                           {material.materialId ? 
-                                             mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
-                                             : "Select material..."
-                                           }
-                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                         </Button>
-                                       </PopoverTrigger>
-                                       <PopoverContent className="w-full p-0" align="start">
-                                         <Command>
-                                           <CommandInput placeholder="Search materials..." />
-                                           <CommandList>
-                                             <CommandEmpty>No material found.</CommandEmpty>
-                                             <CommandGroup>
-                                               {mockMaterials.map((mat) => (
-                                                 <CommandItem
-                                                   key={mat.id}
-                                                   value={mat.name}
-                                                   onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
-                                                 >
-                                                   <Check
-                                                     className={`mr-2 h-4 w-4 ${
-                                                       material.materialId === mat.id ? "opacity-100" : "opacity-0"
-                                                     }`}
-                                                   />
-                                                   <div className="flex flex-col">
-                                                     <span>{mat.name}</span>
-                                                     {mat.childItems && (
-                                                       <span className="text-xs text-muted-foreground">
-                                                         (has {mat.childItems.length} child items)
-                                                       </span>
-                                                     )}
-                                                   </div>
-                                                 </CommandItem>
-                                               ))}
-                                             </CommandGroup>
-                                           </CommandList>
-                                         </Command>
-                                       </PopoverContent>
-                                     </Popover>
-                                   )}
-                                 </TableCell>
-                                <TableCell>
-                                  <Input 
-                                    value={material.availableStock}
-                                    readOnly
-                                    className="bg-muted"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    value={material.quantity || ""}
-                                    onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
-                                    placeholder="0"
-                                    disabled={material.isChild && false} // Child quantities can be edited
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  {!material.isChild ? (
+                                           <PopoverTrigger asChild>
+                                             <Button
+                                               variant="outline"
+                                               role="combobox"
+                                               aria-expanded={openPopovers[material.id] || false}
+                                               className="w-full justify-between"
+                                             >
+                                               {material.materialId ? 
+                                                 mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                                 : "Select material..."
+                                               }
+                                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                             </Button>
+                                           </PopoverTrigger>
+                                           <PopoverContent className="w-full p-0" align="start">
+                                             <Command>
+                                               <CommandInput placeholder="Search materials..." />
+                                               <CommandList>
+                                                 <CommandEmpty>No material found.</CommandEmpty>
+                                                 <CommandGroup>
+                                                   {mockMaterials.map((mat) => (
+                                                     <CommandItem
+                                                       key={mat.id}
+                                                       value={mat.name}
+                                                       onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
+                                                     >
+                                                       <Check
+                                                         className={`mr-2 h-4 w-4 ${
+                                                           material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                         }`}
+                                                       />
+                                                       <div className="flex flex-col">
+                                                         <span>{mat.name}</span>
+                                                         {mat.childItems && (
+                                                           <span className="text-xs text-muted-foreground">
+                                                             (has {mat.childItems.length} child items)
+                                                           </span>
+                                                         )}
+                                                       </div>
+                                                     </CommandItem>
+                                                   ))}
+                                                 </CommandGroup>
+                                               </CommandList>
+                                             </Command>
+                                           </PopoverContent>
+                                         </Popover>
+                                       )}
+                                     </TableCell>
+                                    <TableCell>
+                                      <Input 
+                                        value={material.availableStock}
+                                        readOnly
+                                        className="bg-muted"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={material.quantity || ""}
+                                        onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
+                                        placeholder="0"
+                                        disabled={material.isChild && false}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      {!material.isChild ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removeMaterialRow(material.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      ) : (
+                                        <div className="w-8"></div>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+
+                      {/* Mobile Card View */}
+                      <div className="sm:hidden space-y-4">
+                        {materials.map((material, index) => {
+                          const materialData = material.isChild 
+                            ? mockMaterials.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
+                            : mockMaterials.find(m => m.id === material.materialId);
+                          
+                          return (
+                            <Card key={material.id} className={`p-4 ${material.isChild ? "ml-4 border-l-4 border-l-primary bg-muted/20" : ""}`}>
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-muted-foreground">
+                                    Row #{index + 1} {material.isChild && "(Child Item)"}
+                                  </span>
+                                  {!material.isChild && (
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => removeMaterialRow(material.id)}
                                     >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                      <Trash2 className="h-5 w-5 text-destructive" />
                                     </Button>
-                                  ) : (
-                                    <div className="w-8"></div>
                                   )}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                  <div>
+                                    <label className="text-sm font-medium">Material</label>
+                                    {material.isChild ? (
+                                      <div className="mt-1 p-3 bg-muted rounded-md">
+                                        <span className="text-sm font-medium">
+                                          └ {materialData?.name || 'N/A'}
+                                        </span>
+                                      </div>
+                                    ) : material.isCustom ? (
+                                      <Input
+                                        placeholder="Enter custom item name"
+                                        value={material.customName || ""}
+                                        onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
+                                        className="w-full h-12 text-base mt-1"
+                                      />
+                                    ) : (
+                                      <Popover
+                                        open={openPopovers[material.id] || false}
+                                        onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openPopovers[material.id] || false}
+                                            className="w-full justify-between h-12 text-base mt-1"
+                                          >
+                                            {material.materialId ? 
+                                              mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                              : "Select material..."
+                                            }
+                                            <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0" align="start">
+                                          <Command>
+                                            <CommandInput placeholder="Search materials..." className="h-12 text-base" />
+                                            <CommandList>
+                                              <CommandEmpty>No material found.</CommandEmpty>
+                                              <CommandGroup>
+                                                {mockMaterials.map((mat) => (
+                                                  <CommandItem
+                                                    key={mat.id}
+                                                    value={mat.name}
+                                                    onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
+                                                    className="text-base py-3"
+                                                  >
+                                                    <Check
+                                                      className={`mr-2 h-5 w-5 ${
+                                                        material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                      }`}
+                                                    />
+                                                    <div className="flex flex-col">
+                                                      <span>{mat.name}</span>
+                                                      {mat.childItems && (
+                                                        <span className="text-sm text-muted-foreground">
+                                                          (has {mat.childItems.length} child items)
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-sm font-medium">Available Stock</label>
+                                      <Input 
+                                        value={material.availableStock}
+                                        readOnly
+                                        className="bg-muted h-12 text-base mt-1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium">Required Quantity</label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={material.quantity || ""}
+                                        onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
+                                        placeholder="0"
+                                        disabled={material.isChild && false}
+                                        className="h-12 text-base mt-1"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
 
                   {materials.length === 0 && (
-                    <div className="border border-dashed rounded-lg p-8 text-center">
+                    <div className="border border-dashed rounded-lg p-6 sm:p-8 text-center">
                       <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No materials added yet</p>
+                      <p className="text-muted-foreground text-base sm:text-base">No materials added yet</p>
                       <p className="text-sm text-muted-foreground">Click "Add Material" to get started</p>
                     </div>
                   )}
 
                   {materials.length > 0 && (
-                    <div className="flex justify-end space-x-6 pt-4 border-t bg-muted/50 p-4 rounded-lg">
-                      <div className="text-sm">
+                    <div className="flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-6 pt-4 border-t bg-muted/50 p-4 rounded-lg">
+                      <div className="text-sm sm:text-sm">
                         <span className="font-medium">Total Items: </span>
                         <span>{totalItems}</span>
                       </div>
-                      <div className="text-sm">
+                      <div className="text-sm sm:text-sm">
                         <span className="font-medium">Total Quantity: </span>
                         <span>{totalQuantity}</span>
                       </div>
@@ -550,11 +681,11 @@ export default function BOM() {
                   )}
                 </div>
                 
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                <div className="flex flex-col sm:flex-row sm:justify-end space-y-3 sm:space-y-0 sm:space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} className="h-12 sm:h-10 text-base sm:text-sm">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={materials.length === 0}>
+                  <Button type="submit" disabled={materials.length === 0} className="h-12 sm:h-10 text-base sm:text-sm">
                     {editingBOM ? "Update BOM" : "Create BOM"}
                   </Button>
                 </div>
@@ -569,36 +700,37 @@ export default function BOM() {
         )}
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 flex-1">
+          <div className="relative flex-1 sm:max-w-sm">
+            <Search className="absolute left-3 top-4 sm:top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search BOMs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-12 sm:h-10 text-base sm:text-sm"
             />
           </div>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
+          <Button variant="outline" className="h-12 sm:h-10 text-base sm:text-sm">
+            <Filter className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
             Filter
           </Button>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground text-center sm:text-right">
           Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredBOMs.length)} of {filteredBOMs.length} results
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
+          <CardTitle className="flex items-center text-lg sm:text-xl">
             <FileText className="h-5 w-5 mr-2" />
             BOM Records
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="p-3 sm:p-6">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -606,9 +738,6 @@ export default function BOM() {
                   <TableHead>Project Name</TableHead>
                   <TableHead>BOM For</TableHead>
                   <TableHead>Supervisor In-Charge</TableHead>
-                  {/* <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
-                  <TableHead>Total Quantity</TableHead> */}
                   <TableHead>Last Updated</TableHead>
                   <TableHead>Updated By</TableHead>
                   <TableHead>Created By</TableHead>
@@ -634,9 +763,6 @@ export default function BOM() {
                     <TableCell>{bom.projectName}</TableCell>
                     <TableCell>{bom.itemName}</TableCell>
                     <TableCell>{bom.manager}</TableCell>
-                    {/* <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(bom.endDate).toLocaleDateString()}</TableCell>
-                    <TableCell>{bom.totalQuantity}</TableCell> */}
                     <TableCell>{new Date(bom.lastUpdated).toLocaleDateString()}</TableCell>
                     <TableCell>{bom.updatedBy}</TableCell>
                     <TableCell>{bom.createdBy}</TableCell>
@@ -678,14 +804,6 @@ export default function BOM() {
                          ) : (
                            <span className="text-muted-foreground text-sm">View Only</span>
                          )}
-                         {/* <Button
-                           variant="ghost"
-                           size="sm"
-                           onClick={() => navigate(`/bom-status/${bom.id}`)}
-                           title="View BOM Item Status"
-                         >
-                           <Activity className="h-4 w-4" />
-                         </Button> */}
                        </div>
                      </TableCell>
                   </TableRow>
@@ -694,24 +812,118 @@ export default function BOM() {
             </Table>
           </div>
 
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4">
+            {paginatedBOMs.map((bom) => (
+              <Card key={bom.id} className="p-4 bg-card">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div 
+                      className={`font-semibold text-lg ${
+                        user?.role === 'Project Manager' 
+                          ? 'text-primary cursor-pointer' 
+                          : 'text-foreground'
+                      }`}
+                      onClick={user?.role === 'Project Manager' ? () => navigate(`/bom/${bom.id}`) : undefined}
+                    >
+                      {bom.id}
+                    </div>
+                    <Badge variant={getStatusBadgeVariant(bom.approvalStatus)} className="text-xs">
+                      {bom.approvalStatus}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm text-muted-foreground">Project:</span>
+                      <p className="font-medium">{bom.projectName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">BOM For:</span>
+                      <p className="font-medium">{bom.itemName}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Supervisor:</span>
+                      <p className="font-medium">{bom.manager}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground block">Last Updated:</span>
+                      <span className="font-medium">{new Date(bom.lastUpdated).toLocaleDateString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Updated By:</span>
+                      <span className="font-medium">{bom.updatedBy}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Created By:</span>
+                      <span className="font-medium">{bom.createdBy}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-2 pt-3 border-t">
+                    {user?.role ? (
+                      <>
+                        {user?.role === 'Project Manager' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditBOM(bom)}
+                            className="h-10 px-4 text-sm"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                          className="h-10 px-4 text-sm"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/bom-details/${bom.id}`)}
+                          className="h-10 px-4 text-sm"
+                        >
+                          <List className="h-4 w-4 mr-2" />
+                          Items
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">View Only</span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6">
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
+                className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm"
               >
-                <ChevronLeft className="h-4 w-4 mr-2" />
+                <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
                 Previous
               </Button>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
                     key={page}
                     variant={currentPage === page ? "default" : "outline"}
                     size="sm"
                     onClick={() => setCurrentPage(page)}
+                    className="h-10 min-w-[40px] text-sm"
                   >
                     {page}
                   </Button>
@@ -719,12 +931,12 @@ export default function BOM() {
               </div>
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
+                className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm"
               >
                 Next
-                <ChevronRight className="h-4 w-4 ml-2" />
+                <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4 ml-2" />
               </Button>
             </div>
           )}
