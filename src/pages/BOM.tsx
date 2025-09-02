@@ -577,7 +577,6 @@ export default function BOM() {
                                        <Popover
                                          open={openPopovers[material.id] || false}
                                          onOpenChange={(open) => {
-                                           console.log(`Popover ${material.id} changing to:`, open);
                                            setOpenPopovers(prev => ({ ...prev, [material.id]: open }));
                                          }}
                                        >
@@ -587,7 +586,6 @@ export default function BOM() {
                                              role="combobox"
                                              aria-expanded={openPopovers[material.id] || false}
                                              className="w-full justify-between h-12 text-base mt-1"
-                                             onTouchStart={(e) => e.preventDefault()}
                                            >
                                              {material.materialId ? 
                                                mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
@@ -597,10 +595,11 @@ export default function BOM() {
                                            </Button>
                                          </PopoverTrigger>
                                          <PopoverContent 
-                                           className="w-[95vw] max-w-[400px] p-0 z-[1000] bg-popover shadow-lg border" 
+                                           className="w-[95vw] max-w-[400px] p-0 z-[9999] bg-popover shadow-lg border" 
                                            align="start" 
                                            side="bottom" 
-                                           sideOffset={4}
+                                           sideOffset={8}
+                                           avoidCollisions={true}
                                            onOpenAutoFocus={(e) => e.preventDefault()}
                                            onCloseAutoFocus={(e) => e.preventDefault()}
                                          >
@@ -613,15 +612,14 @@ export default function BOM() {
                                                <CommandEmpty className="py-6 text-center text-base">No material found.</CommandEmpty>
                                                <CommandGroup>
                                                  {mockMaterials.map((mat) => (
-                                                   <CommandItem
-                                                     key={mat.id}
-                                                     value={mat.name}
-                                                     onSelect={(currentValue) => {
-                                                       console.log('Selected material:', mat.id, mat.name);
-                                                       updateMaterial(material.id, 'materialId', mat.id);
-                                                     }}
-                                                     className="text-base py-4 px-4 cursor-pointer hover:bg-accent aria-selected:bg-accent"
-                                                   >
+                                                     <CommandItem
+                                                       key={mat.id}
+                                                       value={mat.name}
+                                                       onSelect={(currentValue) => {
+                                                         updateMaterial(material.id, 'materialId', mat.id);
+                                                       }}
+                                                       className="text-base py-4 px-4 cursor-pointer hover:bg-accent aria-selected:bg-accent"
+                                                     >
                                                      <Check
                                                        className={`mr-3 h-5 w-5 ${
                                                          material.materialId === mat.id ? "opacity-100" : "opacity-0"
