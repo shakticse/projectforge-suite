@@ -327,7 +327,7 @@ export default function BOM() {
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
           <p className="text-muted-foreground">Manage project material requirements</p>
         </div>
-        {user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor' ? (
+        {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleCreateNew}>
@@ -397,7 +397,7 @@ export default function BOM() {
                           <TableRow>
                             <TableHead className="w-16">Row #</TableHead>
                             <TableHead>Material</TableHead>
-                            <TableHead className="w-32">Available Stock</TableHead>
+                            {/* <TableHead className="w-32">Available Stock</TableHead> */}
                             <TableHead className="w-32">Required Quantity</TableHead>
                             <TableHead className="w-16">Action</TableHead>
                           </TableRow>
@@ -489,13 +489,13 @@ export default function BOM() {
                                      </Popover>
                                    )}
                                  </TableCell>
-                                <TableCell>
+                                {/* <TableCell>
                                   <Input 
                                     value={material.availableStock}
                                     readOnly
                                     className="bg-muted"
                                   />
-                                </TableCell>
+                                </TableCell> */}
                                 <TableCell>
                                   <Input
                                     type="number"
@@ -649,7 +649,7 @@ export default function BOM() {
                        <div className="flex items-center justify-center gap-2">
                          {user?.role ? (
                            <>
-                             {user?.role === 'Project Manager' && (
+                             {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') && (
                                <Button
                                  variant="ghost"
                                  size="sm"

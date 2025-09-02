@@ -18,7 +18,9 @@ import {
   CogIcon,
   ChartBarStackedIcon,
   PencilRulerIcon,
-  FileQuestionIcon
+  FileQuestionIcon,
+  PencilLineIcon,
+  ReceiptTextIcon
 } from "lucide-react";
 
 import {
@@ -40,17 +42,18 @@ const getMenuItems = (userRole: string) => {
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Inventory", url: "/inventory", icon: Package },
+    { title: "Service Request", url: "/", icon: CogIcon },
     { title: "Vendors", url: "/vendors", icon: Building2 },
     { title: "Bill of Materials", url: "/bom", icon: FileText },
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
     { title: "Material Request", url: "/material-request", icon: Building2 },
-    { title: "MRN List/Challan", url: "/", icon: Building2 },
+    { title: "MRN List/Challan", url: "/", icon: ReceiptTextIcon },
     { title: "Work Order", url: "/work-orders", icon: ClipboardList },
-    { title: "Service Request", url: "/", icon: CogIcon },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
+    { title: "Change Request", url: "/", icon: PencilLineIcon },
     { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
     { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
     { title: "Quert/Issue Log", url: "/", icon: FileQuestionIcon },
@@ -103,6 +106,7 @@ const getMenuItems = (userRole: string) => {
         { title: "Reports", url: "/reports", icon: BarChart3 },
         { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
         { title: "Users", url: "/users", icon: Users },
+        { title: "Change Request", url: "/", icon: PencilLineIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
