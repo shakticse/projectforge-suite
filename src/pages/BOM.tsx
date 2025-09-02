@@ -458,37 +458,37 @@ export default function BOM() {
                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                              </Button>
                                            </PopoverTrigger>
-                                           <PopoverContent className="w-full p-0" align="start">
-                                             <Command>
-                                               <CommandInput placeholder="Search materials..." />
-                                               <CommandList>
-                                                 <CommandEmpty>No material found.</CommandEmpty>
-                                                 <CommandGroup>
-                                                   {mockMaterials.map((mat) => (
-                                                     <CommandItem
-                                                       key={mat.id}
-                                                       value={mat.name}
-                                                       onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
-                                                     >
-                                                       <Check
-                                                         className={`mr-2 h-4 w-4 ${
-                                                           material.materialId === mat.id ? "opacity-100" : "opacity-0"
-                                                         }`}
-                                                       />
-                                                       <div className="flex flex-col">
-                                                         <span>{mat.name}</span>
-                                                         {mat.childItems && (
-                                                           <span className="text-xs text-muted-foreground">
-                                                             (has {mat.childItems.length} child items)
-                                                           </span>
-                                                         )}
-                                                       </div>
-                                                     </CommandItem>
-                                                   ))}
-                                                 </CommandGroup>
-                                               </CommandList>
-                                             </Command>
-                                           </PopoverContent>
+                                            <PopoverContent className="w-[300px] p-0 z-50 bg-background shadow-md border" align="start" side="bottom" sideOffset={4}>
+                                              <Command>
+                                                <CommandInput placeholder="Search materials..." />
+                                                <CommandList className="max-h-[200px] overflow-y-auto">
+                                                  <CommandEmpty>No material found.</CommandEmpty>
+                                                  <CommandGroup>
+                                                    {mockMaterials.map((mat) => (
+                                                      <CommandItem
+                                                        key={mat.id}
+                                                        value={mat.name}
+                                                        onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
+                                                      >
+                                                        <Check
+                                                          className={`mr-2 h-4 w-4 ${
+                                                            material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                          }`}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                          <span>{mat.name}</span>
+                                                          {mat.childItems && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                              (has {mat.childItems.length} child items)
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                      </CommandItem>
+                                                    ))}
+                                                  </CommandGroup>
+                                                </CommandList>
+                                              </Command>
+                                            </PopoverContent>
                                          </Popover>
                                        )}
                                      </TableCell>
@@ -592,38 +592,38 @@ export default function BOM() {
                                             <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
                                           </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0" align="start">
-                                          <Command>
-                                            <CommandInput placeholder="Search materials..." className="h-12 text-base" />
-                                            <CommandList>
-                                              <CommandEmpty>No material found.</CommandEmpty>
-                                              <CommandGroup>
-                                                {mockMaterials.map((mat) => (
-                                                  <CommandItem
-                                                    key={mat.id}
-                                                    value={mat.name}
-                                                    onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
-                                                    className="text-base py-3"
-                                                  >
-                                                    <Check
-                                                      className={`mr-2 h-5 w-5 ${
-                                                        material.materialId === mat.id ? "opacity-100" : "opacity-0"
-                                                      }`}
-                                                    />
-                                                    <div className="flex flex-col">
-                                                      <span>{mat.name}</span>
-                                                      {mat.childItems && (
-                                                        <span className="text-sm text-muted-foreground">
-                                                          (has {mat.childItems.length} child items)
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
+                                         <PopoverContent className="w-[95vw] max-w-[400px] p-0 z-50 bg-background shadow-lg border" align="start" side="bottom" sideOffset={4}>
+                                           <Command>
+                                             <CommandInput placeholder="Search materials..." className="h-12 text-base" />
+                                             <CommandList className="max-h-[250px] overflow-y-auto">
+                                               <CommandEmpty className="py-6 text-center text-base">No material found.</CommandEmpty>
+                                               <CommandGroup>
+                                                 {mockMaterials.map((mat) => (
+                                                   <CommandItem
+                                                     key={mat.id}
+                                                     value={mat.name}
+                                                     onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
+                                                     className="text-base py-4 px-4 cursor-pointer hover:bg-accent"
+                                                   >
+                                                     <Check
+                                                       className={`mr-3 h-5 w-5 ${
+                                                         material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                       }`}
+                                                     />
+                                                     <div className="flex flex-col flex-1">
+                                                       <span className="font-medium">{mat.name}</span>
+                                                       {mat.childItems && (
+                                                         <span className="text-sm text-muted-foreground">
+                                                           (has {mat.childItems.length} child items)
+                                                         </span>
+                                                       )}
+                                                     </div>
+                                                   </CommandItem>
+                                                 ))}
+                                               </CommandGroup>
+                                             </CommandList>
+                                           </Command>
+                                         </PopoverContent>
                                       </Popover>
                                     )}
                                   </div>
