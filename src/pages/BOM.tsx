@@ -574,27 +574,41 @@ export default function BOM() {
                                         className="w-full h-12 text-base mt-1"
                                       />
                                     ) : (
-                                      <Popover
-                                        open={openPopovers[material.id] || false}
-                                        onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
-                                      >
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={openPopovers[material.id] || false}
-                                            className="w-full justify-between h-12 text-base mt-1"
-                                          >
-                                            {material.materialId ? 
-                                              mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
-                                              : "Select material..."
-                                            }
-                                            <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                         <PopoverContent className="w-[95vw] max-w-[400px] p-0 z-50 bg-background shadow-lg border" align="start" side="bottom" sideOffset={4}>
-                                           <Command>
-                                             <CommandInput placeholder="Search materials..." className="h-12 text-base" />
+                                       <Popover
+                                         open={openPopovers[material.id] || false}
+                                         onOpenChange={(open) => {
+                                           console.log(`Popover ${material.id} changing to:`, open);
+                                           setOpenPopovers(prev => ({ ...prev, [material.id]: open }));
+                                         }}
+                                       >
+                                         <PopoverTrigger asChild>
+                                           <Button
+                                             variant="outline"
+                                             role="combobox"
+                                             aria-expanded={openPopovers[material.id] || false}
+                                             className="w-full justify-between h-12 text-base mt-1"
+                                             onTouchStart={(e) => e.preventDefault()}
+                                           >
+                                             {material.materialId ? 
+                                               mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                               : "Select material..."
+                                             }
+                                             <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
+                                           </Button>
+                                         </PopoverTrigger>
+                                         <PopoverContent 
+                                           className="w-[95vw] max-w-[400px] p-0 z-[1000] bg-popover shadow-lg border" 
+                                           align="start" 
+                                           side="bottom" 
+                                           sideOffset={4}
+                                           onOpenAutoFocus={(e) => e.preventDefault()}
+                                           onCloseAutoFocus={(e) => e.preventDefault()}
+                                         >
+                                           <Command shouldFilter={false}>
+                                             <CommandInput 
+                                               placeholder="Search materials..." 
+                                               className="h-12 text-base border-0" 
+                                             />
                                              <CommandList className="max-h-[250px] overflow-y-auto">
                                                <CommandEmpty className="py-6 text-center text-base">No material found.</CommandEmpty>
                                                <CommandGroup>
@@ -602,8 +616,11 @@ export default function BOM() {
                                                    <CommandItem
                                                      key={mat.id}
                                                      value={mat.name}
-                                                     onSelect={() => updateMaterial(material.id, 'materialId', mat.id)}
-                                                     className="text-base py-4 px-4 cursor-pointer hover:bg-accent"
+                                                     onSelect={(currentValue) => {
+                                                       console.log('Selected material:', mat.id, mat.name);
+                                                       updateMaterial(material.id, 'materialId', mat.id);
+                                                     }}
+                                                     className="text-base py-4 px-4 cursor-pointer hover:bg-accent aria-selected:bg-accent"
                                                    >
                                                      <Check
                                                        className={`mr-3 h-5 w-5 ${
@@ -624,7 +641,7 @@ export default function BOM() {
                                              </CommandList>
                                            </Command>
                                          </PopoverContent>
-                                      </Popover>
+                                       </Popover>
                                     )}
                                   </div>
                                   
