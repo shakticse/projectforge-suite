@@ -27,6 +27,7 @@ import VehicleRequest from "./pages/VehicleRequest";
 import BOMAction from "./pages/BOMAction";
 import Reports from "./pages/Reports";
 import MaterialRequest from "./pages/MaterialRequest";
+import QueryIssueLog from "./pages/QueryIssueLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
           <Route path="/bom-action" element={<ProtectedRoute><AppLayout><BOMAction /></AppLayout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
           <Route path="/material-request" element={<ProtectedRoute><AppLayout><MaterialRequest /></AppLayout></ProtectedRoute>} />
+          <Route path="/query-issue-log" element={<ProtectedRoute><AppLayout><QueryIssueLog /></AppLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
           
           {/* Catch-all route */}

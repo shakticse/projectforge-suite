@@ -56,7 +56,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Change Request", url: "/", icon: PencilLineIcon },
     { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
     { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
-    { title: "Quert/Issue Log", url: "/", icon: FileQuestionIcon },
+    { title: "Query/Issue Log", url: "/query-issue-log", icon: FileQuestionIcon },
     { title: "Reports", url: "/reports", icon: BarChart3 },
   ];
 
