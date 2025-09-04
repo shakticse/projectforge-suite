@@ -11,10 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Eye, Plus, MessageCircle, Calendar, User, FileText } from "lucide-react";
+import { Eye, Plus, MessageCircle, Calendar, User, FileText, Upload, Camera, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Validation schema
 const querySchema = yup.object().shape({
@@ -156,6 +158,8 @@ export default function QueryIssueLog() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
   const [queries, setQueries] = useState(mockQueries);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const isMobile = useIsMobile();
 
   const {
     register,
@@ -177,6 +181,17 @@ export default function QueryIssueLog() {
 
   const selectedItemType = watch("itemType");
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setUploadedFiles(prev => [...prev, ...files]);
+    toast.success(`${files.length} file(s) uploaded successfully`);
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    toast.success("File removed");
+  };
+
   const onSubmit = (data: any) => {
     const newQuery = {
       id: `QRY-${String(queries.length + 1).padStart(3, "0")}`,
@@ -191,25 +206,27 @@ export default function QueryIssueLog() {
       createdAt: new Date().toISOString().split('T')[0],
       updatedAt: new Date().toISOString().split('T')[0],
       comments: [],
+      attachments: uploadedFiles.length,
     };
 
     setQueries([newQuery, ...queries]);
     toast.success("Query created successfully");
     setShowCreateForm(false);
+    setUploadedFiles([]);
     reset();
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6 px-4 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Query/Issue Log</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Query/Issue Log</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Manage and track queries and issues across different modules
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)} className="gap-2">
+        <Button onClick={() => setShowCreateForm(true)} className="gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Create Query
         </Button>
@@ -277,6 +294,71 @@ export default function QueryIssueLog() {
                 )}
               </div>
 
+              {/* File Upload Section */}
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                      {isMobile && <Camera className="h-8 w-8 text-muted-foreground" />}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {isMobile ? "Upload files or capture using camera" : "Upload files"}
+                      </p>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf,.doc,.docx,.txt"
+                        capture={isMobile ? "environment" : undefined}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                      >
+                        {isMobile ? "Choose Files / Camera" : "Choose Files"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* File Preview */}
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Uploaded Files ({uploadedFiles.length})</Label>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4" />
+                            <span className="text-sm font-medium truncate max-w-[200px]">
+                              {file.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ({(file.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Assigned To */}
                 <div className="space-y-2">
@@ -341,142 +423,283 @@ export default function QueryIssueLog() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Query ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Item ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {isMobile ? (
+            /* Mobile View - Cards */
+            <div className="space-y-4">
               {queries.map((query) => (
-                <TableRow key={query.id}>
-                  <TableCell className="font-medium">{query.id}</TableCell>
-                  <TableCell>{query.itemType}</TableCell>
-                  <TableCell>{query.itemId || "-"}</TableCell>
-                  <TableCell className="max-w-xs truncate">{query.title}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(query.status)}>
-                      {query.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityColor(query.priority)}>
-                      {query.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{query.assignedTo}</TableCell>
-                  <TableCell>{query.createdAt}</TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setSelectedQuery(query)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-3xl max-h-[80vh]">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            {selectedQuery?.id} - {selectedQuery?.title}
-                          </DialogTitle>
-                          <DialogDescription>
-                            Query details and conversation history
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ScrollArea className="max-h-[60vh]">
-                          <div className="space-y-6">
-                            {/* Query Details */}
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <Label className="text-sm font-medium">Item Type</Label>
-                                  <p className="text-sm text-muted-foreground">{selectedQuery?.itemType}</p>
-                                </div>
-                                {selectedQuery?.itemId && (
+                <Card key={query.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-medium text-sm">{query.id}</h3>
+                        <p className="text-xs text-muted-foreground">{query.itemType}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant={getStatusColor(query.status)} className="text-xs">
+                          {query.status}
+                        </Badge>
+                        <Badge variant={getPriorityColor(query.priority)} className="text-xs">
+                          {query.priority}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium line-clamp-2">{query.title}</p>
+                      {query.itemId && (
+                        <p className="text-xs text-muted-foreground mt-1">Item ID: {query.itemId}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Assigned to: {query.assignedTo}</span>
+                      <span>{query.createdAt}</span>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <Drawer>
+                        <DrawerTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setSelectedQuery(query)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </DrawerTrigger>
+                        <DrawerContent className="max-h-[80vh]">
+                          <DrawerHeader>
+                            <DrawerTitle className="flex items-center gap-2">
+                              <FileText className="h-5 w-5" />
+                              {selectedQuery?.id} - {selectedQuery?.title}
+                            </DrawerTitle>
+                            <DrawerDescription>
+                              Query details and conversation history
+                            </DrawerDescription>
+                          </DrawerHeader>
+                          <ScrollArea className="max-h-[60vh] px-4">
+                            <div className="space-y-6 pb-4">
+                              {/* Query Details */}
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 gap-4">
                                   <div>
-                                    <Label className="text-sm font-medium">Item ID</Label>
-                                    <p className="text-sm text-muted-foreground">{selectedQuery?.itemId}</p>
+                                    <Label className="text-sm font-medium">Item Type</Label>
+                                    <p className="text-sm text-muted-foreground">{selectedQuery?.itemType}</p>
                                   </div>
-                                )}
-                              </div>
-                              
-                              <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                  <Label className="text-sm font-medium">Status</Label>
-                                  <div className="mt-1">
-                                    <Badge variant={getStatusColor(selectedQuery?.status)}>
-                                      {selectedQuery?.status}
-                                    </Badge>
+                                  {selectedQuery?.itemId && (
+                                    <div>
+                                      <Label className="text-sm font-medium">Item ID</Label>
+                                      <p className="text-sm text-muted-foreground">{selectedQuery?.itemId}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-sm font-medium">Status</Label>
+                                    <div className="mt-1">
+                                      <Badge variant={getStatusColor(selectedQuery?.status)}>
+                                        {selectedQuery?.status}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Priority</Label>
+                                    <div className="mt-1">
+                                      <Badge variant={getPriorityColor(selectedQuery?.priority)}>
+                                        {selectedQuery?.priority}
+                                      </Badge>
+                                    </div>
                                   </div>
                                 </div>
-                                <div>
-                                  <Label className="text-sm font-medium">Priority</Label>
-                                  <div className="mt-1">
-                                    <Badge variant={getPriorityColor(selectedQuery?.priority)}>
-                                      {selectedQuery?.priority}
-                                    </Badge>
-                                  </div>
-                                </div>
+
                                 <div>
                                   <Label className="text-sm font-medium">Assigned To</Label>
                                   <p className="text-sm text-muted-foreground">{selectedQuery?.assignedTo}</p>
                                 </div>
-                              </div>
 
-                              <div>
-                                <Label className="text-sm font-medium">Description</Label>
-                                <p className="text-sm text-muted-foreground mt-1">{selectedQuery?.description}</p>
-                              </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Comments Section */}
-                            <div className="space-y-4">
-                              <h3 className="font-medium flex items-center gap-2">
-                                <MessageCircle className="h-4 w-4" />
-                                Comments & Updates ({selectedQuery?.comments?.length || 0})
-                              </h3>
-                              
-                              {selectedQuery?.comments?.length === 0 ? (
-                                <p className="text-sm text-muted-foreground italic">No comments yet.</p>
-                              ) : (
-                                <div className="space-y-4">
-                                  {selectedQuery?.comments?.map((comment: any) => (
-                                    <div key={comment.id} className="border rounded-lg p-4 space-y-2">
-                                      <div className="flex items-center gap-2 text-sm">
-                                        <User className="h-4 w-4" />
-                                        <span className="font-medium">{comment.user}</span>
-                                        <Calendar className="h-4 w-4 ml-2" />
-                                        <span className="text-muted-foreground">{comment.timestamp}</span>
-                                      </div>
-                                      <p className="text-sm">{comment.message}</p>
-                                    </div>
-                                  ))}
+                                <div>
+                                  <Label className="text-sm font-medium">Description</Label>
+                                  <p className="text-sm text-muted-foreground mt-1">{selectedQuery?.description}</p>
                                 </div>
-                              )}
+                              </div>
+
+                              <Separator />
+
+                              {/* Comments Section */}
+                              <div className="space-y-4">
+                                <h3 className="font-medium flex items-center gap-2">
+                                  <MessageCircle className="h-4 w-4" />
+                                  Comments & Updates ({selectedQuery?.comments?.length || 0})
+                                </h3>
+                                
+                                {selectedQuery?.comments?.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground italic">No comments yet.</p>
+                                ) : (
+                                  <div className="space-y-4">
+                                    {selectedQuery?.comments?.map((comment: any) => (
+                                      <div key={comment.id} className="border rounded-lg p-4 space-y-2">
+                                        <div className="flex items-center gap-2 text-sm">
+                                          <User className="h-4 w-4" />
+                                          <span className="font-medium">{comment.user}</span>
+                                          <Calendar className="h-4 w-4 ml-2" />
+                                          <span className="text-muted-foreground">{comment.timestamp}</span>
+                                        </div>
+                                        <p className="text-sm">{comment.message}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </ScrollArea>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
+                          </ScrollArea>
+                        </DrawerContent>
+                      </Drawer>
+                    </div>
+                  </div>
+                </Card>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            /* Desktop View - Table */
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Query ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Item ID</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {queries.map((query) => (
+                  <TableRow key={query.id}>
+                    <TableCell className="font-medium">{query.id}</TableCell>
+                    <TableCell>{query.itemType}</TableCell>
+                    <TableCell>{query.itemId || "-"}</TableCell>
+                    <TableCell className="max-w-xs truncate">{query.title}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusColor(query.status)}>
+                        {query.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getPriorityColor(query.priority)}>
+                        {query.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{query.assignedTo}</TableCell>
+                    <TableCell>{query.createdAt}</TableCell>
+                    <TableCell>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setSelectedQuery(query)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl max-h-[80vh]">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <FileText className="h-5 w-5" />
+                              {selectedQuery?.id} - {selectedQuery?.title}
+                            </DialogTitle>
+                            <DialogDescription>
+                              Query details and conversation history
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ScrollArea className="max-h-[60vh]">
+                            <div className="space-y-6">
+                              {/* Query Details */}
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-sm font-medium">Item Type</Label>
+                                    <p className="text-sm text-muted-foreground">{selectedQuery?.itemType}</p>
+                                  </div>
+                                  {selectedQuery?.itemId && (
+                                    <div>
+                                      <Label className="text-sm font-medium">Item ID</Label>
+                                      <p className="text-sm text-muted-foreground">{selectedQuery?.itemId}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div>
+                                    <Label className="text-sm font-medium">Status</Label>
+                                    <div className="mt-1">
+                                      <Badge variant={getStatusColor(selectedQuery?.status)}>
+                                        {selectedQuery?.status}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Priority</Label>
+                                    <div className="mt-1">
+                                      <Badge variant={getPriorityColor(selectedQuery?.priority)}>
+                                        {selectedQuery?.priority}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Assigned To</Label>
+                                    <p className="text-sm text-muted-foreground">{selectedQuery?.assignedTo}</p>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm font-medium">Description</Label>
+                                  <p className="text-sm text-muted-foreground mt-1">{selectedQuery?.description}</p>
+                                </div>
+                              </div>
+
+                              <Separator />
+
+                              {/* Comments Section */}
+                              <div className="space-y-4">
+                                <h3 className="font-medium flex items-center gap-2">
+                                  <MessageCircle className="h-4 w-4" />
+                                  Comments & Updates ({selectedQuery?.comments?.length || 0})
+                                </h3>
+                                
+                                {selectedQuery?.comments?.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground italic">No comments yet.</p>
+                                ) : (
+                                  <div className="space-y-4">
+                                    {selectedQuery?.comments?.map((comment: any) => (
+                                      <div key={comment.id} className="border rounded-lg p-4 space-y-2">
+                                        <div className="flex items-center gap-2 text-sm">
+                                          <User className="h-4 w-4" />
+                                          <span className="font-medium">{comment.user}</span>
+                                          <Calendar className="h-4 w-4 ml-2" />
+                                          <span className="text-muted-foreground">{comment.timestamp}</span>
+                                        </div>
+                                        <p className="text-sm">{comment.message}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </ScrollArea>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
