@@ -67,7 +67,7 @@ const getMenuItems = (userRole: string) => {
       { title: "Users", url: "/users", icon: Activity },
       { title: "BOM Allocation", url: "/bom-action", icon: Activity },
       { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
-      { title: "Material Request", url: "/material-request", icon: Building2 },
+      { title: "Work Order", url: "/work-orders", icon: ClipboardList },
       { title: "Vendors", url: "/vendors", icon: Building2 },
       { title: "MRN List/Challan", url: "/", icon: Building2 },
     ];
@@ -87,6 +87,7 @@ const getMenuItems = (userRole: string) => {
       { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
       { title: "Vendors", url: "/vendors", icon: Building2 },
       { title: "MRN List/Challan", url: "/", icon: Building2 },
+      { title: "Change Request", url: "/", icon: PencilLineIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);

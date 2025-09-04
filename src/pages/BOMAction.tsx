@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Table,
   TableBody,
@@ -150,6 +151,7 @@ const mockBOMs: BOM[] = [
 ];
 
 export default function BOMAction() {
+  const { user } = useAuth();
   const [boms, setBOMs] = useState<BOM[]>(mockBOMs);
   const [selectedBOM, setSelectedBOM] = useState<BOM | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -378,8 +380,8 @@ export default function BOMAction() {
                     <TableHead>Item Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>UOM</TableHead>
+                    {(user?.role === 'Store Supervisor') && <TableHead className="text-right">Available Qty</TableHead> }
                     <TableHead className="text-right">Required</TableHead>
-                    {/* <TableHead className="text-right">Current Allocated</TableHead> */}
                     <TableHead className="text-right">Pending</TableHead>
                     <TableHead className="text-right">Allocate Qty</TableHead>
                   </TableRow>
@@ -390,8 +392,8 @@ export default function BOMAction() {
                       <TableCell className="font-medium">{item.itemName}</TableCell>
                       <TableCell>{item.specification}</TableCell>
                       <TableCell>{item.unit}</TableCell>
+                      {(user?.role === 'Store Supervisor') && <TableCell className="text-right">{item.allocatedQuantity}</TableCell>}
                       <TableCell className="text-right">{item.requiredQuantity}</TableCell>
-                      {/* <TableCell className="text-right">{item.allocatedQuantity}</TableCell> */}
                       <TableCell className="text-right">
                         {item.requiredQuantity - (allocationData[item.id] || 0)}
                       </TableCell>
