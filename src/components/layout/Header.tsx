@@ -13,10 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 export function Header() {
   const [notifications] = useState(3); // Mock notification count
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   
   // Fallback user data if auth hook doesn't have user yet
   const currentUser = user || {
@@ -92,9 +94,13 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/user-preferences")}>
               <Settings className="mr-2 h-4 w-4" />
-              Settings
+              User Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Store Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
