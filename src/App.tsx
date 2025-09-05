@@ -22,6 +22,7 @@ import BOMStatus from "./pages/BOMStatus";
 import WorkOrders from "./pages/WorkOrders";
 import WorkOrderRequests from "./pages/WorkOrderRequests";
 import PurchaseRequest from "./pages/PurchaseRequests";
+import PurchaseOrders from "./pages/PurchaseOrders";
 import GatePass from "./pages/GatePass";
 import VehicleRequest from "./pages/VehicleRequest";
 import BOMAction from "./pages/BOMAction";
@@ -59,6 +60,7 @@ const App = () => (
           <Route path="/work-orders" element={<ProtectedRoute><AppLayout><WorkOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/work-requests" element={<ProtectedRoute><AppLayout><WorkOrderRequests /></AppLayout></ProtectedRoute>} />
           <Route path="/purchase-requests" element={<ProtectedRoute><AppLayout><PurchaseRequest /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchase-orders" element={<ProtectedRoute><AppLayout><PurchaseOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
           <Route path="/vehicle-request" element={<ProtectedRoute><AppLayout><VehicleRequest /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-action" element={<ProtectedRoute><AppLayout><BOMAction /></AppLayout></ProtectedRoute>} />

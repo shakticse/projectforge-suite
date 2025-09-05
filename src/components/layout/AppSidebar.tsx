@@ -47,6 +47,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Bill of Materials", url: "/bom", icon: FileText },
     { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+    { title: "Purchase Orders", url: "/purchase-orders", icon: FileText },
     { title: "Material Request", url: "/material-request", icon: Building2 },
     { title: "MRN List/Challan", url: "/", icon: ReceiptTextIcon },
     { title: "Work Order", url: "/work-orders", icon: ClipboardList },
