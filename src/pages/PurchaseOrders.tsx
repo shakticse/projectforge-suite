@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Eye, ArrowUpDown, Filter, Trash2, Package, FileText, Check, ChevronsUpDown, Calendar } from "lucide-react";
+import { Plus, Search, Eye, ArrowUpDown, Filter, Trash2, Package, FileText, Check, ChevronsUpDown, Calendar, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import * as yup from "yup";
 
@@ -171,6 +172,8 @@ export default function PurchaseOrders() {
     description: string;
   }>>([]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  const [sortField, setSortField] = useState<keyof PurchaseOrder>("orderDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const itemsPerPage = 10;
 
   const form = useForm({
@@ -276,20 +279,60 @@ export default function PurchaseOrders() {
     }
   };
 
-  const filteredPOs = purchaseOrders.filter(po => {
-    const matchesSearch = 
-      po.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.vendorName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || po.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredAndSortedPOs = useMemo(() => {
+    let filtered = purchaseOrders.filter(po => {
+      const matchesSearch = 
+        po.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        po.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        po.vendorName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || po.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
 
-  const totalPages = Math.ceil(filteredPOs.length / itemsPerPage);
+    // Sort the filtered results
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle special cases for sorting
+      if (sortField === "totalAmount") {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      } else if (sortField === "orderDate" || sortField === "deliveryDate") {
+        aValue = new Date(aValue as string).getTime();
+        bValue = new Date(bValue as string).getTime();
+      } else {
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [purchaseOrders, searchTerm, statusFilter, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(filteredAndSortedPOs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPOs = filteredPOs.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedPOs = filteredAndSortedPOs.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleSort = (field: keyof PurchaseOrder) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field: keyof PurchaseOrder) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -630,85 +673,188 @@ export default function PurchaseOrders() {
         </Select>
       </div>
 
-      {/* Purchase Orders List */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {paginatedPOs.map((po) => (
-          <Card key={po.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">{po.id}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{po.projectName}</p>
-                </div>
-                <Badge variant={getStatusColor(po.status)}>
-                  {po.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Vendor:</span>
-                  <span className="font-medium">{po.vendorName}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Amount:</span>
-                  <span className="font-medium">₹{po.totalAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Delivery Date:</span>
-                  <span>{new Date(po.deliveryDate).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Items:</span>
-                  <span>{po.items.length} items</span>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1"
-                  onClick={() => handleViewPO(po)}
+      {/* Purchase Orders Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("id")}
                 >
-                  <Eye className="h-4 w-4 mr-1" />
-                  View
+                  PO ID
+                  {getSortIcon("id")}
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Print
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("projectName")}
+                >
+                  Project
+                  {getSortIcon("projectName")}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("vendorName")}
+                >
+                  Vendor
+                  {getSortIcon("vendorName")}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("totalAmount")}
+                >
+                  Total Amount
+                  {getSortIcon("totalAmount")}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("status")}
+                >
+                  Status
+                  {getSortIcon("status")}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("orderDate")}
+                >
+                  Order Date
+                  {getSortIcon("orderDate")}
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => handleSort("deliveryDate")}
+                >
+                  Delivery Date
+                  {getSortIcon("deliveryDate")}
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">Items</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedPOs.length > 0 ? (
+              paginatedPOs.map((po) => (
+                <TableRow key={po.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">{po.id}</TableCell>
+                  <TableCell>{po.projectName}</TableCell>
+                  <TableCell>{po.vendorName}</TableCell>
+                  <TableCell className="font-medium">₹{po.totalAmount.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusColor(po.status)}>
+                      {po.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(po.orderDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(po.deliveryDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline">{po.items.length}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleViewPO(po)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  No purchase orders found matching your criteria.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
+      {/* Results Summary and Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {Math.min(startIndex + 1, filteredAndSortedPOs.length)} to {Math.min(startIndex + itemsPerPage, filteredAndSortedPOs.length)} of {filteredAndSortedPOs.length} results
         </div>
-      )}
+        
+        {totalPages > 1 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <PaginationItem key={pageNum}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(pageNum)}
+                      isActive={currentPage === pageNum}
+                      className="cursor-pointer"
+                    >
+                      {pageNum}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </div>
 
       {/* View Purchase Order Dialog */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
