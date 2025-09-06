@@ -60,7 +60,6 @@ interface PurchaseOrder {
 const purchaseOrderSchema = yup.object({
   projectId: yup.string().required("Project is required"),
   bomId: yup.string().required("BOM is required"),
-  vendorId: yup.string().required("Vendor is required"),
   deliveryDate: yup.string().required("Delivery date is required"),
   deliveryLocation: yup.string().required("Delivery location is required"),
   termsAndConditions: yup.string(),
@@ -181,7 +180,6 @@ export default function PurchaseOrders() {
     defaultValues: {
       projectId: "",
       bomId: "",
-      vendorId: "",
       deliveryDate: "",
       deliveryLocation: "",
       termsAndConditions: "",
@@ -372,7 +370,7 @@ export default function PurchaseOrders() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="projectId"
@@ -414,31 +412,6 @@ export default function PurchaseOrders() {
                             {availableBOMs.map(bom => (
                               <SelectItem key={bom.id} value={bom.id}>
                                 {bom.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="vendorId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vendor</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select vendor" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {mockVendors.map(vendor => (
-                              <SelectItem key={vendor.id} value={vendor.id}>
-                                {vendor.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -700,17 +673,7 @@ export default function PurchaseOrders() {
                   {getSortIcon("projectName")}
                 </Button>
               </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 font-medium"
-                  onClick={() => handleSort("vendorName")}
-                >
-                  Vendor
-                  {getSortIcon("vendorName")}
-                </Button>
-              </TableHead>
+              <TableHead>BOM</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -765,7 +728,7 @@ export default function PurchaseOrders() {
                 <TableRow key={po.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{po.id}</TableCell>
                   <TableCell>{po.projectName}</TableCell>
-                  <TableCell>{po.vendorName}</TableCell>
+                  <TableCell>{po.bomName}</TableCell>
                   <TableCell className="font-medium">₹{po.totalAmount.toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusColor(po.status)}>
@@ -795,7 +758,7 @@ export default function PurchaseOrders() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No purchase orders found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -890,12 +853,8 @@ export default function PurchaseOrders() {
                 </div>
                 
                 <div className="space-y-3">
-                  <h3 className="font-semibold">Vendor & Delivery</h3>
+                  <h3 className="font-semibold">Delivery Information</h3>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Vendor:</span>
-                      <span className="font-medium">{selectedPO.vendorName}</span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Order Date:</span>
                       <span>{new Date(selectedPO.orderDate).toLocaleDateString()}</span>
