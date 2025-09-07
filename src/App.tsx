@@ -30,6 +30,7 @@ import Reports from "./pages/Reports";
 import MaterialRequest from "./pages/MaterialRequest";
 import QueryIssueLog from "./pages/QueryIssueLog";
 import Settings from "./pages/Settings";
+import MRNList from "./pages/MRNList";
 import UserPreferences from "./pages/UserPreferences";
 import NotFound from "./pages/NotFound";
 
@@ -67,6 +68,7 @@ const App = () => (
           <Route path="/bom-action" element={<ProtectedRoute><AppLayout><BOMAction /></AppLayout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
           <Route path="/material-request" element={<ProtectedRoute><AppLayout><MaterialRequest /></AppLayout></ProtectedRoute>} />
+          <Route path="/mrn-list" element={<ProtectedRoute><AppLayout><MRNList /></AppLayout></ProtectedRoute>} />
           <Route path="/query-issue-log" element={<ProtectedRoute><AppLayout><QueryIssueLog /></AppLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
           <Route path="/user-preferences" element={<ProtectedRoute><AppLayout><UserPreferences /></AppLayout></ProtectedRoute>} />
