@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Eye, Plus, MessageCircle, Calendar, User, FileText, Upload, Camera, X, Image as ImageIcon } from "lucide-react";
+import { Eye, Plus, MessageCircle, Calendar, User, FileText, Upload, Camera, X, Image as ImageIcon, Edit, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -159,6 +159,16 @@ export default function QueryIssueLog() {
   const [selectedQuery, setSelectedQuery] = useState<any>(null);
   const [queries, setQueries] = useState(mockQueries);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [editingQuery, setEditingQuery] = useState<any>(null);
+  const [newComment, setNewComment] = useState("");
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [filters, setFilters] = useState({
+    status: "",
+    priority: "",
+    itemType: "",
+    assignedTo: ""
+  });
   const isMobile = useIsMobile();
 
   const {
@@ -215,6 +225,69 @@ export default function QueryIssueLog() {
     setUploadedFiles([]);
     reset();
   };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const handleAddComment = () => {
+    if (!newComment.trim() || !editingQuery) return;
+
+    const updatedQueries = queries.map(query => {
+      if (query.id === editingQuery.id) {
+        const updatedQuery = {
+          ...query,
+          comments: [
+            ...query.comments,
+            {
+              id: (query.comments.length + 1).toString(),
+              user: "Current User",
+              message: newComment.trim(),
+              timestamp: new Date().toLocaleString(),
+            }
+          ],
+          updatedAt: new Date().toISOString().split('T')[0],
+        };
+        setEditingQuery(updatedQuery);
+        return updatedQuery;
+      }
+      return query;
+    });
+
+    setQueries(updatedQueries);
+    setNewComment("");
+    toast.success("Comment added successfully");
+  };
+
+  const filteredAndSortedQueries = queries
+    .filter(query => {
+      return (
+        (!filters.status || query.status === filters.status) &&
+        (!filters.priority || query.priority === filters.priority) &&
+        (!filters.itemType || query.itemType === filters.itemType) &&
+        (!filters.assignedTo || query.assignedTo === filters.assignedTo)
+      );
+    })
+    .sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (sortField === "createdAt" || sortField === "updatedAt") {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      if (sortDirection === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
 
   return (
     <div className="container mx-auto py-6 space-y-6 px-4 sm:px-6">
@@ -421,12 +494,63 @@ export default function QueryIssueLog() {
           <CardDescription>
             View and manage all submitted queries and issues
           </CardDescription>
+          
+          {/* Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Resolved">Resolved</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Priority</SelectItem>
+                <SelectItem value="High">High</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, itemType: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="BOM">BOM</SelectItem>
+                <SelectItem value="Work Order">Work Order</SelectItem>
+                <SelectItem value="Others">Others</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, assignedTo: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Assignees</SelectItem>
+                {mockUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isMobile ? (
             /* Mobile View - Cards */
             <div className="space-y-4">
-              {queries.map((query) => (
+              {filteredAndSortedQueries.map((query) => (
                 <Card key={query.id} className="p-4">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between">
@@ -566,19 +690,89 @@ export default function QueryIssueLog() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Query ID</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("id")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Query ID
+                      {sortField === "id" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("itemType")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Type
+                      {sortField === "itemType" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Item ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("title")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Title
+                      {sortField === "title" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Status
+                      {sortField === "status" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("priority")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Priority
+                      {sortField === "priority" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("assignedTo")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Assigned To
+                      {sortField === "assignedTo" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("createdAt")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Created
+                      {sortField === "createdAt" && (
+                        sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {queries.map((query) => (
+                {filteredAndSortedQueries.map((query) => (
                   <TableRow key={query.id}>
                     <TableCell className="font-medium">{query.id}</TableCell>
                     <TableCell>{query.itemType}</TableCell>
@@ -689,6 +883,90 @@ export default function QueryIssueLog() {
                                     ))}
                                   </div>
                                 )}
+                              </div>
+                            </div>
+                          </ScrollArea>
+                        </DialogContent>
+                      </Dialog>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setEditingQuery(query)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh]">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Edit className="h-5 w-5" />
+                              Add Comment - {editingQuery?.id}
+                            </DialogTitle>
+                            <DialogDescription>
+                              Add a comment to this query
+                            </DialogDescription>
+                          </DialogHeader>
+                          <ScrollArea className="max-h-[60vh]">
+                            <div className="space-y-4">
+                              {/* Query Details */}
+                              <div className="p-4 bg-muted rounded-lg">
+                                <h4 className="font-medium mb-2">{editingQuery?.title}</h4>
+                                <p className="text-sm text-muted-foreground">{editingQuery?.description}</p>
+                                <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                                  <span>Status: <Badge variant={getStatusColor(editingQuery?.status || "")} className="text-xs">{editingQuery?.status}</Badge></span>
+                                  <span>Priority: <Badge variant={getPriorityColor(editingQuery?.priority || "")} className="text-xs">{editingQuery?.priority}</Badge></span>
+                                  <span>Assigned to: {editingQuery?.assignedTo}</span>
+                                </div>
+                              </div>
+
+                              {/* Previous Comments */}
+                              {editingQuery?.comments && editingQuery.comments.length > 0 && (
+                                <div className="space-y-3">
+                                  <h4 className="font-medium flex items-center gap-2">
+                                    <MessageCircle className="h-4 w-4" />
+                                    Previous Comments ({editingQuery.comments.length})
+                                  </h4>
+                                  {editingQuery.comments.map((comment: any) => (
+                                    <div key={comment.id} className="p-3 bg-muted/50 rounded-lg">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <User className="h-4 w-4" />
+                                        <span className="font-medium text-sm">{comment.user}</span>
+                                        <span className="text-xs text-muted-foreground">{comment.timestamp}</span>
+                                      </div>
+                                      <p className="text-sm">{comment.message}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Add New Comment */}
+                              <div className="space-y-3">
+                                <h4 className="font-medium">Add New Comment</h4>
+                                <Textarea
+                                  placeholder="Type your comment here..."
+                                  value={newComment}
+                                  onChange={(e) => setNewComment(e.target.value)}
+                                  rows={4}
+                                />
+                                <div className="flex gap-2">
+                                  <Button 
+                                    onClick={handleAddComment}
+                                    disabled={!newComment.trim()}
+                                  >
+                                    Add Comment
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      setEditingQuery(null);
+                                      setNewComment("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </ScrollArea>
