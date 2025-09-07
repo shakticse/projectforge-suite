@@ -48,9 +48,9 @@ const mockPurchaseOrders = [
     projectId: '1',
     vendorId: '1',
     items: [
-      { id: '1', name: 'Cement', requestedQty: 100, unit: 'bags', receivedQty: 0 },
-      { id: '2', name: 'Steel Bars', requestedQty: 50, unit: 'tons', receivedQty: 0 },
-      { id: '3', name: 'Bricks', requestedQty: 1000, unit: 'pieces', receivedQty: 0 }
+      { id: '1', name: 'Cement', requestedQty: 100, unit: 'bags', receivedQty: 0, rate: 500, discount: 5, amount: 47500 },
+      { id: '2', name: 'Steel Bars', requestedQty: 50, unit: 'tons', receivedQty: 0, rate: 65000, discount: 2, amount: 3185000 },
+      { id: '3', name: 'Bricks', requestedQty: 1000, unit: 'pieces', receivedQty: 0, rate: 8, discount: 0, amount: 8000 }
     ]
   },
   { 
@@ -59,8 +59,8 @@ const mockPurchaseOrders = [
     projectId: '1',
     vendorId: '2',
     items: [
-      { id: '4', name: 'Paint', requestedQty: 20, unit: 'liters', receivedQty: 0 },
-      { id: '5', name: 'Tiles', requestedQty: 200, unit: 'sq ft', receivedQty: 0 }
+      { id: '4', name: 'Paint', requestedQty: 20, unit: 'liters', receivedQty: 0, rate: 250, discount: 10, amount: 4500 },
+      { id: '5', name: 'Tiles', requestedQty: 200, unit: 'sq ft', receivedQty: 0, rate: 45, discount: 8, amount: 8280 }
     ]
   }
 ];
@@ -386,15 +386,19 @@ export default function MRNList() {
                 />
 
                 {selectedPOItems.length > 0 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Purchase Order Items</h3>
-                    <div className="border rounded-lg overflow-hidden">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Purchase Order Items</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Item Name</TableHead>
                             <TableHead>Requested Qty</TableHead>
                             <TableHead>Unit</TableHead>
+                            <TableHead>Rate</TableHead>
+                            <TableHead>Discount (%)</TableHead>
+                            <TableHead>Amount</TableHead>
                             <TableHead>Received Qty</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -404,6 +408,9 @@ export default function MRNList() {
                               <TableCell className="font-medium">{item.name}</TableCell>
                               <TableCell>{item.requestedQty}</TableCell>
                               <TableCell>{item.unit}</TableCell>
+                              <TableCell>₹{item.rate.toLocaleString()}</TableCell>
+                              <TableCell>{item.discount}%</TableCell>
+                              <TableCell>₹{item.amount.toLocaleString()}</TableCell>
                               <TableCell>
                                 <Input
                                   type="number"
@@ -420,6 +427,7 @@ export default function MRNList() {
                       </Table>
                     </div>
                   </div>
+                </div>
                 )}
 
                 <FormField
