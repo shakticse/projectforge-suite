@@ -44,17 +44,36 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import CreateProjectModal from "@/components/projects/CreateProjectModal";
+import ViewProjectModal from "@/components/projects/ViewProjectModal";
+import EditProjectModal from "@/components/projects/EditProjectModal";
+
+interface Project {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  priority: string;
+  progress: number;
+  startDate: string;
+  dueDate: string;
+  teamSize: number;
+  budget: string;
+  manager: string;
+}
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sortColumn, setSortColumn] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Mock project data (expanded for pagination demo)
-  const allProjects = [
+  const [allProjects, setAllProjects] = useState<Project[]>([
     {
       id: 1,
       name: "Gujarat Trade Show 2024",
@@ -133,7 +152,7 @@ const Projects = () => {
       budget: "₹180,000",
       manager: "Raj Patel"
     }
-  ];
+  ]);
 
   // Filter and sort projects
   const filteredProjects = allProjects.filter(project =>
@@ -195,6 +214,24 @@ const Projects = () => {
       case "Low": return "secondary";
       default: return "outline";
     }
+  };
+
+  const handleViewProject = (project: Project) => {
+    setSelectedProject(project);
+    setShowViewModal(true);
+  };
+
+  const handleEditProject = (project: Project) => {
+    setSelectedProject(project);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateProject = (updatedProject: Project) => {
+    setAllProjects(prev => 
+      prev.map(project => 
+        project.id === updatedProject.id ? updatedProject : project
+      )
+    );
   };
 
   return (
@@ -354,16 +391,26 @@ const Projects = () => {
                     <TableCell className="py-4 text-sm font-medium">
                       {project.budget}
                     </TableCell>
-                    <TableCell className="py-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                     <TableCell className="py-4">
+                       <div className="flex items-center justify-center gap-1">
+                         <Button 
+                           variant="ghost" 
+                           size="sm" 
+                           className="h-8 w-8 p-0"
+                           onClick={() => handleViewProject(project)}
+                         >
+                           <Eye className="h-4 w-4" />
+                         </Button>
+                         <Button 
+                           variant="ghost" 
+                           size="sm" 
+                           className="h-8 w-8 p-0"
+                           onClick={() => handleEditProject(project)}
+                         >
+                           <Edit className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -432,6 +479,21 @@ const Projects = () => {
       <CreateProjectModal 
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
+      />
+
+      {/* View Project Modal */}
+      <ViewProjectModal 
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        project={selectedProject}
+      />
+
+      {/* Edit Project Modal */}
+      <EditProjectModal 
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        project={selectedProject}
+        onUpdate={handleUpdateProject}
       />
     </div>
   );
