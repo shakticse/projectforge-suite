@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -205,6 +206,7 @@ type SortDirection = 'asc' | 'desc';
 export default function BOMConsolidateDetails() {
   const { bomId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [bomData] = useState<BOMConsolidateDetails>(mockConsolidateData);
   const [searchTerm, setSearchTerm] = useState("");
   
@@ -629,6 +631,7 @@ export default function BOMConsolidateDetails() {
       )}
 
       {/* Change History Section */}
+      {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor') && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -684,7 +687,7 @@ export default function BOMConsolidateDetails() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
       {/* Change History Modal */}
       {selectedTransaction && (

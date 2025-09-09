@@ -51,6 +51,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Material Request", url: "/material-request", icon: Building2 },
     { title: "MRN List/Challan", url: "/mrn-list", icon: ReceiptTextIcon },
     { title: "Work Order", url: "/work-orders", icon: ClipboardList },
+    { title: "Work Request", url: "/work-requests", icon: ClipboardList },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
@@ -71,6 +72,8 @@ const getMenuItems = (userRole: string) => {
       { title: "Work Order", url: "/work-orders", icon: ClipboardList },
       { title: "Vendors", url: "/vendors", icon: Building2 },
       { title: "MRN List/Challan", url: "/mrn-list", icon: Building2 },
+      { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+      { title: "Work Request", url: "/work-requests", icon: ClipboardList },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -87,8 +90,10 @@ const getMenuItems = (userRole: string) => {
       { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
       { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
       { title: "Vendors", url: "/vendors", icon: Building2 },
-      { title: "MRN List/Challan", url: "/mrn-list", icon: Building2 },
+      { title: "Material Request", url: "/material-request", icon: Building2 },
       { title: "Change Request", url: "/", icon: PencilLineIcon },
+      { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+      { title: "Work Request", url: "/work-requests", icon: ClipboardList },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
