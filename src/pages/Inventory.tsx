@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice' | 'updatedBy' | 'updatedDate';
 type SortDirection = 'asc' | 'desc';
 
 const Inventory = () => {
@@ -67,7 +67,9 @@ const Inventory = () => {
       totalValue: 18825,
       supplier: "MetalCorp Industries",
       location: "Noida",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "John Smith",
+      updatedDate: "2024-01-20"
     },
     {
       id: 11,
@@ -81,7 +83,9 @@ const Inventory = () => {
       totalValue: 9412.50,
       supplier: "MetalCorp Industries",
       location: "Delhi",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Sarah Johnson",
+      updatedDate: "2024-01-19"
     },
     {
       id: 12,
@@ -95,7 +99,9 @@ const Inventory = () => {
       totalValue: 3137.50,
       supplier: "MetalCorp Industries",
       location: "Mumbai",
-      status: "Low Stock"
+      status: "Low Stock",
+      updatedBy: "Mike Davis",
+      updatedDate: "2024-01-18"
     },
     // LED SPOTLIGHTS - Available in 2 stores
     {
@@ -110,7 +116,9 @@ const Inventory = () => {
       totalValue: 5100,
       supplier: "LightTech Solutions",
       location: "Bangalore",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Lisa Wilson",
+      updatedDate: "2024-01-17"
     },
     {
       id: 13,
@@ -124,7 +132,9 @@ const Inventory = () => {
       totalValue: 2040,
       supplier: "LightTech Solutions",
       location: "Chennai",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "John Smith",
+      updatedDate: "2024-01-16"
     },
     // GLASS STOPPER PVC - Available in 2 stores
     {
@@ -139,7 +149,9 @@ const Inventory = () => {
       totalValue: 625,
       supplier: "FastenTech",
       location: "Kochi",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Sarah Johnson",
+      updatedDate: "2024-01-15"
     },
     {
       id: 14,
@@ -153,7 +165,9 @@ const Inventory = () => {
       totalValue: 300,
       supplier: "FastenTech",
       location: "Pune",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Mike Davis",
+      updatedDate: "2024-01-14"
     },
     // OCTONORM VERTICAL 2.5 MTR - Single store
     {  
@@ -168,7 +182,9 @@ const Inventory = () => {
       totalValue: 1608.75,
       supplier: "Aluminum Solutions",
       location: "Kasna",
-      status: "Low Stock"
+      status: "Low Stock",
+      updatedBy: "Lisa Wilson",
+      updatedDate: "2024-01-13"
     },
     // STEEL BEAM 5M - Available in 2 stores
     {
@@ -183,7 +199,9 @@ const Inventory = () => {
       totalValue: 38250,
       supplier: "SteelWorks Ltd",
       location: "Delhi",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "John Smith",
+      updatedDate: "2024-01-12"
     },
     {
       id: 15,
@@ -197,7 +215,9 @@ const Inventory = () => {
       totalValue: 18000,
       supplier: "SteelWorks Ltd",
       location: "Noida",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Sarah Johnson",
+      updatedDate: "2024-01-11"
     },
     // Single store items
     {
@@ -212,7 +232,9 @@ const Inventory = () => {
       totalValue: 10200,
       supplier: "ElectroMotors Inc",
       location: "Chennai",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Mike Davis",
+      updatedDate: "2024-01-10"
     },
     {
       id: 7,
@@ -226,7 +248,9 @@ const Inventory = () => {
       totalValue: 75,
       supplier: "SafetyFirst Co",
       location: "Noida",
-      status: "Critical"
+      status: "Critical",
+      updatedBy: "Lisa Wilson",
+      updatedDate: "2024-01-09"
     },
     {
       id: 8,
@@ -240,7 +264,9 @@ const Inventory = () => {
       totalValue: 1500,
       supplier: "Panel Systems",
       location: "Mumbai",
-      status: "Low Stock"
+      status: "Low Stock",
+      updatedBy: "John Smith",
+      updatedDate: "2024-01-08"
     },
     {
       id: 9,
@@ -254,7 +280,9 @@ const Inventory = () => {
       totalValue: 6000,
       supplier: "FloorCraft",
       location: "Pune",
-      status: "In Stock"
+      status: "In Stock",
+      updatedBy: "Sarah Johnson",
+      updatedDate: "2024-01-07"
     },
     {
       id: 10,
@@ -268,7 +296,9 @@ const Inventory = () => {
       totalValue: 975,
       supplier: "TextilePro",
       location: "Kochi",
-      status: "Low Stock"
+      status: "Low Stock",
+      updatedBy: "Mike Davis",
+      updatedDate: "2024-01-06"
     }
   ];
 
@@ -286,6 +316,8 @@ const Inventory = () => {
         totalValue: 0,
         minStock: 0,
         maxStock: 0,
+        updatedBy: item.updatedBy,
+        updatedDate: item.updatedDate,
         stores: []
       };
     }
@@ -293,6 +325,13 @@ const Inventory = () => {
     acc[key].totalValue += item.totalValue;
     acc[key].minStock += item.minStock;
     acc[key].maxStock += item.maxStock;
+    
+    // Use the most recent update info
+    if (new Date(item.updatedDate) > new Date(acc[key].updatedDate)) {
+      acc[key].updatedBy = item.updatedBy;
+      acc[key].updatedDate = item.updatedDate;
+    }
+    
     acc[key].stores.push({
       location: item.location,
       quantity: item.quantity,
@@ -359,6 +398,9 @@ const Inventory = () => {
     if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
       aValue = Number(aValue);
       bValue = Number(bValue);
+    } else if (sortField === 'updatedDate') {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
     }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -549,6 +591,24 @@ const Inventory = () => {
                     Unit Price {getSortIcon('unitPrice')}
                   </Button>
                 </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('updatedBy')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Updated By {getSortIcon('updatedBy')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort('updatedDate')}
+                    className="h-auto p-0 font-semibold text-left justify-start"
+                  >
+                    Update Date {getSortIcon('updatedDate')}
+                  </Button>
+                </TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -562,6 +622,8 @@ const Inventory = () => {
                   </TableCell>
                   <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-sm">{item.updatedBy}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{item.updatedDate}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
