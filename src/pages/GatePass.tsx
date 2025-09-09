@@ -46,6 +46,26 @@ const mockBOMItems: BOMItem[] = [
   { id: "3", name: "Power Tools", totalQuantity: 20, pendingQuantity: 5, deliveredQuantity: 15 },
 ];
 
+const mockProjects = [
+  { id: "proj-1", name: "Office Building Construction" },
+  { id: "proj-2", name: "Residential Complex Phase 1" },
+  { id: "proj-3", name: "Infrastructure Development" },
+];
+
+const mockBOMs = [
+  { id: "bom-1", name: "BOM-001 - Foundation Materials", projectId: "proj-1" },
+  { id: "bom-2", name: "BOM-002 - Structural Steel", projectId: "proj-1" },
+  { id: "bom-3", name: "BOM-003 - Electrical Components", projectId: "proj-2" },
+  { id: "bom-4", name: "BOM-004 - Plumbing Materials", projectId: "proj-2" },
+];
+
+const mockLocations = [
+  { id: "site-1", name: "Site A - Main Construction Site", type: "Site" },
+  { id: "site-2", name: "Site B - Secondary Site", type: "Site" },
+  { id: "store-1", name: "Store A - Main Warehouse", type: "Store" },
+  { id: "store-2", name: "Store B - Regional Warehouse", type: "Store" },
+];
+
 const mockVehicles = ["ABC-1234", "XYZ-5678", "DEF-9012", "GHI-3456", "JKL-7890"];
 
 const mockGatePasses: GatePass[] = [
@@ -89,11 +109,16 @@ export default function GatePass() {
   const [itemsPerPage] = useState(5);
   const [open, setOpen] = useState(false);
   const [bomItems, setBomItems] = useState<BOMItem[]>(mockBOMItems.map(item => ({ ...item, allocatedQuantity: 0 })));
+  const [selectedProject, setSelectedProject] = useState<string>("");
 
   const form = useForm({
     resolver: yupResolver(gatePassSchema),
     defaultValues: {
       type: "Inward",
+      projectId: "",
+      bomId: "",
+      source: "",
+      destination: "",
       vehicleNumber: "",
       driverName: "",
       purpose: "",
@@ -107,10 +132,13 @@ export default function GatePass() {
       toast.success("Gate pass created successfully!");
       setOpen(false);
       form.reset();
+      setSelectedProject("");
     } catch (error) {
       toast.error("Failed to create gate pass");
     }
   };
+
+  const filteredBOMs = mockBOMs.filter(bom => bom.projectId === selectedProject);
 
   const filteredGatePasses = gatePasses
     .filter(gp => {
@@ -228,6 +256,110 @@ export default function GatePass() {
                           <SelectContent>
                             <SelectItem value="Inward">Inward</SelectItem>
                             <SelectItem value="Outward">Outward</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project</FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          setSelectedProject(value);
+                          form.setValue("bomId", "");
+                        }} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select project" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mockProjects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="bomId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>BOM</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProject}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select BOM" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredBOMs.map((bom) => (
+                              <SelectItem key={bom.id} value={bom.id}>
+                                {bom.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Source</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select source" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mockLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="destination"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Destination</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select destination" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {mockLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

@@ -107,6 +107,10 @@ export const purchaseRequestSchema = yup.object({
 // Gate Pass validation schema
 export const gatePassSchema = yup.object({
   type: yup.string().oneOf(['Inward', 'Outward']).required('Type is required'),
+  projectId: yup.string().required('Project is required'),
+  bomId: yup.string().required('BOM is required'),
+  source: yup.string().required('Source is required'),
+  destination: yup.string().required('Destination is required'),
   vehicleNumber: yup.string().required('Vehicle number is required'),
   driverName: yup.string().required('Driver name is required'),
   purpose: yup.string().required('Purpose is required'),
