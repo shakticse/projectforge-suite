@@ -497,48 +497,48 @@ export default function QueryIssueLog() {
           
           {/* Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
-            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="Open">Open</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Resolved">Resolved</SelectItem>
               </SelectContent>
             </Select>
             
-            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Priority</SelectItem>
+                <SelectItem value="all">All Priority</SelectItem>
                 <SelectItem value="High">High</SelectItem>
                 <SelectItem value="Medium">Medium</SelectItem>
                 <SelectItem value="Low">Low</SelectItem>
               </SelectContent>
             </Select>
             
-            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, itemType: value }))}>
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, itemType: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="BOM">BOM</SelectItem>
                 <SelectItem value="Work Order">Work Order</SelectItem>
                 <SelectItem value="Others">Others</SelectItem>
               </SelectContent>
             </Select>
             
-            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, assignedTo: value }))}>
+            <Select onValueChange={(value) => setFilters(prev => ({ ...prev, assignedTo: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Assignee" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Assignees</SelectItem>
+                <SelectItem value="all">All Assignees</SelectItem>
                 {mockUsers.map((user) => (
                   <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
                 ))}
