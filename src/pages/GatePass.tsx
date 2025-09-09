@@ -292,30 +292,36 @@ export default function GatePass() {
                     )}
                   />
                   
-                  <FormField
-                    control={form.control}
-                    name="bomId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>BOM</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProject}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select BOM" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredBOMs.map((bom) => (
-                              <SelectItem key={bom.id} value={bom.id}>
-                                {bom.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                   <FormField
+                     control={form.control}
+                     name="bomId"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>BOM</FormLabel>
+                         <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProject}>
+                           <FormControl>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Select BOM" />
+                             </SelectTrigger>
+                           </FormControl>
+                           <SelectContent>
+                             {filteredBOMs.length > 0 ? (
+                               filteredBOMs.map((bom) => (
+                                 <SelectItem key={bom.id} value={bom.id}>
+                                   {bom.name}
+                                 </SelectItem>
+                               ))
+                             ) : (
+                               <SelectItem value="no-boms" disabled>
+                                 No BOMs available for selected project
+                               </SelectItem>
+                             )}
+                           </SelectContent>
+                         </Select>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
                   
                   <FormField
                     control={form.control}
