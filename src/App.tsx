@@ -32,6 +32,7 @@ import QueryIssueLog from "./pages/QueryIssueLog";
 import Settings from "./pages/Settings";
 import MRNList from "./pages/MRNList";
 import UserPreferences from "./pages/UserPreferences";
+import RoleManagement from "./pages/RoleManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
           <Route path="/query-issue-log" element={<ProtectedRoute><AppLayout><QueryIssueLog /></AppLayout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
           <Route path="/user-preferences" element={<ProtectedRoute><AppLayout><UserPreferences /></AppLayout></ProtectedRoute>} />
+          <Route path="/role-management" element={<ProtectedRoute><AppLayout><RoleManagement /></AppLayout></ProtectedRoute>} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />

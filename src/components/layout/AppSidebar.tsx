@@ -20,7 +20,8 @@ import {
   PencilRulerIcon,
   FileQuestionIcon,
   PencilLineIcon,
-  ReceiptTextIcon
+  ReceiptTextIcon,
+  Shield
 } from "lucide-react";
 
 import {
@@ -55,6 +56,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
+    { title: "Role Management", url: "/role-management", icon: Shield },
     { title: "Change Request", url: "/", icon: PencilLineIcon },
     { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
     { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
