@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { AddInventoryModal } from "@/components/inventory/AddInventoryModal";
 import {
   Search,
   Plus,
@@ -51,6 +52,7 @@ const Inventory = () => {
   const [itemsPerPage] = useState(10);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showStoreBreakdown, setShowStoreBreakdown] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Mock inventory data with items across multiple stores
   const inventoryItems = [
@@ -424,7 +426,7 @@ const Inventory = () => {
           <h1 className="text-3xl font-bold">Inventory Management</h1>
           <p className="text-muted-foreground mt-1">Track and manage your inventory levels and stock</p>
         </div>
-        <Button size="lg" className="gap-2">
+        <Button size="lg" className="gap-2" onClick={() => setShowAddModal(true)}>
           <Plus className="h-4 w-4" />
           Add Item
         </Button>
@@ -744,6 +746,12 @@ const Inventory = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Inventory Modal */}
+      <AddInventoryModal 
+        open={showAddModal} 
+        onOpenChange={setShowAddModal}
+      />
     </div>
   );
 };
