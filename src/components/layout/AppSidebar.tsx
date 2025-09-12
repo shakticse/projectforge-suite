@@ -43,16 +43,17 @@ const getMenuItems = (userRole: string) => {
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
     { title: "Inventory", url: "/inventory", icon: Package },
-    { title: "Service Request", url: "/", icon: CogIcon },
     { title: "Vendors", url: "/vendors", icon: Building2 },
-    { title: "Bill of Materials", url: "/bom", icon: FileText },
-    { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
     { title: "Purchase Orders", url: "/purchase-orders", icon: FileText },
+    { title: "Service Request", url: "/", icon: CogIcon },
+    { title: "Service Order", url: "/", icon: CogIcon },
+    { title: "Bill of Materials", url: "/bom", icon: FileText },
+    { title: "BOM Allocation", url: "/bom-action", icon: Activity },
     { title: "Material Request", url: "/material-request", icon: Building2 },
-    { title: "MRN List/Challan", url: "/mrn-list", icon: ReceiptTextIcon },
-    { title: "Work Order", url: "/work-orders", icon: ClipboardList },
     { title: "Work Request", url: "/work-requests", icon: ClipboardList },
+    { title: "Work Order", url: "/work-orders", icon: ClipboardList },
+    { title: "MRN List/Challan", url: "/mrn-list", icon: ReceiptTextIcon },
     { title: "Gate Pass", url: "/gate-pass", icon: Truck },
     { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
     { title: "Users", url: "/users", icon: Users },
@@ -73,9 +74,11 @@ const getMenuItems = (userRole: string) => {
       { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
       { title: "Work Order", url: "/work-orders", icon: ClipboardList },
       { title: "Vendors", url: "/vendors", icon: Building2 },
-      { title: "MRN List/Challan", url: "/mrn-list", icon: Building2 },
-      { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
+      { title: "Material Request", url: "/material-request", icon: Building2 },
       { title: "Work Request", url: "/work-requests", icon: ClipboardList },
+      { title: "Purchase Orders", url: "/purchase-orders", icon: FileText },
+      { title: "Role Management", url: "/role-management", icon: Shield },
+      { title: "Service Order", url: "/", icon: CogIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -92,10 +95,11 @@ const getMenuItems = (userRole: string) => {
       { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
       { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
       { title: "Vendors", url: "/vendors", icon: Building2 },
-      { title: "Material Request", url: "/material-request", icon: Building2 },
       { title: "Change Request", url: "/", icon: PencilLineIcon },
-      { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
-      { title: "Work Request", url: "/work-requests", icon: ClipboardList },
+      { title: "Purchase Orders", url: "/purchase-orders", icon: FileText },
+      { title: "Role Management", url: "/role-management", icon: Shield },
+      { title: "Work Order", url: "/work-orders", icon: ClipboardList },
+      { title: "Service Order", url: "/", icon: CogIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
@@ -108,14 +112,19 @@ const getMenuItems = (userRole: string) => {
   if (userRole === 'Purchase') {
     // const arr[] : array of menu which needs to be remove 
     const arr = [
-        { title: "Dashboard", url: "/", icon: LayoutDashboard },
+        { title: "Projects", url: "/projects", icon: Activity },
+        { title: "Inventory", url: "/inventory", icon: Package },
+        { title: "Service Request", url: "/", icon: CogIcon },
         { title: "Bill of Materials", url: "/bom", icon: FileText },
         { title: "BOM Allocation", url: "/bom-action", icon: Activity },
+        { title: "Material Request", url: "/material-request", icon: Building2 },
+        { title: "Work Request", url: "/work-requests", icon: ClipboardList },
+        { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },
         { title: "Gate Pass", url: "/gate-pass", icon: Truck },
-        { title: "Reports", url: "/reports", icon: BarChart3 },
-        { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+        { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
         { title: "Users", url: "/users", icon: Users },
-        { title: "Change Request", url: "/", icon: PencilLineIcon },
+        { title: "Role Management", url: "/role-management", icon: Shield },
+        { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);
