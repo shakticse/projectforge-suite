@@ -39,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice' | 'updatedBy' | 'updatedDate';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice';
 type SortDirection = 'asc' | 'desc';
 
 const Inventory = () => {
@@ -400,9 +400,6 @@ const Inventory = () => {
     if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
       aValue = Number(aValue);
       bValue = Number(bValue);
-    } else if (sortField === 'updatedDate') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
     }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -593,24 +590,6 @@ const Inventory = () => {
                     Unit Price {getSortIcon('unitPrice')}
                   </Button>
                 </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('updatedBy')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Updated By {getSortIcon('updatedBy')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('updatedDate')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Update Date {getSortIcon('updatedDate')}
-                  </Button>
-                </TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -624,8 +603,6 @@ const Inventory = () => {
                   </TableCell>
                   <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-sm">{item.updatedBy}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{item.updatedDate}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
@@ -707,6 +684,14 @@ const Inventory = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Category</p>
                 <p>{selectedItem?.category}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Updated By</p>
+                <p>{selectedItem?.updatedBy}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Update Date</p>
+                <p>{selectedItem?.updatedDate}</p>
               </div>
             </div>
             
