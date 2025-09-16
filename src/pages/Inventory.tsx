@@ -689,29 +689,27 @@ const Inventory = () => {
             
             <div className="space-y-3">
               <h3 className="font-semibold">Stock by Store</h3>
-              <div className="space-y-2">
-                {selectedItem?.stores?.map((store: any, index: number) => (
-                  <div key={index} className="flex flex-col space-y-2 p-3 border bg-background rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{store.location}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-lg">{store.quantity}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Updated By</p>
-                        <p>{selectedItem?.updatedBy}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Update Date</p>
-                        <p>{selectedItem?.updatedDate}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Store Location</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Updated By</TableHead>
+                      <TableHead>Update Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedItem?.stores?.map((store: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{store.location}</TableCell>
+                        <TableCell className="font-mono">{store.quantity}</TableCell>
+                        <TableCell>{selectedItem?.updatedBy}</TableCell>
+                        <TableCell className="text-muted-foreground">{selectedItem?.updatedDate}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
             
