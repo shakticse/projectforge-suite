@@ -139,6 +139,7 @@ const getMenuItems = (userRole: string) => {
 
 export function AppSidebar() {
   const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
+  const [isHovered, setIsHovered] = useState(false);
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
@@ -155,7 +156,23 @@ export function AppSidebar() {
     if (isMobile) {
       setOpenMobile(false);
     }
+    // Close hover state after click
+    setIsHovered(false);
   };
+
+  // Handle mouse enter/leave for hover behavior
+  const handleMouseEnter = () => {
+    if (collapsed && !isMobile) {
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  // Determine if sidebar should show expanded content
+  const showExpanded = !collapsed || (collapsed && isHovered);
 
   const getNavClassName = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth text-sm font-medium ${
@@ -165,9 +182,13 @@ export function AppSidebar() {
     }`;
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}>
+    <Sidebar 
+      className={`${collapsed && !isHovered ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="flex h-16 items-center justify-between px-4 border-b bg-background/80">
-        {!collapsed && (
+        {showExpanded && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
@@ -197,7 +218,7 @@ export function AppSidebar() {
                       onClick={handleMenuClick}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">{item.title}</span>}
+                      {showExpanded && <span className="font-medium">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -218,7 +239,7 @@ export function AppSidebar() {
                       onClick={handleMenuClick}
                     >
                       <Settings className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">Settings</span>}
+                      {showExpanded && <span className="font-medium">Settings</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
