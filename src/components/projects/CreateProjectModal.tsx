@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -30,10 +30,12 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, X, FileText } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import { projectService } from "@/services/projectService";
+import { userService } from "@/services/userService";
 
 const projectSchema = yup.object({
-  name: yup.string().required('Project name is required'),
+  projectName: yup.string().required('Project name is required'),
+  description: yup.string().optional(),
   address: yup.string().required('Project address is required'),
   pincode: yup.string()
     .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits')
@@ -53,6 +55,7 @@ const projectSchema = yup.object({
 interface CreateProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (project?: any) => void;
 }
 
 interface FileUpload {
@@ -61,17 +64,32 @@ interface FileUpload {
   status: 'uploading' | 'completed' | 'error';
 }
 
-const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => {
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenChange, onCreated }) => {
   const [files, setFiles] = useState<FileUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock project managers data - in real app, fetch from API
-  const projectManagers = [
-    { id: "1", name: "Sarah Johnson" },
-    { id: "2", name: "Mike Chen" },
-    { id: "3", name: "Emily Davis" },
-    { id: "4", name: "David Wilson" },
-  ];
+  // Project managers loaded from API
+  const [projectManagers, setProjectManagers] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load users to populate manager dropdown
+  useEffect(() => {
+    let mounted = true;
+    const loadManagers = async () => {
+      try {
+        const res: any = await userService.getAllUsers();
+        const mapped = (res || []).map((u: any) => ({
+          id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
+          name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
+        }));
+        if (mounted) setProjectManagers(mapped);
+      } catch (err) {
+        console.warn('Failed to load project managers', err);
+      }
+    };
+
+    loadManagers();
+    return () => { mounted = false; };
+  }, []);
 
   // Area unit options
   const areaUnits = [
@@ -85,7 +103,8 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
   const form = useForm({
     resolver: yupResolver(projectSchema),
     defaultValues: {
-      name: "",
+      projectName: "",
+      description: "",
       address: "",
       pincode: "",
       state: "",
@@ -161,20 +180,19 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
         }
       });
 
-      // API call to create project
-      await api.post('/projects', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // API call to create project via service
+      const res: any = await projectService.createProject(data);
 
       toast.success("Project created successfully!");
+      // notify parent (so it can refresh) and close
+      if (typeof onCreated === 'function') onCreated(res);
       onOpenChange(false);
       form.reset();
       setFiles([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating project:", error);
-      toast.error("Failed to create project");
+      const msg = error?.response?.data?.message || error?.message || 'Failed to create project';
+      toast.error(String(msg));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,7 +213,7 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="projectName"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Project Name</FormLabel>
@@ -235,6 +253,19 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
 
             <FormField
               control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Description</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter project description" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="address"
               render={({ field }) => (
                 <FormItem>
@@ -250,26 +281,25 @@ const CreateProjectModal = ({ open, onOpenChange }: CreateProjectModalProps) => 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="pincode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pincode</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter 6-digit pincode" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="state"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>State</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter state" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="pincode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pincode</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter 6-digit pincode" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Search,
   Plus,
@@ -44,22 +46,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import CreateProjectModal from "@/components/projects/CreateProjectModal";
+import { projectService } from "@/services/projectService";
+import { useToast } from "@/hooks/use-toast";
 import ViewProjectModal from "@/components/projects/ViewProjectModal";
 import EditProjectModal from "@/components/projects/EditProjectModal";
 
-interface Project {
-  id: number;
-  name: string;
-  description: string;
-  status: string;
-  priority: string;
-  progress: number;
-  startDate: string;
-  dueDate: string;
-  teamSize: number;
-  budget: string;
-  manager: string;
-}
+import { Project } from '@/types/project';
 
 const Projects = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -73,92 +65,19 @@ const Projects = () => {
   const itemsPerPage = 10;
 
   // Mock project data (expanded for pagination demo)
-  const [allProjects, setAllProjects] = useState<Project[]>([
-    {
-      id: 1,
-      name: "Gujarat Trade Show 2024",
-      description: "Vibrant Gujarat Global Trade Show 2024",
-      status: "In Progress",
-      priority: "High",
-      progress: 75,
-      startDate: "2024-10-01",
-      dueDate: "2024-12-15",
-      teamSize: 8,
-      budget: "₹125,000",
-      manager: "Sarah Johnson"
-    },
-    {
-      id: 2,
-      name: "G20 Project",
-      description: "G20 India's Presidency 2022- 2023",
-      status: "Planning",
-      priority: "Medium",
-      progress: 25,
-      startDate: "2024-11-15",
-      dueDate: "2025-01-10",
-      teamSize: 5,
-      budget: "₹75,000",
-      manager: "Mike Chen"
-    },
-    {
-      id: 3,
-      name: "India Energy Week",
-      description: "India Energy Week 2024, Goa",
-      status: "Review",
-      priority: "High",
-      progress: 90,
-      startDate: "2024-09-01",
-      dueDate: "2024-12-01", 
-      teamSize: 6,
-      budget: "₹95,000",
-      manager: "Emily Davis"
-    },
-    {
-      id: 4,
-      name: "Kochi Metro",
-      description: "Museum - Kochi Metro, Kochi",
-      status: "In Progress",
-      priority: "Low",
-      progress: 45,
-      startDate: "2024-10-20",
-      dueDate: "2024-12-20",
-      teamSize: 4,
-      budget: "₹60,000",
-      manager: "David Wilson"
-    },
-    {
-      id: 5,
-      name: "Mumbai Exhibition Center",
-      description: "International Trade Fair Setup",
-      status: "Completed",
-      priority: "Medium",
-      progress: 100,
-      startDate: "2024-08-01",
-      dueDate: "2024-10-30",
-      teamSize: 12,
-      budget: "₹200,000",
-      manager: "Priya Sharma"
-    },
-    {
-      id: 6,
-      name: "Delhi Auto Expo",
-      description: "Auto Expo 2024 Pavilion Setup",
-      status: "Planning",
-      priority: "High",
-      progress: 15,
-      startDate: "2024-12-01",
-      dueDate: "2025-02-15",
-      teamSize: 10,
-      budget: "₹180,000",
-      manager: "Raj Patel"
-    }
-  ]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletePopupMessage, setDeletePopupMessage] = useState<{ type: 'error' | null; text: string }>({ type: null, text: '' });
+
 
   // Filter and sort projects
-  const filteredProjects = allProjects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.manager.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProjects = projects.filter(project =>
+    (project.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (project.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (project.manager || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedProjects = [...filteredProjects].sort((a, b) => {
@@ -216,6 +135,63 @@ const Projects = () => {
     }
   };
 
+  const { toast } = useToast();
+
+  const fetchProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const res: any = await projectService.getAllProjects();
+      // map response to Project[] shape if necessary
+      const mapped: Project[] = (res || []).map((p: any) => ({
+        id: p.id ?? p.projectId ?? p.ProjectId,
+        name: p.name ?? p.Name ?? '',
+        description: p.description ?? p.Description ?? '',
+        status: p.status ?? p.Status ?? 'Planning',
+        priority: p.priority ?? p.Priority ?? 'Medium',
+        progress: p.progress ?? p.Progress ?? 0,
+        startDate: p.startDate ?? p.StartDate ?? '',
+        dueDate: p.dueDate ?? p.DueDate ?? '',
+        teamSize: p.teamSize ?? p.teamSize ?? 0,
+        budget: p.budget ?? p.Budget ?? '',
+        manager: p.manager ?? p.managerName ?? p.Manager ?? ''
+      }));
+      setProjects(mapped);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.response?.data?.message || err?.message || 'Failed to load projects', variant: 'destructive' });
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const handleDelete = (project: Project) => {
+    setDeletingProject(project);
+    setIsDeleteOpen(true);
+    setDeletePopupMessage({ type: null, text: '' });
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingProject) return;
+    setIsDeleting(true);
+    try {
+      await projectService.deleteProject(deletingProject.id);
+      toast({ title: 'Project deleted', description: 'Project deleted successfully.' });
+      setIsDeleteOpen(false);
+      setDeletingProject(null);
+      fetchProjects();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete project';
+      setDeletePopupMessage({ type: 'error', text: String(msg) });
+      toast({ title: 'Error', description: String(msg), variant: 'destructive' });
+      // keep dialog open so user can retry
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleViewProject = (project: Project) => {
     setSelectedProject(project);
     setShowViewModal(true);
@@ -227,11 +203,7 @@ const Projects = () => {
   };
 
   const handleUpdateProject = (updatedProject: Project) => {
-    setAllProjects(prev => 
-      prev.map(project => 
-        project.id === updatedProject.id ? updatedProject : project
-      )
-    );
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
   };
 
   return (
@@ -409,6 +381,14 @@ const Projects = () => {
                          >
                            <Edit className="h-4 w-4" />
                          </Button>
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-8 w-8 p-0"
+                           onClick={() => handleDelete(project)}
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
                        </div>
                      </TableCell>
                   </TableRow>
@@ -479,6 +459,7 @@ const Projects = () => {
       <CreateProjectModal 
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
+        onCreated={() => fetchProjects()}
       />
 
       {/* View Project Modal */}
@@ -493,8 +474,39 @@ const Projects = () => {
         open={showEditModal}
         onOpenChange={setShowEditModal}
         project={selectedProject}
-        onUpdate={handleUpdateProject}
+        onUpdate={(p) => { handleUpdateProject(p); fetchProjects(); }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+          </DialogHeader>
+
+          {deletePopupMessage.type && (
+            <div className="px-4">
+              <Alert variant="destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{deletePopupMessage.text}</AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          <div className="mt-4">
+            Are you sure you want to delete <strong>{deletingProject?.name}</strong>?
+          </div>
+
+          <div className="flex justify-end gap-3 pt-6">
+            <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -143,7 +143,13 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
   const user = authService.getCurrentUser();
-  const menuItems = getMenuItems(user?.role || '');
+  let menuItems = getMenuItems(user?.role || '');
+
+  // If permissions are available on the user, filter menu items to allowed ones
+  const allowedMenuNames: string[] = (user as any)?.allowedMenuNames || [];
+  if (allowedMenuNames.length > 0) {
+    menuItems = menuItems.filter(item => allowedMenuNames.includes(item.title));
+  }
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";

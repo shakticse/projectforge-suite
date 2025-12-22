@@ -33,6 +33,7 @@ import Settings from "./pages/Settings";
 import MRNList from "./pages/MRNList";
 import UserPreferences from "./pages/UserPreferences";
 import RoleManagement from "./pages/RoleManagement";
+import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +43,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter basename="/">
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
@@ -74,7 +75,7 @@ const App = () => (
           <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
           <Route path="/user-preferences" element={<ProtectedRoute><AppLayout><UserPreferences /></AppLayout></ProtectedRoute>} />
           <Route path="/role-management" element={<ProtectedRoute><AppLayout><RoleManagement /></AppLayout></ProtectedRoute>} />
-          
+          <Route path="/access-denied" element={<ProtectedRoute><AppLayout><AccessDenied /></AppLayout></ProtectedRoute>} />
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />
         </Routes>

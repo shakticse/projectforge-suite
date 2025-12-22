@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Search, Plus, Edit, Trash2, Shield, Users, Eye, FilePenLine, FileText, Trash } from "lucide-react";
 import { toast } from "sonner";
+import { roleService } from "@/services/roleService";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Permission {
   view: boolean;
@@ -32,78 +34,44 @@ interface Role {
   description: string;
   pagePermissions: PagePermission[];
   userCount: number;
+  isManagerRole?: boolean;
   createdAt: string;
   updatedAt: string;
   status: 'active' | 'inactive';
 }
 
-const availablePages = [
-  { value: "dashboard", label: "Dashboard" },
-  { value: "projects", label: "Projects" },
-  { value: "bom", label: "BOM" },
-  { value: "inventory", label: "Inventory" },
-  { value: "purchase-orders", label: "Purchase Orders" },
-  { value: "purchase-requests", label: "Purchase Requests" },
-  { value: "material-request", label: "Material Request" },
-  { value: "mrn-list", label: "MRN List/Challan" },
-  { value: "work-orders", label: "Work Orders" },
-  { value: "work-requests", label: "Work Requests" },
-  { value: "gate-pass", label: "Gate Pass" },
-  { value: "vehicle-request", label: "Vehicle Request" },
-  { value: "users", label: "Users" },
-  { value: "vendors", label: "Vendors" },
-  { value: "reports", label: "Reports" },
-  { value: "settings", label: "Settings" },
-  { value: "query-issue-log", label: "Query/Issue Log" },
-];
+const menuItems = await roleService.getAllMenu();
+// Normalize values to strings to keep comparisons consistent in the form state
+const availablePages = menuItems.map((item) => ({
+  value: String(item.id),
+  label: item.menuName,
+}));
 
-const mockRoles: Role[] = [
-  {
-    id: "1",
-    name: "Project Manager",
-    description: "Full access to project management features",
-    pagePermissions: [
-      { page: "dashboard", label: "Dashboard", permissions: { view: true, create: false, edit: false, delete: false } },
-      { page: "projects", label: "Projects", permissions: { view: true, create: true, edit: true, delete: true } },
-      { page: "bom", label: "BOM", permissions: { view: true, create: true, edit: true, delete: false } },
-    ],
-    userCount: 5,
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-20",
-    status: "active"
-  },
-  {
-    id: "2",
-    name: "Store Supervisor",
-    description: "Access to inventory and material management",
-    pagePermissions: [
-      { page: "dashboard", label: "Dashboard", permissions: { view: true, create: false, edit: false, delete: false } },
-      { page: "inventory", label: "Inventory", permissions: { view: true, create: true, edit: true, delete: false } },
-      { page: "material-request", label: "Material Request", permissions: { view: true, create: true, edit: true, delete: false } },
-    ],
-    userCount: 3,
-    createdAt: "2024-01-10",
-    updatedAt: "2024-01-18",
-    status: "active"
-  },
-  {
-    id: "3",
-    name: "Purchase Manager",
-    description: "Manages purchase orders and vendor relationships",
-    pagePermissions: [
-      { page: "dashboard", label: "Dashboard", permissions: { view: true, create: false, edit: false, delete: false } },
-      { page: "purchase-orders", label: "Purchase Orders", permissions: { view: true, create: true, edit: true, delete: true } },
-      { page: "vendors", label: "Vendors", permissions: { view: true, create: true, edit: true, delete: false } },
-    ],
-    userCount: 2,
-    createdAt: "2024-01-12",
-    updatedAt: "2024-01-22",
-    status: "active"
-  },
-];
+// [
+//   { value: "dashboard", label: "Dashboard" },
+//   { value: "projects", label: "Projects" },
+//   { value: "bom", label: "BOM" },
+//   { value: "inventory", label: "Inventory" },
+//   { value: "purchase-orders", label: "Purchase Orders" },
+//   { value: "purchase-requests", label: "Purchase Requests" },
+//   { value: "material-request", label: "Material Request" },
+//   { value: "mrn-list", label: "MRN List/Challan" },
+//   { value: "work-orders", label: "Work Orders" },
+//   { value: "work-requests", label: "Work Requests" },
+//   { value: "gate-pass", label: "Gate Pass" },
+//   { value: "vehicle-request", label: "Vehicle Request" },
+//   { value: "users", label: "Users" },
+//   { value: "vendors", label: "Vendors" },
+//   { value: "reports", label: "Reports" },
+//   { value: "settings", label: "Settings" },
+//   { value: "query-issue-log", label: "Query/Issue Log" },
+// ];
+
+
 
 export default function RoleManagement() {
-  const [roles, setRoles] = useState<Role[]>(mockRoles);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -111,23 +79,82 @@ export default function RoleManagement() {
   const [itemsPerPage] = useState(10);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [popupMessage, setPopupMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({ type: null, text: '' });
 
   // Form state
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     selectedPages: [] as string[],
-    pagePermissions: {} as Record<string, Permission>
+    pagePermissions: {} as Record<string, Permission>,
+    isManagerRole: false
   });
+
+  const formatDateTime = (date?: string | Date | null): string => {
+    if (!date) return 'NA';
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return 'NA';
+
+    if (
+      parsedDate.getFullYear() == 1 &&
+      parsedDate.getMonth() === 0 &&
+      parsedDate.getDate() === 1
+    ) {
+      return 'NA';
+    }
+
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(parsedDate);
+  };
 
   const resetForm = () => {
     setFormData({
       name: "",
       description: "",
       selectedPages: [],
-      pagePermissions: {}
+      pagePermissions: {},
+      isManagerRole: false
     });
   };
+
+  // Fetch roles (component-scoped so we can re-use after create/update/delete)
+  const fetchRoles = async () => {
+    setLoadingRoles(true);
+    try {
+      const res: any = await roleService.getAllRoles();
+      // Map API rows to local Role shape
+      const mapped: Role[] = (res || []).map((r: any) => ({
+        id: String(r.RoleId ?? r.role_id ?? r.roleId ?? ''),
+        name: r.Name ?? r.name ?? '',
+        description: r.Description ?? r.description ?? '',
+        pagePermissions: [],
+        userCount: Number(r.Users ?? r.users ?? 0),
+        isManagerRole: !!(r.IsManagerRole ?? r.isManagerRole ?? r.is_manager_role ?? false),
+        createdAt: r.CreatedAt ?? r.createdAt ?? '',
+        updatedAt: r.UpdateDate ?? r.updateDate ?? '',
+        status: 'active'
+      }));
+      setRoles(mapped);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to load roles';
+      setPopupMessage({ type: 'error', text: String(msg) });
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  useEffect(() => {
+    // initial load
+    fetchRoles();
+  }, []);
 
   const handlePageSelection = (pageValue: string, checked: boolean) => {
     if (checked) {
@@ -163,77 +190,162 @@ export default function RoleManagement() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setPopupMessage({ type: null, text: '' });
+
     if (!formData.name.trim()) {
-      toast.error("Role name is required");
+      setPopupMessage({ type: 'error', text: 'Role name is required' });
       return;
     }
 
     if (formData.selectedPages.length === 0) {
-      toast.error("At least one page must be selected");
+      setPopupMessage({ type: 'error', text: 'At least one page must be selected' });
       return;
     }
 
     const pagePermissions: PagePermission[] = formData.selectedPages.map(pageValue => {
-      const page = availablePages.find(p => p.value === pageValue);
+      const page = availablePages.find(p => String(p.value) === String(pageValue));
       return {
-        page: pageValue,
-        label: page?.label || pageValue,
+        page: String(pageValue),
+        label: page?.label || String(pageValue),
         permissions: formData.pagePermissions[pageValue]
       };
     });
 
-    if (editingRole) {
-      setRoles(prev => prev.map(role => 
-        role.id === editingRole.id 
-          ? {
-              ...role,
-              name: formData.name,
-              description: formData.description,
-              pagePermissions,
-              updatedAt: new Date().toISOString().split('T')[0]
-            }
-          : role
-      ));
-      toast.success("Role updated successfully");
-      setEditingRole(null);
-    } else {
-      const newRole: Role = {
-        id: (roles.length + 1).toString(),
-        name: formData.name,
-        description: formData.description,
-        pagePermissions,
-        userCount: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
-        status: "active"
-      };
-      setRoles(prev => [...prev, newRole]);
-      toast.success("Role created successfully");
+    // Build API payload
+    const payload = {
+      Name: formData.name,
+      Description: formData.description || null,
+      IsManagerRole: !!formData.isManagerRole,
+      Permissions: formData.selectedPages.map(pageValue => {
+        const page = availablePages.find(p => String(p.value) === String(pageValue));
+        const menuId = page ? Number(page.value) : Number(pageValue);
+        const perms = formData.pagePermissions[pageValue];
+        return {
+          MenuId: menuId,
+          CanCreate: !!perms.create,
+          CanView: !!perms.view,
+          CanUpdate: !!perms.edit,
+          CanDelete: !!perms.delete
+        };
+      })
+    };
+
+    setIsSubmitting(true);
+    try {
+      if (editingRole) {
+        const res = await roleService.updateRole(editingRole.id, payload);
+        // Refresh list from server to ensure correct state
+        await fetchRoles();
+        // Show toast and close dialog
+        toast.success(res?.message || 'Role updated successfully');
+        setIsCreateOpen(false);
+        setEditingRole(null);
+        resetForm();
+        setPopupMessage({ type: null, text: '' });
+      } else {
+        const res = await roleService.createRole(payload);
+        // Refresh list from server to ensure correct state
+        await fetchRoles();
+        toast.success(res?.message || 'Role created successfully');
+        setIsCreateOpen(false);
+        resetForm();
+        setPopupMessage({ type: null, text: '' });
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to save role';
+      // Show error (keep dialog open so user can correct and resubmit)
+      setPopupMessage({ type: 'error', text: String(msg) });
+      toast.error(String(msg));
+      // keep dialog open and preserve form state for correction
+    } finally {
+      setIsSubmitting(false);
     }
-
-    resetForm();
-    setIsCreateOpen(false);
   };
 
-  const handleEdit = (role: Role) => {
-    setEditingRole(role);
-    setFormData({
-      name: role.name,
-      description: role.description,
-      selectedPages: role.pagePermissions.map(p => p.page),
-      pagePermissions: Object.fromEntries(
-        role.pagePermissions.map(p => [p.page, p.permissions])
-      )
-    });
+  const handleEdit = async (role: Role) => {
+    // Clear previous errors and open dialog
+    setPopupMessage({ type: null, text: '' });
     setIsCreateOpen(true);
+    try {
+      const res: any = await roleService.getRoleById(role.id);
+
+      // API expected shape: { Name, Description, Permissions: [ { MenuId, CanCreate, CanView, CanUpdate, CanDelete } ] }
+      const permissions = res?.Permissions || res?.permissions || [];
+
+      const selectedPages = permissions.map((p: any) => String(p.MenuId ?? p.menuId ?? p.menuId));
+
+      const pagePermissions = Object.fromEntries(
+        permissions.map((p: any) => [
+          String(p.MenuId ?? p.menuId ?? p.menuId),
+          {
+            view: !!(p.CanView ?? p.canView ?? p.can_view),
+            create: !!(p.CanCreate ?? p.canCreate ?? p.can_create),
+            edit: !!(p.CanUpdate ?? p.canUpdate ?? p.can_update),
+            delete: !!(p.CanDelete ?? p.canDelete ?? p.can_delete),
+          }
+        ])
+      );
+
+      // Build pagePermissions array for local Role object (used in listing)
+      const pagePermissionsArray: PagePermission[] = selectedPages.map((pageValue: string) => ({
+        page: pageValue,
+        label: availablePages.find(p => String(p.value) === String(pageValue))?.label || pageValue,
+        permissions: pagePermissions[pageValue]
+      }));
+
+      const isManagerFlag = !!(res?.IsManagerRole ?? res?.isManagerRole ?? res?.is_manager_role ?? false);
+
+      setEditingRole({
+        ...role,
+        name: res?.Name ?? res?.name ?? role.name,
+        description: res?.Description ?? res?.description ?? role.description,
+        isManagerRole: isManagerFlag,
+        pagePermissions: pagePermissionsArray
+      });
+
+      setFormData({
+        name: res?.Name ?? res?.name ?? role.name,
+        description: res?.Description ?? res?.description ?? role.description,
+        selectedPages,
+        pagePermissions,
+        isManagerRole: isManagerFlag
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to load role details';
+      setPopupMessage({ type: 'error', text: String(msg) });
+    }
   };
 
-  const handleDelete = (roleId: string) => {
-    setRoles(prev => prev.filter(role => role.id !== roleId));
-    toast.success("Role deleted successfully");
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingRole, setDeletingRole] = useState<Role | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = (role: Role) => {
+    setDeletingRole(role);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingRole) return;
+    setIsDeleting(true);
+    try {
+      const res: any = await roleService.deleteRole(deletingRole.id);
+      // Refresh list from server to ensure correct state
+      await fetchRoles();
+      toast.success(res?.message || "Role deleted successfully");
+      setIsDeleteOpen(false);
+      setDeletingRole(null);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete role';
+      // Keep delete dialog open so user can retry, show toast error
+      toast.error(String(msg));
+      setPopupMessage({ type: 'error', text: String(msg) });
+      // do not close the dialog so user can retry
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Filter and sort roles
@@ -276,6 +388,10 @@ export default function RoleManagement() {
         </div>
         <Dialog open={isCreateOpen} onOpenChange={(open) => {
           setIsCreateOpen(open);
+          if (open) {
+            // Clear any previous popup messages when opening create/edit dialog
+            setPopupMessage({ type: null, text: '' });
+          }
           if (!open) {
             setEditingRole(null);
             resetForm();
@@ -293,17 +409,35 @@ export default function RoleManagement() {
                 {editingRole ? "Edit Role" : "Create New Role"}
               </DialogTitle>
             </DialogHeader>
+              {popupMessage.type && (
+                <div className="px-4">
+                  <Alert variant={popupMessage.type === 'error' ? 'destructive' : 'default'}>
+                    <AlertTitle>{popupMessage.type === 'error' ? 'Error' : 'Success'}</AlertTitle>
+                    <AlertDescription>{popupMessage.text}</AlertDescription>
+                  </Alert>
+                </div>
+              )}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Role Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter role name"
-                    required
-                  />
+                  <div className="flex items-center gap-4">
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter role name"
+                      required
+                    />
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="isManagerRole"
+                        checked={!!formData.isManagerRole}
+                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isManagerRole: !!checked }))}
+                      />
+                      <Label htmlFor="isManagerRole" className="text-sm">Is Manager Role</Label>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description">Description</Label>
@@ -405,18 +539,48 @@ export default function RoleManagement() {
                   type="button" 
                   variant="outline" 
                   onClick={() => {
+                    if (isSubmitting) return;
                     setIsCreateOpen(false);
                     setEditingRole(null);
                     resetForm();
+                    setPopupMessage({ type: null, text: '' });
                   }}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {editingRole ? "Update Role" : "Create Role"}
+                  {isSubmitting ? (editingRole ? 'Updating...' : 'Saving...') : (editingRole ? 'Update Role' : 'Create Role')}
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDeleteOpen} onOpenChange={(open) => {
+          setIsDeleteOpen(open);
+          if (open) setPopupMessage({ type: null, text: '' });
+          if (!open) setDeletingRole(null);
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <p>Are you sure you want to delete the role <strong>{deletingRole?.name}</strong>? This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => { setIsDeleteOpen(false); setDeletingRole(null); }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button onClick={confirmDelete} className="text-destructive" disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -430,6 +594,11 @@ export default function RoleManagement() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {loadingRoles ? (
+            <div className="mb-4 text-sm text-muted-foreground">Loading roles...</div>
+          ) : roles.length === 0 ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No roles found.</div>
+          ) : null}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -521,7 +690,7 @@ export default function RoleManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {role.updatedAt}
+                      {formatDateTime(role.updatedAt)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
@@ -535,7 +704,7 @@ export default function RoleManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(role.id)}
+                          onClick={() => handleDelete(role)}
                           className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />

@@ -9,19 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Users, DollarSign, Clock, User } from "lucide-react";
 
-interface Project {
-  id: number;
-  name: string;
-  description: string;
-  status: string;
-  priority: string;
-  progress: number;
-  startDate: string;
-  dueDate: string;
-  teamSize: number;
-  budget: string;
-  manager: string;
-}
+import { Project } from '@/types/project';
 
 interface ViewProjectModalProps {
   open: boolean;

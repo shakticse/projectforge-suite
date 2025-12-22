@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -27,21 +27,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { Upload, X, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { projectService } from "@/services/projectService";
+import { userService } from "@/services/userService";
 
-interface Project {
-  id: number;
-  name: string;
-  description: string;
-  status: string;
-  priority: string;
-  progress: number;
-  startDate: string;
-  dueDate: string;
-  teamSize: number;
-  budget: string;
-  manager: string;
-}
+import { Project } from '@/types/project';
 
 interface EditProjectModalProps {
   open: boolean;
@@ -52,92 +44,207 @@ interface EditProjectModalProps {
 
 const editProjectSchema = yup.object().shape({
   name: yup.string().required('Project name is required'),
-  description: yup.string().required('Description is required'),
-  status: yup.string().required('Status is required'),
-  priority: yup.string().required('Priority is required'),
-  progress: yup.number().min(0).max(100).required('Progress is required'),
-  startDate: yup.string().required('Start date is required'),
-  dueDate: yup.string().required('Due date is required'),
-  teamSize: yup.number().positive().required('Team size is required'),
-  budget: yup.string().required('Budget is required'),
-  manager: yup.string().required('Manager is required'),
+  description: yup.string().optional(),
+  address: yup.string().required('Project address is required'),
+  pincode: yup.string().matches(/^[0-9]{6}$/, 'Pincode must be 6 digits').required('Pincode is required'),
+  state: yup.string().required('State is required'),
+  startDate: yup.string().required('Project Start date is required'),
+  dueDate: yup.string().required('Project End date is required'),
+  managerId: yup.string().required('Project manager is required'),
+  projectArea: yup.number().positive('Project area must be positive').required('Project area is required'),
+  areaUnit: yup.string().required('Area unit is required'),
+  sitePossessionStartDate: yup.string().required('Site possession start date is required'),
+  sitePossessionEndDate: yup.string().required('Site clearing end date is required'),
+  eventStartDate: yup.string().required('Event start date is required'),
+  eventEndDate: yup.string().required('Event end date is required'),
 });
 
-const EditProjectModal = ({ open, onOpenChange, project, onUpdate }: EditProjectModalProps) => {
+const EditProjectModal: React.FC<EditProjectModalProps> = ({ open, onOpenChange, project, onUpdate }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // File uploads state (similar to CreateProjectModal)
+  interface FileUpload {
+    file: File;
+    progress: number;
+    status: 'uploading' | 'completed' | 'error';
+  }
+
+  const [files, setFiles] = useState<FileUpload[]>([]);
 
   const form = useForm({
     resolver: yupResolver(editProjectSchema),
     defaultValues: {
       name: '',
       description: '',
-      status: '',
-      priority: '',
-      progress: 0,
+      address: '',
+      pincode: '',
+      state: '',
       startDate: '',
       dueDate: '',
-      teamSize: 1,
-      budget: '',
-      manager: '',
+      managerId: '',
+      projectArea: 0,
+      areaUnit: '',
+      sitePossessionStartDate: '',
+      sitePossessionEndDate: '',
+      eventStartDate: '',
+      eventEndDate: '',
     },
   });
 
-  // Mock project managers
-  const projectManagers = [
-    "Sarah Johnson",
-    "Mike Chen", 
-    "Emily Davis",
-    "David Wilson",
-    "Priya Sharma",
-    "Raj Patel"
-  ];
+  // Project managers loaded from API
+  const [projectManagers, setProjectManagers] = useState<Array<{ id: string; name: string }>>([]);
 
-  // Reset form when project changes
+  // Load project managers
   useEffect(() => {
-    if (project) {
-      form.reset({
-        name: project.name,
-        description: project.description,
-        status: project.status,
-        priority: project.priority,
-        progress: project.progress,
-        startDate: project.startDate,
-        dueDate: project.dueDate,
-        teamSize: project.teamSize,
-        budget: project.budget,
-        manager: project.manager,
-      });
+    let mounted = true;
+    const loadManagers = async () => {
+      try {
+        const res: any = await userService.getAllUsers();
+        const mapped = (res || []).map((u: any) => ({
+          id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
+          name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
+        }));
+        if (mounted) setProjectManagers(mapped);
+      } catch (err) {
+        console.warn('Failed to load project managers', err);
+      }
+    };
+
+    loadManagers();
+
+    return () => { mounted = false; };
+  }, []);
+
+  // Reset form when project or managers change
+  useEffect(() => {
+    if (!project) return;
+
+    // Prefer managerId from project, otherwise try to match by name to get id
+    let managerValue = project.managerId ?? null;
+    if (!managerValue && project.manager) {
+      const found = projectManagers.find(m => m.name === project.manager || m.name === String(project.manager));
+      if (found) managerValue = found.id;
     }
-  }, [project, form]);
+
+    // Prefill form with project values (normalize dates to yyyy-mm-dd where possible)
+    const normalizeDate = (d?: string) => d && !isNaN(new Date(d).getTime()) ? new Date(d).toISOString().split('T')[0] : '';
+
+    form.reset({
+      name: project.name ?? '',
+      description: project.description ?? '',
+      address: project.address ?? '',
+      pincode: project.pincode ?? '',
+      state: project.state ?? '',
+      startDate: normalizeDate(project.startDate),
+      dueDate: normalizeDate(project.dueDate),
+      managerId: managerValue != null ? String(managerValue) : (project.managerId ? String(project.managerId) : ''),
+      projectArea: project.projectArea ?? 0,
+      areaUnit: project.areaUnit ?? '',
+      sitePossessionStartDate: normalizeDate(project.sitePossessionStartDate),
+      sitePossessionEndDate: normalizeDate(project.sitePossessionEndDate),
+      eventStartDate: normalizeDate(project.eventStartDate),
+      eventEndDate: normalizeDate(project.eventEndDate),
+    });
+
+    // If project has existing documents, show them as completed entries (read-only name shown)
+    if (project.documents && project.documents.length > 0) {
+      setFiles(project.documents.map(doc => ({ file: new File([], doc.name), progress: 100, status: 'completed' as const })));
+    } else {
+      setFiles([]);
+    }
+  }, [project, projectManagers, form]);
+
+  const simulateFileUpload = (
+    file: File,
+    onProgress: (progress: number) => void,
+    onComplete: () => void
+  ) => {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 20;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(interval);
+        onComplete();
+      }
+      onProgress(progress);
+    }, 200);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+
+    selectedFiles.forEach(file => {
+      const newFileUpload = {
+        file,
+        progress: 0,
+        status: 'uploading' as const
+      };
+
+      setFiles(prev => [...prev, newFileUpload]);
+
+      simulateFileUpload(file, (progress) => {
+        setFiles(prev => prev.map(f => f.file === file ? { ...f, progress } : f));
+      }, () => {
+        setFiles(prev => prev.map(f => f.file === file ? { ...f, status: 'completed', progress: 100 } : f));
+      });
+    });
+  };
+
+  const removeFile = (fileToRemove: File) => {
+    setFiles(prev => prev.filter(f => f.file !== fileToRemove));
+  };
 
   const onSubmit = async (data: any) => {
     if (!project) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // If there are files (new or existing), send as FormData, otherwise send JSON
+      const hasRealFiles = files.some(f => f.status === 'uploading' || (f.status === 'completed' && f.file.size > 0));
+
+      let payload: any = data;
+
+      if (hasRealFiles) {
+        const formData = new FormData();
+        formData.append('projectData', JSON.stringify(data));
+        files.forEach((f) => {
+          if (f.status === 'completed' && f.file.size > 0) formData.append('documents', f.file);
+        });
+        payload = formData;
+      }
+
+      const res: any = await projectService.updateProject(project.id, payload);
+
+      // Build updated project object for local state
       const updatedProject: Project = {
         ...project,
+        ...(res || {}),
         ...data,
       };
-      
+
+      // Map FormData response if needed — keep documents array if returned
+      if (res && res.documents) {
+        updatedProject.documents = res.documents;
+      }
+
       onUpdate(updatedProject);
       onOpenChange(false);
-      
+
       toast({
         title: "Success",
-        description: "Project updated successfully",
+        description: res?.message || "Project updated successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to update project';
       toast({
         title: "Error",
-        description: "Failed to update project",
+        description: String(msg),
         variant: "destructive",
       });
+      // keep dialog open so user can retry
     } finally {
       setIsSubmitting(false);
     }
@@ -154,57 +261,17 @@ const EditProjectModal = ({ open, onOpenChange, project, onUpdate }: EditProject
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Project Name */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Enter project name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Description */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder="Enter project description" rows={3} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Status and Priority */}
+            {/* Project Name + Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="status"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Planning">Planning</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Review">Review</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Project Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter project name" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -212,20 +279,22 @@ const EditProjectModal = ({ open, onOpenChange, project, onUpdate }: EditProject
 
               <FormField
                 control={form.control}
-                name="priority"
+                name="managerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Priority</FormLabel>
+                    <FormLabel>Project Manager</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
+                          <SelectValue placeholder="Select project manager" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
+                        {projectManagers.map((manager) => (
+                          <SelectItem key={manager.id} value={manager.id}>
+                            {manager.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -234,29 +303,282 @@ const EditProjectModal = ({ open, onOpenChange, project, onUpdate }: EditProject
               />
             </div>
 
-            {/* Progress */}
             <FormField
               control={form.control}
-              name="progress"
+              name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Progress ({field.value}%)</FormLabel>
+                  <FormLabel>Project Description</FormLabel>
                   <FormControl>
-                    <div className="space-y-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                      <Progress value={field.value} className="h-2" />
-                    </div>
+                    <Input placeholder="Enter project description" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Address</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter complete address" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter state" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="pincode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pincode</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter 6-digit pincode" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Project Area Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="projectArea"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Area</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Enter project area"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="areaUnit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area Unit</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select area unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {[
+                          { value: "sq_mtr", label: "Square Meters (sq. mtr)" },
+                          { value: "sq_ft", label: "Square Feet (sq. ft)" },
+                          { value: "sq_yd", label: "Square Yards (sq. yd)" },
+                          { value: "acres", label: "Acres" },
+                        ].map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Site Possession Dates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="sitePossessionStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Possession Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sitePossessionEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Clearing End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="eventStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Event Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="eventEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Event End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* File Upload Section */}
+            <div className="space-y-4">
+              <FormLabel>Project Documents</FormLabel>
+              
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <Upload className="h-10 w-10 text-muted-foreground mb-4" />
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Drop files here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports: PDF, DOC, DOCX, XLS, XLSX (Max 10MB each)
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
+                    Choose Files
+                  </Button>
+                </div>
+              </div>
+
+              {/* File List with Progress */}
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((fileUpload, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">
+                              {fileUpload.file.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ({(fileUpload.file.size / 1024 / 1024).toFixed(1)} MB)
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(fileUpload.file)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        
+                        {fileUpload.status === 'uploading' && (
+                          <div className="space-y-1">
+                            <Progress value={fileUpload.progress} className="h-2" />
+                            <p className="text-xs text-muted-foreground">
+                              Uploading... {Math.round(fileUpload.progress)}%
+                            </p>
+                          </div>
+                        )}
+                        
+                        {fileUpload.status === 'completed' && (
+                          <p className="text-xs text-success">Upload completed</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Dates */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -289,67 +611,7 @@ const EditProjectModal = ({ open, onOpenChange, project, onUpdate }: EditProject
               />
             </div>
 
-            {/* Team Size and Budget */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="teamSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Team Size</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <FormField
-                control={form.control}
-                name="budget"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Budget</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="₹1,00,000" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Manager */}
-            <FormField
-              control={form.control}
-              name="manager"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project Manager</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select project manager" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projectManagers.map((manager) => (
-                        <SelectItem key={manager} value={manager}>
-                          {manager}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             {/* Submit Buttons */}
             <div className="flex justify-end gap-3 pt-6">

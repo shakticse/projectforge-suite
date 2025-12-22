@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,6 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { userService } from "@/services/userService";
+import { roleService } from "@/services/roleService";
+import { departmentService } from "../services/departmentService";
+import { categoryService } from "@/services/categoryService";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Search,
   Plus,
@@ -24,7 +29,8 @@ import {
   Phone,
   Shield,
   Users as UsersIcon,
-  Download
+  Download,
+  X
 } from "lucide-react";
 import {
   Table,
@@ -50,14 +56,54 @@ const userSchema = z.object({
   department: z.string().min(1, "Department is required"),
   employeeId: z.string().min(1, "Employee ID is required"),
   joiningDate: z.string().min(1, "Joining date is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().min(6, "Please confirm your password"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
 });
 
+const formatDateTime = (date?: string | Date | null): string => {
+    if (!date) return 'NA';
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return 'NA';
+
+    if (
+      parsedDate.getFullYear() == 1 &&
+      parsedDate.getMonth() === 0 &&
+      parsedDate.getDate() === 1
+    ) {
+      return 'NA';
+    }
+
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(parsedDate);
+  };
+
 type UserFormData = z.infer<typeof userSchema>;
+
+interface User {
+  id: string | number;
+  firstName?: string;
+  lastName?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role?: string; // role name
+  roleId?: string | number; // role identifier when available
+  department?: string; // department name
+  departmentId?: string | number; // department identifier when available
+  categories?: string | string[];
+  status?: string;
+  lastLogin?: string;
+  avatar?: string;
+  projects?: number;
+  permissions?: string[];
+  employeeId?: string;
+  joiningDate?: string;
+}
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,100 +121,168 @@ const Users = () => {
       department: "",
       employeeId: "",
       joiningDate: "",
-      password: "",
-      confirmPassword: "",
     },
   });
 
-  const onSubmit = async (data: UserFormData) => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
+  const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const [popupMessage, setPopupMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({ type: null, text: '' });
+  const [deletePopupMessage, setDeletePopupMessage] = useState<{ type: 'error' | null; text: string }>({ type: null, text: '' });
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
     try {
-      // TODO: Save user to backend
-      console.log("User data:", data);
-      
-      toast({
-        title: "User added",
-        description: "New user has been successfully added to the system.",
-      });
-      
-      setIsAddUserOpen(false);
-      form.reset();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add user. Please try again.",
-        variant: "destructive",
-      });
+      const res: any = await userService.getAllUsers();
+      // Map API results to local shape; fall back to existing fields when missing
+      const mapped: User[] = (res || []).map((u: any) => ({
+        id: u.id ?? u.userId ?? u.UserId,
+        firstName: u.firstName ?? u.first_name ?? '',
+        lastName: u.lastName ?? u.last_name ?? '',
+        name: u.name ?? ((u.firstName ?? '') + (u.lastName ? ' ' + u.lastName : '')),
+        email: u.email ?? u.Email ?? '',
+        phone: u.phone ?? u.Phone ?? '',
+        // prefer roleId when available, also keep name
+        role: u.role ?? u.Role ?? u.roleName ?? u.Role?.Name ?? '',
+        roleId: u.roleId ?? u.RoleId ?? u.role?.id ?? u.Role?.RoleId ?? undefined,
+        department: u.department ?? u.Department ?? u.departmentName ?? u.Department?.Name ?? '',
+        departmentId: u.departmentId ?? u.DepartmentId ?? u.department?.id ?? u.Department?.DepartmentId ?? undefined,
+        categories: u.categories ?? u.Categories ?? (u.CategoryIds ? (Array.isArray(u.CategoryIds) ? u.CategoryIds : String(u.CategoryIds).split(',').map((s: string) => s.trim()).filter(Boolean)) : undefined),
+        status: u.status ?? 'Active',
+        lastLogin: u.lastLogin ?? u.last_login ?? '',
+        avatar: u.avatar ?? u.avatarUrl ?? '',
+        projects: u.projects ?? 0,
+        permissions: u.permissions ?? [],
+        employeeId: u.employeeId ?? u.employee_id ?? '',
+        joiningDate: u.joiningDate ?? u.joining_date ?? ''
+      }));
+      setUsers(mapped);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.response?.data?.message || err?.message || 'Failed to load users', variant: 'destructive' });
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
-  // Mock user data
-  const users = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@projecthub.com",
-      phone: "+1 (555) 123-4567",
-      role: "Project Manager",
-      department: "Operations",
-      status: "Active",
-      lastLogin: "2024-11-15 09:30",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-      projects: 8,
-      permissions: ["projects.manage", "users.view", "reports.view"]
-    },
-    {
-      id: 2,
-      name: "Mike Chen",
-      email: "mike.chen@projecthub.com", 
-      phone: "+1 (555) 234-5678",
-      role: "Inventory Manager",
-      department: "Warehouse",
-      status: "Active",
-      lastLogin: "2024-11-15 11:15",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
-      projects: 3,
-      permissions: ["inventory.manage", "orders.create", "reports.view"]
-    },
-    {
-      id: 3,
-      name: "Emily Davis",
-      email: "emily.davis@projecthub.com",
-      phone: "+1 (555) 345-6789",
-      role: "Quality Assurance",
-      department: "Quality Control",
-      status: "Active",
-      lastLogin: "2024-11-14 16:45",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emily",
-      projects: 5,
-      permissions: ["quality.manage", "reports.create", "projects.view"]
-    },
-    {
-      id: 4,
-      name: "David Wilson",
-      email: "david.wilson@projecthub.com",
-      phone: "+1 (555) 456-7890",
-      role: "Supply Chain Coordinator",
-      department: "Procurement",
-      status: "Inactive",
-      lastLogin: "2024-11-10 14:20",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
-      projects: 2,
-      permissions: ["suppliers.manage", "orders.view"]
-    },
-    {
-      id: 5,
-      name: "Jessica Martinez",
-      email: "jessica.martinez@projecthub.com",
-      phone: "+1 (555) 567-8901",
-      role: "System Administrator",
-      department: "IT",
-      status: "Active",
-      lastLogin: "2024-11-15 08:00",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica",
-      projects: 12,
-      permissions: ["system.admin", "users.manage", "all.access"]
+  useEffect(() => { 
+    // initial load
+    fetchUsers();
+
+    // fetch roles and departments
+    const loadMeta = async () => {
+      try {
+        const r: any = await roleService.getAllRoles();
+        setRoles((r || []).map((x: any) => ({ id: String(x.RoleId ?? x.id ?? x.roleId ?? ''), name: x.Name ?? x.name ?? x.menuName ?? '' })));
+      } catch (err) {
+        console.warn('Failed to load roles', err);
+      }
+
+      try {
+        const d: any = await departmentService.getAllDepartments();
+        setDepartments((d || []).map((x: any) => ({ id: String(x.DepartmentId ?? x.id ?? x.departmentId ?? ''), name: x.Name ?? x.name ?? x.departmentName ?? '' })));
+      } catch (err) {
+        console.warn('Failed to load departments', err);
+      }
+
+      try {
+        const c: any = await categoryService.getAllCategories();
+        setCategoriesList((c || []).map((x: any) => ({ id: String(x.CategoryId ?? x.id ?? x.categoryId ?? ''), name: x.Name ?? x.name ?? x.categoryName ?? x })));
+      } catch (err) {
+        console.warn('Failed to load categories', err);
+      }
+    };
+
+    loadMeta();
+  }, []);
+
+  const onSubmit = async (data: UserFormData) => {
+    try {
+      const payload: any = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        // if role value is numeric treat as roleId
+        roleId: data.role && String(data.role).match(/^\d+$/) ? Number(data.role) : undefined,
+        role: data.role && !String(data.role).match(/^\d+$/) ? data.role : undefined,
+        departmentId: data.department && String(data.department).match(/^\d+$/) ? Number(data.department) : undefined,
+        department: data.department && !String(data.department).match(/^\d+$/) ? data.department : undefined,
+        employeeId: data.employeeId,
+        joiningDate: data.joiningDate
+      };
+
+      // attach categories as comma-separated string when available
+      if (selectedCategories.length > 0) payload.categories = selectedCategories.join(',');
+
+      if (editingUser) {
+        const res = await userService.updateUser(editingUser.id, payload);
+        toast({ title: 'User updated', description: res?.message || 'User updated successfully.' });
+        setIsAddUserOpen(false);
+        setEditingUser(null);
+        form.reset();
+        setSelectedCategories([]);
+        fetchUsers();
+        setPopupMessage({ type: null, text: '' });
+      } else {
+        const res = await userService.createUser(payload);
+        toast({ title: 'User added', description: res?.message || 'New user has been successfully added to the system.' });
+        setIsAddUserOpen(false);
+        form.reset();
+        setSelectedCategories([]);
+        fetchUsers();
+        setPopupMessage({ type: null, text: '' });
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to save user. Please try again.';
+      // Keep dialog open and show inline error for correction
+      setPopupMessage({ type: 'error', text: String(msg) });
+      toast({ title: 'Error', description: String(msg), variant: 'destructive' });
     }
-  ];
+  };
+
+  const handleDelete = (user: User) => {
+    setDeletingUser(user);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingUser) return;
+    setIsDeleting(true);
+    try {
+      await userService.deleteUser(deletingUser.id);
+      toast({ title: 'User deleted', description: 'User deleted successfully.' });
+      setIsDeleteOpen(false);
+      setDeletingUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete user';
+      setDeletePopupMessage({ type: 'error', text: String(msg) });
+      toast({ title: 'Error', description: String(msg), variant: 'destructive' });
+      // keep dialog open so user can retry
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]);
+  };
+
+  const removeCategory = (category: string) => {
+    setSelectedCategories(prev => prev.filter(c => c !== category));
+  };
+
+  // Note: users are loaded from the API via fetchUsers(); see state above
+  // The list is rendered from the `users` state and refreshed after create/update/delete operations.
 
   const getStatusBadge = (status: string) => {
     return status === "Active" 
@@ -200,18 +314,27 @@ const Users = () => {
         </div>
         <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
           <DialogTrigger asChild>
-            <Button size="lg" className="gap-2">
+            <Button size="lg" className="gap-2" onClick={() => { setEditingUser(null); form.reset(); form.clearErrors(); setPopupMessage({ type: null, text: '' }); setSelectedCategories([]); }}>
               <Plus className="h-4 w-4" />
               Add User
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
+              <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
               <DialogDescription>
-                Fill in the details below to create a new user account.
+                {editingUser ? 'Update user details below.' : 'Fill in the details below to create a new user account.'}
               </DialogDescription>
             </DialogHeader>
+
+            {popupMessage.type && (
+              <div className="px-4">
+                <Alert variant={popupMessage.type === 'error' ? 'destructive' : 'default'}>
+                  <AlertTitle>{popupMessage.type === 'error' ? 'Error' : 'Success'}</AlertTitle>
+                  <AlertDescription>{popupMessage.text}</AlertDescription>
+                </Alert>
+              </div>
+            )}
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -308,14 +431,9 @@ const Users = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="System Administrator">System Administrator</SelectItem>
-                              <SelectItem value="Project Manager">Project Manager</SelectItem>
-                              <SelectItem value="Inventory Manager">Inventory Manager</SelectItem>
-                              <SelectItem value="Quality Assurance">Quality Assurance</SelectItem>
-                              <SelectItem value="Supply Chain Coordinator">Supply Chain Coordinator</SelectItem>
-                              <SelectItem value="Procurement Officer">Procurement Officer</SelectItem>
-                              <SelectItem value="Finance Manager">Finance Manager</SelectItem>
-                              <SelectItem value="Operations Manager">Operations Manager</SelectItem>
+                              {roles.map((r) => (
+                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -336,14 +454,9 @@ const Users = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="IT">IT</SelectItem>
-                              <SelectItem value="Operations">Operations</SelectItem>
-                              <SelectItem value="Warehouse">Warehouse</SelectItem>
-                              <SelectItem value="Quality Control">Quality Control</SelectItem>
-                              <SelectItem value="Procurement">Procurement</SelectItem>
-                              <SelectItem value="Finance">Finance</SelectItem>
-                              <SelectItem value="Human Resources">Human Resources</SelectItem>
-                              <SelectItem value="Sales">Sales</SelectItem>
+                              {departments.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -365,33 +478,45 @@ const Users = () => {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password *</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="Enter password" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-3">
+                      <FormLabel>Categories</FormLabel>
+                      <Select onValueChange={(value) => toggleCategory(value)}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select categories" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categoriesList.map((category) => (
+                            <SelectItem key={category.id} value={category.id} disabled={selectedCategories.includes(category.id)}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                    <FormField
-                      control={form.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Password *</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="Confirm password" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                      {selectedCategories.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {selectedCategories.map((catId) => {
+                            const catName = categoriesList.find(c => c.id === catId)?.name || catId;
+                            return (
+                              <Badge key={catId} variant="secondary" className="flex items-center gap-1">
+                                {catName}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-auto p-0.5 hover:bg-transparent"
+                                  onClick={() => removeCategory(catId)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
                       )}
-                    />
+                    </div>
                   </div>
                 </div>
 
@@ -402,16 +527,42 @@ const Users = () => {
                     onClick={() => {
                       setIsAddUserOpen(false);
                       form.reset();
+                      setEditingUser(null);
                     }}
                   >
                     Cancel
                   </Button>
                   <Button type="submit">
-                    Add User
+                    {editingUser ? 'Update User' : 'Add User'}
                   </Button>
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDeleteOpen} onOpenChange={(open) => { setIsDeleteOpen(open); if (open) setDeletePopupMessage({ type: null, text: '' }); if (!open) setDeletingUser(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+            </DialogHeader>
+
+            {deletePopupMessage.type && (
+              <div className="px-4">
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{deletePopupMessage.text}</AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            <div className="py-2">
+              <p>Are you sure you want to delete user <strong>{deletingUser?.name}</strong>? This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => { setIsDeleteOpen(false); setDeletingUser(null); setDeletePopupMessage({ type: null, text: '' }); }} disabled={isDeleting}>Cancel</Button>
+              <Button className="text-destructive" onClick={confirmDelete} disabled={isDeleting}>{isDeleting ? 'Deleting...' : 'Delete'}</Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -500,6 +651,12 @@ const Users = () => {
           <CardTitle>System Users</CardTitle>
         </CardHeader>
         <CardContent>
+          {loadingUsers ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No users found.</div>
+          ) : null}
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -549,7 +706,7 @@ const Users = () => {
                   </TableCell>
                   <TableCell>{getStatusBadge(user.status)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(user.lastLogin).toLocaleDateString()}
+                    {formatDateTime(user.lastLogin)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -559,7 +716,25 @@ const Users = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingUser(user);
+                          form.reset({
+                            firstName: user.name?.split(' ')?.[0] ?? '',
+                            lastName: user.name?.split(' ')?.slice(1).join(' ') ?? '',
+                            email: user.email ?? '',
+                            phone: user.phone ?? '',
+                            role: user.roleId ? String(user.roleId) : (user.role ?? ''),
+                            department: user.departmentId ? String(user.departmentId) : (user.department ?? ''),
+                            employeeId: user.employeeId ?? '',
+                            joiningDate: user.joiningDate ? new Date(user.joiningDate).toISOString().split('T')[0] : ''
+                          });
+                          // parse categories (API may return CSV string or array in user.categories)
+                          const catVals = user.categories ? (Array.isArray(user.categories) ? user.categories : String(user.categories).split(',').map((s: string) => s.trim()).filter(Boolean)) : [];
+                          setSelectedCategories(catVals);
+                          setPopupMessage({ type: null, text: '' });
+                          form.clearErrors();
+                          setIsAddUserOpen(true);
+                        }}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit User
                         </DropdownMenuItem>
@@ -580,7 +755,7 @@ const Users = () => {
                             </>
                           )}
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>

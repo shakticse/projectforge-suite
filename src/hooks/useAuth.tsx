@@ -56,6 +56,8 @@ export function useAuth() {
       setIsAuthenticated(true);
       return result;
     } catch (error) {
+      setUser(null);
+      setIsAuthenticated(false);
       console.error('Login error:', error);
       throw error;
     }
