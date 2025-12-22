@@ -39,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice' | 'updatedBy' | 'updatedDate';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice';
 type SortDirection = 'asc' | 'desc';
 
 const Inventory = () => {
@@ -400,9 +400,6 @@ const Inventory = () => {
     if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
       aValue = Number(aValue);
       bValue = Number(bValue);
-    } else if (sortField === 'updatedDate') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
     }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -593,24 +590,6 @@ const Inventory = () => {
                     Unit Price {getSortIcon('unitPrice')}
                   </Button>
                 </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('updatedBy')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Updated By {getSortIcon('updatedBy')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('updatedDate')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Update Date {getSortIcon('updatedDate')}
-                  </Button>
-                </TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -624,8 +603,6 @@ const Inventory = () => {
                   </TableCell>
                   <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-sm">{item.updatedBy}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{item.updatedDate}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
@@ -712,28 +689,27 @@ const Inventory = () => {
             
             <div className="space-y-3">
               <h3 className="font-semibold">Stock by Store</h3>
-              <div className="space-y-2">
-                {selectedItem?.stores?.map((store: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between pl-2 pr-2 border bg-background z-50">
-                    <div>
-                      <p className="font-medium">{store.location}</p>
-                      {/* <p className="text-sm text-muted-foreground">
-                        Min: {store.minStock} | Max: {store.maxStock}
-                      </p> */}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-lg">{store.quantity}</span>
-                      {/* <Badge 
-                        variant={
-                          store.quantity <= store.minStock * 0.5 ? "destructive" : 
-                          store.quantity <= store.minStock ? "warning" : "success"
-                        }
-                      >
-                        {store.status}
-                      </Badge> */}
-                    </div>
-                  </div>
-                ))}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Store Location</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Updated By</TableHead>
+                      <TableHead>Update Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedItem?.stores?.map((store: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{store.location}</TableCell>
+                        <TableCell className="font-mono">{store.quantity}</TableCell>
+                        <TableCell>{selectedItem?.updatedBy}</TableCell>
+                        <TableCell className="text-muted-foreground">{selectedItem?.updatedDate}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
             

@@ -139,6 +139,7 @@ const getMenuItems = (userRole: string) => {
 
 export function AppSidebar() {
   const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
+  const [isHovered, setIsHovered] = useState(false);
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
@@ -161,19 +162,46 @@ export function AppSidebar() {
     if (isMobile) {
       setOpenMobile(false);
     }
+    // Close hover state after click
+    setIsHovered(false);
   };
 
-  const getNavClassName = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth text-sm font-medium ${
-      isActive
-        ? "bg-destructive text-primary-foreground shadow-sm"
-        : "text-foreground hover:bg-secondary hover:text-foreground"
-    }`;
+  // Handle mouse enter/leave for hover behavior
+  const handleMouseEnter = () => {
+    if (collapsed && !isMobile) {
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
+  // Determine if sidebar should show expanded content
+  const showExpanded = !collapsed || (collapsed && isHovered);
+
+  const getNavClassName = ({ isActive }: { isActive: boolean }) => {
+    const baseClasses = "flex items-center rounded-lg transition-smooth text-sm font-medium";
+    const stateClasses = isActive
+      ? "bg-destructive text-primary-foreground shadow-sm"
+      : "text-foreground hover:bg-secondary hover:text-foreground";
+    
+    // Adjust padding and gap based on collapsed state
+    const layoutClasses = collapsed && !isHovered 
+      ? "justify-center p-2.5" 
+      : "gap-3 px-3 py-2.5";
+    
+    return `${baseClasses} ${stateClasses} ${layoutClasses}`;
+  };
 
   return (
-    <Sidebar className={`${collapsed ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}>
-      <div className="flex h-16 items-center justify-between px-4 border-b bg-background/80">
-        {!collapsed && (
+    <Sidebar 
+      className={`${collapsed && !isHovered ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className={`flex h-16 items-center border-b bg-background/80 ${collapsed && !isHovered ? "justify-center px-2" : "justify-between px-4"}`}>
+        {showExpanded && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
@@ -181,15 +209,20 @@ export function AppSidebar() {
             <h1 className="font-semibold text-lg">Pavillions and Interiors</h1>
           </div>
         )}
+        {!showExpanded && (
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
+          </div>
+        )}
         <button
           onClick={toggleSidebar}
-          className="p-2 hover:bg-secondary rounded-lg transition-smooth"
+          className={`p-2 hover:bg-secondary rounded-lg transition-smooth ${collapsed && !isHovered ? "absolute top-2 right-2" : ""}`}
         >
           <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
         </button>
       </div>
 
-      <SidebarContent className="p-4 bg-primary">
+      <SidebarContent className={`${collapsed && !isHovered ? "p-2" : "p-4"} bg-primary`}>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
@@ -203,7 +236,7 @@ export function AppSidebar() {
                       onClick={handleMenuClick}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">{item.title}</span>}
+                      {showExpanded && <span className="font-medium">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -224,7 +257,7 @@ export function AppSidebar() {
                       onClick={handleMenuClick}
                     >
                       <Settings className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">Settings</span>}
+                      {showExpanded && <span className="font-medium">Settings</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
