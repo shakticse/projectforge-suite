@@ -144,16 +144,30 @@ const Projects = () => {
       // map response to Project[] shape if necessary
       const mapped: Project[] = (res || []).map((p: any) => ({
         id: p.id ?? p.projectId ?? p.ProjectId,
-        name: p.name ?? p.Name ?? '',
-        description: p.description ?? p.Description ?? '',
+        name: p.projectName ?? p.Name ?? p.name ?? '',
+        description: p.description ?? p.Description ?? p.desc ?? '',
         status: p.status ?? p.Status ?? 'Planning',
         priority: p.priority ?? p.Priority ?? 'Medium',
         progress: p.progress ?? p.Progress ?? 0,
         startDate: p.startDate ?? p.StartDate ?? '',
-        dueDate: p.dueDate ?? p.DueDate ?? '',
+        endDate: p.endDate ?? p.EndDate ?? '',
         teamSize: p.teamSize ?? p.teamSize ?? 0,
         budget: p.budget ?? p.Budget ?? '',
-        manager: p.manager ?? p.managerName ?? p.Manager ?? ''
+        manager: p.manager ?? p.managerName ?? p.Manager ?? '',
+        managerId: p.managerId ?? p.manager_id ?? p.ManagerId ?? '',
+        // Additional fields used by edit form
+        address: p.address ?? p.Address ?? p.location ?? '',
+        pincode: p.pincode ?? p.Pincode ?? p.pinCode ?? p.pin_code ?? '',
+        state: p.state ?? p.State ?? '',
+        // normalize incoming team to array of ids
+        teamIds: (p.teamIds && Array.isArray(p.teamIds)) ? p.teamIds.map(String) : (p.team || p.teamMembers || p.team_list || p.teamIds || '') ? (String(p.team || p.teamMembers || p.team_list || p.teamIds).split(',').map((s: string) => s.trim()).filter(Boolean)) : [],
+        projectArea: p.projectArea ?? p.project_area ?? p.ProjectArea ?? 0,
+        areaUnit: p.areaUnit ?? p.area_unit ?? p.AreaUnit ?? '',
+        sitePossessionStartDate: p.sitePossessionStartDate ?? p.sitePossessionStartDate ?? p.site_possession_start_date ?? p.SitePossessionStartDate ?? '',
+        sitePossessionEndDate: p.sitePossessionEndDate ?? p.site_possession_end_date ?? p.SitePossessionEndDate ?? '',
+        eventStartDate: p.eventStartDate ?? p.event_start_date ?? p.EventStartDate ?? '',
+        eventEndDate: p.eventEndDate ?? p.event_end_date ?? p.EventEndDate ?? '',
+        documents: p.documents ?? p.Documents ?? []
       }));
       setProjects(mapped);
     } catch (err: any) {
@@ -250,152 +264,158 @@ const Projects = () => {
       {/* Projects Table */}
       <Card className="glass-card">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border/50">
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("name")}
-                    >
-                      Project Name
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("status")}
-                    >
-                      Status
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("priority")}
-                    >
-                      Priority
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("progress")}
-                    >
-                      Progress
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("dueDate")}
-                    >
-                      Due Date
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("manager")}
-                    >
-                      Manager
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12">
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort("budget")}
-                    >
-                      Budget
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="h-12 text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedProjects.map((project) => (
-                  <TableRow key={project.id} className="border-b border-border/50 hover:bg-muted/50">
-                    <TableCell className="py-4">
-                      <div>
-                        <div className="font-medium text-sm">{project.name}</div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-1 max-w-[200px]">
-                          {project.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <Badge variant={getStatusColor(project.status)} className="text-xs">
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <Badge variant={getPriorityColor(project.priority)} className="text-xs">
-                        {project.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="py-4">
-                      <div className="flex items-center gap-2 min-w-[120px]">
-                        <Progress value={project.progress} className="h-2 flex-1" />
-                        <span className="text-xs font-medium min-w-[30px]">{project.progress}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4 text-sm">
-                      {new Date(project.dueDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="py-4 text-sm">
-                      {project.manager}
-                    </TableCell>
-                    <TableCell className="py-4 text-sm font-medium">
-                      {project.budget}
-                    </TableCell>
-                     <TableCell className="py-4">
-                       <div className="flex items-center justify-center gap-1">
-                         <Button 
-                           variant="ghost" 
-                           size="sm" 
-                           className="h-8 w-8 p-0"
-                           onClick={() => handleViewProject(project)}
-                         >
-                           <Eye className="h-4 w-4" />
-                         </Button>
-                         <Button 
-                           variant="ghost" 
-                           size="sm" 
-                           className="h-8 w-8 p-0"
-                           onClick={() => handleEditProject(project)}
-                         >
-                           <Edit className="h-4 w-4" />
-                         </Button>
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           className="h-8 w-8 p-0"
-                           onClick={() => handleDelete(project)}
-                         >
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
-                       </div>
-                     </TableCell>
+          {loadingProjects ? (
+            <div className="p-6">
+              <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading projects...</div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/50">
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("name")}
+                      >
+                        Project Name
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("status")}
+                      >
+                        Status
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("priority")}
+                      >
+                        Priority
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("progress")}
+                      >
+                        Progress
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("dueDate")}
+                      >
+                        Due Date
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("manager")}
+                      >
+                        Manager
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    {/* <TableHead className="h-12">
+                      <Button 
+                        variant="ghost" 
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("budget")}
+                      >
+                        Budget
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead> */}
+                    <TableHead className="h-12 text-center">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedProjects.map((project) => (
+                    <TableRow key={project.id} className="border-b border-border/50 hover:bg-muted/50">
+                      <TableCell className="py-4">
+                        <div>
+                          <div className="font-medium text-sm">{project.name}</div>
+                          <div className="text-xs text-muted-foreground line-clamp-1 mt-1 max-w-[200px]">
+                            {project.description}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <Badge variant={getStatusColor(project.status)} className="text-xs">
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <Badge variant={getPriorityColor(project.priority)} className="text-xs">
+                          {project.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <Progress value={project.progress} className="h-2 flex-1" />
+                          <span className="text-xs font-medium min-w-[30px]">{project.progress}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 text-sm">
+                        {new Date(project.endDate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="py-4 text-sm">
+                        {project.manager}
+                      </TableCell>
+                      {/* <TableCell className="py-4 text-sm font-medium">
+                        {project.budget}
+                      </TableCell> */}
+                       <TableCell className="py-4">
+                         <div className="flex items-center justify-center gap-1">
+                           <Button 
+                             variant="ghost" 
+                             size="sm" 
+                             className="h-8 w-8 p-0"
+                             onClick={() => handleViewProject(project)}
+                           >
+                             <Eye className="h-4 w-4" />
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="sm" 
+                             className="h-8 w-8 p-0"
+                             onClick={() => handleEditProject(project)}
+                           >
+                             <Edit className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="h-8 w-8 p-0"
+                             onClick={() => handleDelete(project)}
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </div>
+                       </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

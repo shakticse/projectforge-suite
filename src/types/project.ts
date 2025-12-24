@@ -6,7 +6,7 @@ export interface Project {
   priority?: string;
   progress?: number;
   startDate?: string;
-  dueDate?: string;
+  endDate?: string;
   teamSize?: number;
   budget?: string;
   manager?: string;
@@ -22,4 +22,6 @@ export interface Project {
   eventStartDate?: string;
   eventEndDate?: string;
   documents?: Array<{ name: string; url?: string }>;
+  // team member ids
+  teamIds?: string[];
 }

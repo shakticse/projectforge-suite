@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, X, FileText } from "lucide-react";
@@ -71,12 +72,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
   // Project managers loaded from API
   const [projectManagers, setProjectManagers] = useState<Array<{ id: string; name: string }>>([]);
 
+  // All users (for project team multi-select)
+  const [usersList, setUsersList] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedTeam, setSelectedTeam] = useState<string[]>([]);
+  const [teamSearch, setTeamSearch] = useState<string>("");
+
   // Load users to populate manager dropdown
   useEffect(() => {
     let mounted = true;
     const loadManagers = async () => {
       try {
-        const res: any = await userService.getAllUsers();
+        const res: any = await userService.getAllManagers();
         const mapped = (res || []).map((u: any) => ({
           id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
           name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
@@ -88,6 +94,21 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
     };
 
     loadManagers();
+    // also load all users for team selection
+    const loadUsers = async () => {
+      try {
+        const res: any = await userService.getAllUsers();
+        const mapped = (res || []).map((u: any) => ({
+          id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
+          name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
+        }));
+        if (mounted) setUsersList(mapped);
+      } catch (err) {
+        console.warn('Failed to load users for team selection', err);
+      }
+    };
+
+    loadUsers();
     return () => { mounted = false; };
   }, []);
 
@@ -170,18 +191,28 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
     try {
       setIsSubmitting(true);
       
-      // Create FormData for file uploads
-      const formData = new FormData();
-      formData.append('projectData', JSON.stringify(data));
-      
-      files.forEach((fileUpload, index) => {
-        if (fileUpload.status === 'completed') {
-          formData.append(`documents`, fileUpload.file);
-        }
-      });
+      // Create FormData for file uploads and map form field projectName -> name for backend
+      const payload = { ...data };
+      // include selected team as array (teamIds)
+      if (selectedTeam.length > 0) payload.teamIds = selectedTeam;
 
-      // API call to create project via service
-      const res: any = await projectService.createProject(data);
+      // If there are files, send FormData with JSON under 'projectData', otherwise send JSON
+      const hasFiles = files.some(f => f.status === 'completed' && f.file.size > 0);
+      let res: any;
+
+      if (hasFiles) {
+        const formData = new FormData();
+        formData.append('projectData', JSON.stringify(payload));
+        files.forEach((fileUpload) => {
+          if (fileUpload.status === 'completed') {
+            formData.append('documents', fileUpload.file);
+          }
+        });
+        // API call to create project via service (send FormData)
+        res = await projectService.createProject(formData);
+      } else {
+        res = await projectService.createProject(payload);
+      }
 
       toast.success("Project created successfully!");
       // notify parent (so it can refresh) and close
@@ -189,6 +220,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
       onOpenChange(false);
       form.reset();
       setFiles([]);
+      setSelectedTeam([]);
     } catch (error: any) {
       console.error("Error creating project:", error);
       const msg = error?.response?.data?.message || error?.message || 'Failed to create project';
@@ -238,7 +270,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {projectManagers.map((manager) => (
+                        <div className="p-2">
+                          <input
+                            placeholder="Search managers..."
+                            value={teamSearch}
+                            onChange={(e) => setTeamSearch(e.target.value)}
+                            className="w-full px-2 py-1 rounded border border-border text-sm mb-2"
+                          />
+                        </div>
+                        {projectManagers
+                          .filter(m => !teamSearch || m.name.toLowerCase().includes(teamSearch.toLowerCase()))
+                          .map((manager) => (
                           <SelectItem key={manager.id} value={manager.id}>
                             {manager.name}
                           </SelectItem>
@@ -249,6 +291,56 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
                   </FormItem>
                 )}
               />
+              {/* Project Team multi-select (searchable) */}
+              <div className="col-span-1 md:col-span-2">
+                <FormLabel>Project Team</FormLabel>
+                <div>
+                  <Select onValueChange={(val: string) => {
+                    if (!val) return;
+                    setSelectedTeam(prev => prev.includes(val) ? prev : [...prev, val]);
+                  }}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Add team members" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <div className="p-2">
+                        <input
+                          placeholder="Search users..."
+                          value={teamSearch}
+                          onChange={(e) => setTeamSearch(e.target.value)}
+                          className="w-full px-2 py-1 rounded border border-border text-sm mb-2"
+                        />
+                      </div>
+                      {usersList
+                        .filter(u => !teamSearch || u.name.toLowerCase().includes(teamSearch.toLowerCase()))
+                        .map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedTeam.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedTeam.map((userId) => {
+                        const u = usersList.find(x => x.id === userId);
+                        const name = u?.name || userId;
+                        return (
+                          <Badge key={userId} variant="secondary" className="flex items-center gap-2">
+                            <span className="text-sm">{name}</span>
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSelectedTeam(prev => prev.filter(id => id !== userId))}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <FormField

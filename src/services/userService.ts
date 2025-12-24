@@ -6,6 +6,12 @@ export const userService = {
     return response.data;
   },
 
+  // Retrieve only managers for dropdowns
+  async getAllManagers() {
+    const response = await api.get('/api/Users/GetAllManagers');
+    return response.data;
+  },
+
   async getUserById(id: string | number) {
     const response = await api.get(`/api/users/${id}`);
     return response.data;
