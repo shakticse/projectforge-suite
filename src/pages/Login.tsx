@@ -36,7 +36,15 @@ const Login = () => {
 
     try {
       const { email, password } = formData;
-      await login({ email, password });
+      const result: any = await login({ email, password });
+
+      // If server demands MFA, store pending token and redirect to MFA verification
+      if (result && result.mfaRequired) {
+        sessionStorage.setItem('mfa_pending', JSON.stringify({ mfaToken: result.token, email }));
+        navigate('/mfa-verify');
+        return;
+      }
+
       toast.success("Login successful!");
       navigate("/", { replace: true });
     } catch (err: any) {
@@ -142,14 +150,14 @@ const Login = () => {
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t text-center">
+            {/* <div className="mt-6 pt-6 border-t text-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link to="/signup" className="text-primary hover:underline font-medium">
                   Sign up
                 </Link>
               </p>
-            </div>
+            </div> */}
 
             {/* Demo Credentials */}
             <div className="mt-4 p-3 bg-secondary/50 rounded-lg">

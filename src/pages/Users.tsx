@@ -48,8 +48,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const userSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().min(3, "First name is required"),
+  lastName: z.string().min(3, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   role: z.string().min(1, "Role is required"),
@@ -738,10 +738,10 @@ const Users = () => {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit User
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        {/* <DropdownMenuItem>
                           <Shield className="mr-2 h-4 w-4" />
                           Manage Permissions
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                         <DropdownMenuItem>
                           {user.status === "Active" ? (
                             <>

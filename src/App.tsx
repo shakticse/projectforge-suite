@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Inventory from "./pages/Inventory";
 import Users from "./pages/Users";
+import Stores from "./pages/Stores";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -34,6 +35,7 @@ import MRNList from "./pages/MRNList";
 import UserPreferences from "./pages/UserPreferences";
 import RoleManagement from "./pages/RoleManagement";
 import AccessDenied from "./pages/AccessDenied";
+import MfaVerify from "./pages/MfaVerify";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,18 +45,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/">
+      <BrowserRouter basename="/projectforge-suite/">
+      {/* <BrowserRouter basename="/">  */}
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          {/* <Route path="/signup" element={<Signup />} /> */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/mfa-verify" element={<MfaVerify />} />
           
           {/* Protected Routes with Layout */}
           <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />
           <Route path="/inventory" element={<ProtectedRoute><AppLayout><Inventory /></AppLayout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
+          <Route path="/stores" element={<ProtectedRoute><AppLayout><Stores /></AppLayout></ProtectedRoute>} />
           <Route path="/vendors" element={<ProtectedRoute><AppLayout><Vendors /></AppLayout></ProtectedRoute>} />
           <Route path="/bom" element={<ProtectedRoute><AppLayout><BOM /></AppLayout></ProtectedRoute>} />
           <Route path="/bom/:bomId" element={<ProtectedRoute><AppLayout><BOMSummary /></AppLayout></ProtectedRoute>} />

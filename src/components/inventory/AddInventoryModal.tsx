@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -10,31 +9,27 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { itemStoreService } from '@/services/itemStoreService';
+import { itemService } from '@/services/itemService';
 
 interface InventoryRow {
   id: string;
-  itemType: 'predefined' | 'custom';
-  itemId?: string;
-  itemName?: string;
-  customName?: string;
+  isCustom: boolean;
+  itemId?: string | null;
+  itemName?: string | null;
   quantity: number;
   source: string;
+  price: number | null;
 }
 
 interface AddInventoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+  onStart?: () => void;
+  onFinish?: () => void;
 }
-
-// Mock data for available items
-const availableItems = [
-  { id: 'item1', name: 'Widget A', sku: 'WGT-001' },
-  { id: 'item2', name: 'Component B', sku: 'CMP-002' },
-  { id: 'item3', name: 'Part C', sku: 'PRT-003' },
-  { id: 'item4', name: 'Material D', sku: 'MTL-004' },
-  { id: 'item5', name: 'Supply E', sku: 'SUP-005' },
-  { id: 'item6', name: 'Tool F', sku: 'TOL-006' },
-];
 
 const sources = [
   'New Purchase',
@@ -44,80 +39,122 @@ const sources = [
   'Adjustment'
 ];
 
-export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOpenChange }) => {
-  const [rows, setRows] = useState<InventoryRow[]>([
-    {
-      id: '1',
-      itemType: 'predefined',
-      quantity: 0,
-      source: ''
-    }
-  ]);
+export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOpenChange, onSaved, onStart, onFinish }) => {
+  const [rows, setRows] = useState<InventoryRow[]>([]);
+  const [availableItems, setAvailableItems] = useState<Array<any>>([]);
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const addRow = () => {
-    const newRow: InventoryRow = {
-      id: Date.now().toString(),
-      itemType: 'predefined',
-      quantity: 0,
-      source: ''
+  // Template row state
+  const [template, setTemplate] = useState<{
+    isCustom: boolean;
+    itemId?: string;
+    itemName?: string;
+    quantity: number;
+    source: string;
+    price: number | null;
+  }>({
+    isCustom: false,
+    itemId: undefined,
+    itemName: undefined,
+    quantity: 1,
+    source: '',
+    price: null
+  });
+
+  useEffect(() => {
+    // fetch items from API
+    const fetchItems = async () => {
+      try {
+        const data = await itemService.getAllItems();
+        // Expect items with { id, name, price } but be tolerant
+        setAvailableItems(Array.isArray(data) ? data : (data?.data ?? []));
+      } catch (err) {
+        console.error('Failed to load items', err);
+        toast({ title: 'Error', description: 'Failed to load items for selection', variant: 'destructive' });
+      }
     };
-    setRows([...rows, newRow]);
+
+    fetchItems();
+  }, []);
+
+  const toggleCombobox = (key: string) => {
+    setOpenComboboxes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const deleteRow = (rowId: string) => {
-    if (rows.length > 1) {
-      setRows(rows.filter(row => row.id !== rowId));
-    }
-  };
+  const addTemplateRow = () => {
+    const valid = template.isCustom
+      ? (template.itemName?.trim() && template.quantity > 0 && template.source)
+      : (template.itemId && template.quantity > 0 && template.source);
 
-  const updateRow = (rowId: string, updates: Partial<InventoryRow>) => {
-    setRows(rows.map(row => 
-      row.id === rowId ? { ...row, ...updates } : row
-    ));
-  };
-
-  const handleSubmit = () => {
-    const validRows = rows.filter(row => {
-      const hasValidItem = row.itemType === 'custom' 
-        ? row.customName?.trim() 
-        : row.itemId;
-      return hasValidItem && row.quantity > 0 && row.source;
-    });
-
-    if (validRows.length === 0) {
-      toast({
-        title: "Invalid Data",
-        description: "Please fill in all required fields for at least one item.",
-        variant: "destructive"
-      });
+    if (!valid) {
+      toast({ title: 'Invalid', description: 'Please select an item (or enter a custom name), quantity and source.', variant: 'destructive' });
       return;
     }
 
-    // Here you would typically send the data to your backend
-    console.log('Submitting inventory data:', validRows);
-    
-    toast({
-      title: "Success",
-      description: `Successfully added ${validRows.length} item(s) to inventory.`
-    });
+    const newRow: InventoryRow = {
+      id: Date.now().toString(),
+      isCustom: !!template.isCustom,
+      itemId: template.isCustom ? null : template.itemId ?? null,
+      itemName: template.isCustom ? template.itemName ?? '' : template.itemName ?? '',
+      quantity: template.quantity,
+      source: template.source,
+      price: template.price ?? null
+    };
 
-    // Reset form and close modal
-    setRows([{
-      id: '1',
-      itemType: 'predefined',
-      quantity: 0,
-      source: ''
-    }]);
-    onOpenChange(false);
+    setRows(prev => [...prev, newRow]);
+
+    // reset template
+    setTemplate({ isCustom: false, itemId: undefined, itemName: undefined, quantity: 1, source: '', price: null });
   };
 
-  const toggleCombobox = (rowId: string) => {
-    setOpenComboboxes(prev => ({
-      ...prev,
-      [rowId]: !prev[rowId]
+  const deleteRow = (rowId: string) => {
+    setRows(rows.filter(row => row.id !== rowId));
+  };
+
+  const updateRow = (rowId: string, updates: Partial<InventoryRow>) => {
+    setRows(rows.map(row => row.id === rowId ? { ...row, ...updates } : row));
+  };
+
+  const handleSubmit = async () => {
+    const validRows = rows.filter(r => (r.isCustom ? r.itemName?.trim() : r.itemId) && r.quantity > 0 && r.source);
+    if (validRows.length === 0) {
+      toast({ title: 'Invalid Data', description: 'Please add at least one valid row before submitting.', variant: 'destructive' });
+      return;
+    }
+
+    const payload = validRows.map(r => ({
+      ItemId: r.isCustom ? null : r.itemId,
+      ItemName: r.itemName ?? null,
+      IsCustom: r.isCustom,
+      Qty: r.quantity,
+      ItemPrice: r.price ?? null,
+      Source: r.source,
+      CreatedBy: (user as any)?.id ?? null,
+      CreatedAt: new Date().toISOString()
     }));
+
+    try {
+      onStart && onStart();
+      setIsSubmitting(true);
+      await itemStoreService.createBulk(payload);
+
+      toast({ title: 'Success', description: `Successfully added ${payload.length} item(s) to inventory.` });
+
+      // reset
+      setRows([]);
+      setTemplate({ isCustom: false, itemId: undefined, itemName: undefined, quantity: 1, source: '', price: null });
+      onOpenChange(false);
+      onSaved && onSaved();
+    } catch (err) {
+      console.error('Create store items failed', err);
+      toast({ title: 'Error', description: 'Failed to add items to inventory.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+      onFinish && onFinish();
+    }
   };
 
   return (
@@ -126,7 +163,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
         <DialogHeader>
           <DialogTitle>Add Items to Inventory</DialogTitle>
           <DialogDescription>
-            Add multiple items to your inventory. You can select from existing items or add custom items.
+            Add multiple items to your inventory. Select or create a custom item in the template, then click "Add Row" to append it to the list below.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,17 +171,89 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-medium">Items</h3>
-              <Button onClick={addRow} size="sm" variant="outline">
+              <Button onClick={addTemplateRow} size="sm" variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Row
               </Button>
             </div>
 
+            {/* Template Row (outside table) */}
+            <div className="border rounded-lg p-3 bg-muted/20">
+              <div className="grid grid-cols-12 gap-3 items-end">
+                <div className="col-span-6">
+                  <div className="flex gap-2 mb-2">
+                    <Button size="sm" variant={!template.isCustom ? 'default' : 'outline'} onClick={() => setTemplate(prev => ({ ...prev, isCustom: false, itemName: undefined }))} className="text-xs">Select Item</Button>
+                    <Button size="sm" variant={template.isCustom ? 'default' : 'outline'} onClick={() => setTemplate(prev => ({ ...prev, isCustom: true, itemId: undefined }))} className="text-xs">Custom Item</Button>
+                  </div>
+
+                  {!template.isCustom ? (
+                    <Popover open={!!openComboboxes['template']} onOpenChange={() => toggleCombobox('template')}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between text-left font-normal" role="combobox">
+                          {template.itemName || 'Search and select item...'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[320px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search items..." />
+                          <CommandEmpty>No item found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              {availableItems.map((item: any) => (
+                                <CommandItem key={item.id ?? item.Id ?? item.ItemId} value={item.name ?? item.ItemName ?? item.Item} onSelect={() => {
+                                  const name = item.name ?? item.ItemName ?? item.Name ?? '';
+                                  const id = item.id ?? item.ItemId ?? null;
+                                  const price = Number(item.itemPrice ?? item.ItemPrice ?? item.UnitPrice ?? 0);
+                                  setTemplate(prev => ({ ...prev, itemId: String(id), itemName: `${name}${item.sku ? ` (${item.sku})` : ''}`, price }));
+                                  toggleCombobox('template');
+                                }}>
+                                  <Check className={cn('mr-2 h-4 w-4', template.itemId === String(item.id ?? item.ItemId) ? 'opacity-100' : 'opacity-0')} />
+                                  {(item.name ?? item.ItemName ?? item.Name)} {item.sku ? `(${item.sku})` : ''}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <Input placeholder="Enter custom item name..." value={template.itemName ?? ''} onChange={(e) => setTemplate(prev => ({ ...prev, itemName: e.target.value }))} />
+                  )}
+                </div>
+
+                <div className="col-span-2">
+                  <Input type="number" min={0} value={template.price ?? ''} placeholder="Price" onChange={(e) => setTemplate(prev => ({ ...prev, price: Number(e.target.value) }))} />
+                </div>
+
+                <div className="col-span-1">
+                  <Input type="number" min={1} value={template.quantity} onChange={(e) => setTemplate(prev => ({ ...prev, quantity: Number(e.target.value) }))} />
+                </div>
+
+                <div className="col-span-2">
+                  <Select value={template.source} onValueChange={(value) => setTemplate(prev => ({ ...prev, source: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="col-span-1 text-right">
+                  <Button size="sm" variant="ghost" onClick={() => setTemplate({ isCustom: false, itemId: undefined, itemName: undefined, quantity: 1, source: '', price: null })}>Reset</Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Rows Table */}
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[300px]">Item</TableHead>
+                    <TableHead className="w-[360px]">Item</TableHead>
+                    <TableHead className="w-[120px]">Price</TableHead>
                     <TableHead className="w-[120px]">Quantity</TableHead>
                     <TableHead className="w-[180px]">Source</TableHead>
                     <TableHead className="w-[60px]">Action</TableHead>
@@ -153,125 +262,32 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={row.id}>
+                      <TableCell>{row.itemName}</TableCell>
                       <TableCell>
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Button
-                              variant={row.itemType === 'predefined' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => updateRow(row.id, { itemType: 'predefined', customName: '', itemId: '', itemName: '' })}
-                              className="text-xs"
-                            >
-                              Select Item
-                            </Button>
-                            <Button
-                              variant={row.itemType === 'custom' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => updateRow(row.id, { itemType: 'custom', itemId: '', itemName: '' })}
-                              className="text-xs"
-                            >
-                              Custom Item
-                            </Button>
-                          </div>
-
-                          {row.itemType === 'predefined' ? (
-                            <Popover open={openComboboxes[row.id]} onOpenChange={() => toggleCombobox(row.id)}>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className="w-full justify-between text-left font-normal"
-                                >
-                                  {row.itemName || "Search and select item..."}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[280px] p-0" align="start">
-                                <Command>
-                                  <CommandInput placeholder="Search items..." />
-                                  <CommandEmpty>No item found.</CommandEmpty>
-                                  <CommandList>
-                                    <CommandGroup>
-                                      {availableItems.map((item) => (
-                                        <CommandItem
-                                          key={item.id}
-                                          value={item.name}
-                                          onSelect={() => {
-                                            updateRow(row.id, {
-                                              itemId: item.id,
-                                              itemName: `${item.name} (${item.sku})`
-                                            });
-                                            toggleCombobox(row.id);
-                                          }}
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              row.itemId === item.id ? "opacity-100" : "opacity-0"
-                                            )}
-                                          />
-                                          {item.name} ({item.sku})
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <Input
-                              placeholder="Enter custom item name..."
-                              value={row.customName || ''}
-                              onChange={(e) => updateRow(row.id, { customName: e.target.value })}
-                            />
-                          )}
-                        </div>
+                        <Input type="number" min={0} value={row.price ?? ''} onChange={(e) => updateRow(row.id, { price: Number(e.target.value) })} />
                       </TableCell>
-
                       <TableCell>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          min="0"
-                          value={row.quantity || ''}
-                          onChange={(e) => updateRow(row.id, { quantity: Number(e.target.value) })}
-                        />
+                        <Input type="number" min={0} value={row.quantity} onChange={(e) => updateRow(row.id, { quantity: Number(e.target.value) })} />
                       </TableCell>
-
                       <TableCell>
-                        <Select 
-                          value={row.source} 
-                          onValueChange={(value) => updateRow(row.id, { source: value })}
-                        >
+                        <Select value={row.source} onValueChange={(value) => updateRow(row.id, { source: value })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select source" />
                           </SelectTrigger>
                           <SelectContent>
-                            {sources.map((source) => (
-                              <SelectItem key={source} value={source}>
-                                {source}
-                              </SelectItem>
-                            ))}
+                            {sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </TableCell>
-
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteRow(row.id)}
-                          disabled={rows.length === 1}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteRow(row.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+
           </div>
         </div>
 
@@ -279,8 +295,15 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
-            Add Items to Inventory
+          <Button onClick={handleSubmit} disabled={isSubmitting || rows.length === 0}>
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
+                Adding...
+              </>
+            ) : (
+              'Add Items to Inventory'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

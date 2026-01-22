@@ -21,7 +21,8 @@ import {
   FileQuestionIcon,
   PencilLineIcon,
   ReceiptTextIcon,
-  Shield
+  Shield,
+  Store
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ const getMenuItems = (userRole: string) => {
   const baseItems = [
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Projects", url: "/projects", icon: FolderOpen },
+    { title: 'Store', url: '/stores', icon: Store },
     { title: "Inventory", url: "/inventory", icon: Package },
     { title: "Vendors", url: "/vendors", icon: Building2 },
     { title: "Purchase Request", url: "/purchase-requests", icon: ShoppingCart },

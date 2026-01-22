@@ -91,46 +91,53 @@ export const authService = {
     
     // For other credentials, make API call
     const response = await api.post('/api/auth/login', credentials);
-    console.log(response);
-    const { token, name, email, role, department, avatar, message } = response.data;
-    if(token) {
+    const data = response.data || {};
+
+    // If backend signals MFA required, forward that to the caller so the UI can redirect to the MFA step
+    if (data.message == "MFA_REQUIRED") {
+      return { mfaRequired: true, mfaToken: data.mfaToken, email: credentials.email };
+    }
+
+    const { token, name, email, role, department, avatar, message, permissions } = data;
+    if (token) {
       const user = {
         name: name,
         email: email,
         role: role,
         department: department,
-        avatar: avatar
+        avatar: avatar,
+        permissions: permissions
       };
       // Fetch role permissions and menus to build allowed paths (best-effort)
       try {
         const menus: any = await roleService.getAllMenu();
 
-        // Determine role id when available
-        let roleId: string | number | undefined = undefined;
-        if (typeof role === 'number' || /^[0-9]+$/.test(String(role))) roleId = role;
-        // If role appears to be a name, try to find it in roles list
-        if (!roleId) {
-          try {
-            const allRoles: any = await roleService.getAllRoles();
-            const found = (allRoles || []).find((r: any) => (r.Name ?? r.name ?? '').toLowerCase() === String(role).toLowerCase());
-            if (found) roleId = found.RoleId ?? found.id ?? found.roleId;
-          } catch (e) {
-            // ignore
-          }
-        }
+        // // Determine role id when available
+        // let roleId: string | number | undefined = undefined;
+        // if (typeof role === 'number' || /^[0-9]+$/.test(String(role))) roleId = role;
+        // // If role appears to be a name, try to find it in roles list
+        // if (!roleId) {
+        //   try {
+        //     const allRoles: any = await roleService.getAllRoles();
+        //     const found = (allRoles || []).find((r: any) => (r.Name ?? r.name ?? '').toLowerCase() === String(role).toLowerCase());
+        //     if (found) roleId = found.RoleId ?? found.id ?? found.roleId;
+        //   } catch (e) {
+        //     // ignore
+        //   }
+        // }
 
-        let permissions: any[] = [];
-        if (roleId) {
-          try {
-            const roleDetails: any = await roleService.getRoleById(roleId);
-            permissions = roleDetails?.Permissions || roleDetails?.permissions || [];
-          } catch (e) {
-            // ignore
-          }
-        }
+        // let permissions: any[] = [];
+        // if (roleId) {
+        //   try {
+        //     const roleDetails: any = await roleService.getRoleById(roleId);
+        //     permissions = roleDetails?.Permissions || roleDetails?.permissions || [];
+        //   } catch (e) {
+        //     // ignore
+        //   }
+        // }
 
         // Build allowed menu names and attach
-        const allowedMenus = (permissions || []).filter(p => p.CanView || p.canView || p.can_view).map((p: any) => Number(p.MenuId ?? p.menuId ?? p.menu_id));
+        const allowedMenus = (permissions || []).filter(p => p.canCreate || p.canView || p.canUpdate || p.canDelete).map((p: any) => Number(p.MenuId ?? p.menuId ?? p.menu_id));
         const allowedMenuNames = (menus || []).filter((m: any) => allowedMenus.includes(Number(m.id))).map((m: any) => m.menuName);
         (user as any).allowedMenuNames = allowedMenuNames;
         // Also attach raw permissions for later checks
@@ -182,5 +189,11 @@ export const authService = {
 
   isAuthenticated(): boolean {
     return !!this.getToken();
+  },
+
+  // programmatically set session (used after MFA verification)
+  setSession(token: string, user: any) {
+    if (token) localStorage.setItem('auth_token', token); else localStorage.removeItem('auth_token');
+    if (user) localStorage.setItem('user', JSON.stringify(user)); else localStorage.removeItem('user');
   }
 };

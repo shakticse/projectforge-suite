@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { projectService } from "@/services/projectService";
+import { itemService } from "@/services/itemService";
+import { itemStoreService } from "@/services/itemStoreService";
+import { bomService } from "@/services/bomService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +20,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
+import { evaluate } from "mathjs";
 
 interface BOMItem {
   id: string;
@@ -55,83 +60,52 @@ interface MaterialOption {
   childItems?: Array<{
     id: string;
     name: string;
+    price: number;
     quantity: number;
     perunit: number;
     availableStock: number;
+    expression?: string;
   }>;
 }
 
-const mockProjects = [
-  { id: "proj-1", name: "G20 Project" },
-  { id: "proj-2", name: "India Energy Week" },
-  { id: "proj-3", name: "Kochi Metro" },
-];
 
-const mockMaterials: MaterialOption[] = [
-  { id: "mat-1", name: "BELT TIGHTNER", availableStock: 150 },
-  { id: "mat-2", name: "MDF 17MM 8'X4'", availableStock: 200 },
-  { id: "mat-3", name: "PAPER BLADE 9MM", availableStock: 500 },
-  { id: "mat-4", name: "CUTTER WIRE ROPE", availableStock: 300 },
-  { id: "mat-5", name: "CANOPY BEAM 3 MTR", availableStock: 250 },
-  { 
-    id: "mat-6", 
-    name: "STALL 3 MTR X 3 MTR", 
-    availableStock: 50,
-    childItems: [
-      { id: "mat-6-1", name: "MAXIMA VERTICAL 2.5 MTR", quantity: 3, perunit: 1, availableStock: 100 },
-      { id: "mat-6-2", name: "OCTONORM VERTICAL 2.5 MTR", quantity: 5, perunit: 5,availableStock: 80 },
-      { id: "mat-6-3", name: "OCTONORM PANEL 1 MTR X 2.5 MTR", quantity: 9, perunit: 6, availableStock: 200 },
-      { id: "mat-6-4", name: "OCTONORM SECTION 1 MTR, 37 MM", quantity: 18, perunit: 12, availableStock: 150 },
-      { id: "mat-6-5", name: "OCTONORM SECTION 3.0 MTR, 50 MM", quantity: 2, perunit: 2, availableStock: 75 },
-      { id: "mat-6-6", name: "MAXIMA FASCIA 3 MTR 26 CM", quantity: 2, perunit: 1, availableStock: 90 }
-    ]
-  }
-];
-
-const mockBOMs: BOMItem[] = [
-  {
-    id: "BOM-001",
-    projectId: "proj-1",
-    projectName: "G20 Project",
-    itemName: "Foundation Work",
-    materials: [
-      { materialId: "mat-1", materialName: "Cement", quantity: 50, availableStock: 150 },
-      { materialId: "mat-2", materialName: "Steel Rebar", quantity: 100, availableStock: 200 }
-    ],
-    totalQuantity: 150,
-    startDate: "2024-01-15",
-    endDate: "2024-01-30",
-    approvalStatus: "Approved",
-    lastUpdated: "2024-01-10",
-    manager: "John Doe",
-    updatedBy: "John Doe",
-    createdBy: "Jane Smith"
-  },
-  {
-    id: "BOM-002", 
-    projectId: "proj-2",
-    projectName: "India Energy Week",
-    itemName: "Construction",
-    materials: [
-      { materialId: "mat-3", materialName: "Concrete Blocks", quantity: 200, availableStock: 500 },
-      { materialId: "mat-1", materialName: "Cement", quantity: 75, availableStock: 150 }
-    ],
-    totalQuantity: 275,
-    startDate: "2024-02-01",
-    endDate: "2024-02-15",
-    approvalStatus: "Pending",
-    lastUpdated: "2024-01-12",
-    manager: "Mike",
-    updatedBy: "Mike Johnson",
-    createdBy: "Sarah Wilson"
-  }
-];
 
 export default function BOM() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [boms] = useState<BOMItem[]>(mockBOMs);
+  const [boms, setBoms] = useState<BOMItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [projects, setProjects] = useState<{ id: string; projectName: string }[]>([]);
+  const [materialsOptions, setMaterialsOptions] = useState<MaterialOption[]>([]);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const projRes: any = await projectService.getAllProjects();
+        setProjects(projRes || []);
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+
+      try {
+        const mats: any = await itemService.getAllBomItems();
+        setMaterialsOptions(mats || []);
+      } catch (err) {
+        console.error("Failed to fetch materials", err);
+      }
+
+      try {
+        const bomRes: any = await bomService.getAll();
+        setBoms(bomRes || []);
+      } catch (err) {
+        console.error("Failed to fetch BOMs", err);
+      }
+    };
+
+    fetchAll();
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [editingBOM, setEditingBOM] = useState<BOMItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -152,11 +126,18 @@ export default function BOM() {
     availableStock: number;
     isChild?: boolean;
     parentId?: number;
-    childMultiplier?: number;
-    childPerUnitQty?: number;
+    qty?: number;
+    min_qty?: number;
+    perunit_qty?: number;
     isCustom?: boolean;
     customName?: string;
+    expression?: string;
   }>>([]);
+
+  // Sync local materials state with react-hook-form
+  useEffect(() => {
+    form.setValue("materials", materials);
+  }, [materials]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
 
   const addMaterialRow = () => {
@@ -196,7 +177,7 @@ export default function BOM() {
       const updated = { ...updatedMaterials[materialIndex], [field]: value };
       
       if (field === 'materialId') {
-        const selectedMaterial = mockMaterials.find(mat => mat.id === value);
+        const selectedMaterial = materialsOptions.find(mat => mat.id === value);
         updated.availableStock = selectedMaterial?.availableStock || 0;
         updated.isCustom = false;
         updated.customName = undefined;
@@ -214,8 +195,9 @@ export default function BOM() {
             availableStock: child.availableStock,
             isChild: true,
             parentId: id,
-            childMultiplier: child.quantity,
-            childPerUnitQty: child.perunit
+            min_qty: child.quantity,
+            perunit_qty: child.perunit,
+            expression: child.expression
           }));
           // Find parent row index
           const parentIndex = updatedMaterials.findIndex(m => m.id === id);
@@ -241,8 +223,10 @@ export default function BOM() {
       if (field === 'quantity' && !updated.isChild) {
         // Update child quantities when parent quantity changes
         updatedMaterials = updatedMaterials.map(m => {
-          if (m.parentId === id && m.childMultiplier) {
-            return { ...m, quantity: (m.childMultiplier + (m.childPerUnitQty * (value -1))) || 0 };
+          if (m.parentId === id && Number.isFinite(m.min_qty)) {
+            m.qty = value;
+            let finalQty =  evaluate(m.expression, m) || 0 ;
+            return { ...m, quantity: finalQty};
           }
           return m;
         });
@@ -254,17 +238,30 @@ export default function BOM() {
   };
 
   const onSubmit = async (data: any) => {
+    console.log('BOM form submitted', data); // DEBUG
     try {
+      data.createdByEmail = user?.email;
       const formData = {
         ...data,
         materials: materials.map(m => ({
-          materialId: m.materialId,
-          quantity: m.quantity,
+          itemId: m.materialId,
+          qty: m.quantity,
           availableStock: m.availableStock
         }))
       };
-      console.log(editingBOM ? "Updating BOM:" : "Creating BOM:", formData);
-      toast.success(editingBOM ? "BOM updated successfully!" : "BOM created successfully!");
+
+      if (editingBOM) {
+        await bomService.update(editingBOM.id, formData);
+        toast.success("BOM updated successfully!");
+      } else {
+        await bomService.create(formData);
+        toast.success("BOM created successfully!");
+      }
+
+      // refresh BOMs
+      const updated = await bomService.getAll();
+      setBoms(updated || []);
+
       setOpen(false);
       form.reset();
       setMaterials([]);
@@ -327,20 +324,25 @@ export default function BOM() {
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
           <p className="text-muted-foreground">Manage project material requirements</p>
         </div>
-        {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') ? (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleCreateNew}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create BOM
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
-              </DialogHeader>
+        <Button onClick={() => { console.log('Create BOM button clicked'); handleCreateNew(); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create BOM
+        </Button>
+        <Dialog open={open} onOpenChange={(val) => { console.log('Dialog open state changed:', val); setOpen(val); }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
+            </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {console.log('Form state before render:', form.getValues(), materials)}
+              {form.formState.errors && Object.keys(form.formState.errors).length > 0 && (
+                <div style={{ color: 'red', marginBottom: 8 }}>
+                  {Object.entries(form.formState.errors).map(([key, err]) => (
+                    <div key={key}>{key}: {err?.message?.toString()}</div>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={e => { console.log('Submitting form', form.getValues(), materials); form.handleSubmit(onSubmit)(e); }} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -348,16 +350,16 @@ export default function BOM() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Project Name</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select project" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {mockProjects.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
+                            {projects.map((project) => (
+                              <SelectItem key={project.id.toString()} value={project.id.toString()}>
+                                {project.projectName}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -405,8 +407,8 @@ export default function BOM() {
                         <TableBody>
                           {materials.map((material, index) => {
                             const materialData = material.isChild 
-                              ? mockMaterials.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
-                              : mockMaterials.find(m => m.id === material.materialId);
+                              ? materialsOptions.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
+                              : materialsOptions.find(m => m.id === material.materialId);
                             
                             return (
                               <TableRow 
@@ -449,7 +451,7 @@ export default function BOM() {
                                            className="w-full justify-between"
                                          >
                                            {material.materialId ? 
-                                             mockMaterials.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                             materialsOptions.find(mat => mat.id === material.materialId)?.name || "Select material..." 
                                              : "Select material..."
                                            }
                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -461,7 +463,7 @@ export default function BOM() {
                                            <CommandList>
                                              <CommandEmpty>No material found.</CommandEmpty>
                                              <CommandGroup>
-                                               {mockMaterials.map((mat) => (
+                                               {materialsOptions.map((mat) => (
                                                  <CommandItem
                                                    key={mat.id}
                                                    value={mat.name}
@@ -562,11 +564,11 @@ export default function BOM() {
             </Form>
           </DialogContent>
         </Dialog>
-        ) : (
+        {/* ) : (
           <div className="text-muted-foreground text-sm">
             Only Project Managers can create BOMs
           </div>
-        )}
+        )} */}
       </div>
 
       <div className="flex items-center justify-between">

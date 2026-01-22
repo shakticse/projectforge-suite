@@ -34,6 +34,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const PATH_MENU_MAP: Array<{ path: string; title: string }> = [
       { path: '/', title: 'Dashboard' },
       { path: '/projects', title: 'Projects' },
+      { path: '/store', title: 'Store' },
       { path: '/inventory', title: 'Inventory' },
       { path: '/vendors', title: 'Vendors' },
       { path: '/purchase-requests', title: 'Purchase Request' },

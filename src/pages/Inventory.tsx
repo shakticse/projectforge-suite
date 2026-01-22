@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { AddInventoryModal } from "@/components/inventory/AddInventoryModal";
+import EditInventoryModal from "@/components/inventory/EditInventoryModal";
+import { itemStoreService } from '@/services/itemStoreService';
+import { storeService } from '@/services/storeService';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { formatDateTime } from '@/lib/utils';
 import {
   Search,
   Plus,
@@ -53,298 +59,132 @@ const Inventory = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showStoreBreakdown, setShowStoreBreakdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
-  // Mock inventory data with items across multiple stores
-  const inventoryItems = [
-    // MAXIMA VERTICAL 2.5 MTR - Available in 3 stores
-    {
-      id: 1,
-      name: "MAXIMA VERTICAL 2.5 MTR",
-      sku: "STL-4X8-001",
-      category: "Maxima 80 MM",
-      quantity: 150,
-      minStock: 100,
-      maxStock: 500,
-      unitPrice: 125.50,
-      totalValue: 18825,
-      supplier: "MetalCorp Industries",
-      location: "Noida",
-      status: "In Stock",
-      updatedBy: "John Smith",
-      updatedDate: "2024-01-20"
-    },
-    {
-      id: 11,
-      name: "MAXIMA VERTICAL 2.5 MTR",
-      sku: "STL-4X8-001",
-      category: "Maxima 80 MM",
-      quantity: 75,
-      minStock: 50,
-      maxStock: 300,
-      unitPrice: 125.50,
-      totalValue: 9412.50,
-      supplier: "MetalCorp Industries",
-      location: "Delhi",
-      status: "In Stock",
-      updatedBy: "Sarah Johnson",
-      updatedDate: "2024-01-19"
-    },
-    {
-      id: 12,
-      name: "MAXIMA VERTICAL 2.5 MTR",
-      sku: "STL-4X8-001",
-      category: "Maxima 80 MM",
-      quantity: 25,
-      minStock: 30,
-      maxStock: 200,
-      unitPrice: 125.50,
-      totalValue: 3137.50,
-      supplier: "MetalCorp Industries",
-      location: "Mumbai",
-      status: "Low Stock",
-      updatedBy: "Mike Davis",
-      updatedDate: "2024-01-18"
-    },
-    // LED SPOTLIGHTS - Available in 2 stores
-    {
-      id: 2,
-      name: "LED SPOTLIGHTS",
-      sku: "LED-SP-008",
-      category: "Lighting",
-      quantity: 200,
-      minStock: 100,
-      maxStock: 500,
-      unitPrice: 25.50,
-      totalValue: 5100,
-      supplier: "LightTech Solutions",
-      location: "Bangalore",
-      status: "In Stock",
-      updatedBy: "Lisa Wilson",
-      updatedDate: "2024-01-17"
-    },
-    {
-      id: 13,
-      name: "LED SPOTLIGHTS",
-      sku: "LED-SP-008",
-      category: "Lighting",
-      quantity: 80,
-      minStock: 50,
-      maxStock: 300,
-      unitPrice: 25.50,
-      totalValue: 2040,
-      supplier: "LightTech Solutions",
-      location: "Chennai",
-      status: "In Stock",
-      updatedBy: "John Smith",
-      updatedDate: "2024-01-16"
-    },
-    // GLASS STOPPER PVC - Available in 2 stores
-    {
-      id: 3,
-      name: "GLASS STOPPER PVC",
-      sku: "SCR-M8-003",
-      category: "Hardware", 
-      quantity: 2500,
-      minStock: 1000,
-      maxStock: 5000,
-      unitPrice: 0.25,
-      totalValue: 625,
-      supplier: "FastenTech",
-      location: "Kochi",
-      status: "In Stock",
-      updatedBy: "Sarah Johnson",
-      updatedDate: "2024-01-15"
-    },
-    {
-      id: 14,
-      name: "GLASS STOPPER PVC",
-      sku: "SCR-M8-003",
-      category: "Hardware", 
-      quantity: 1200,
-      minStock: 800,
-      maxStock: 3000,
-      unitPrice: 0.25,
-      totalValue: 300,
-      supplier: "FastenTech",
-      location: "Pune",
-      status: "In Stock",
-      updatedBy: "Mike Davis",
-      updatedDate: "2024-01-14"
-    },
-    // OCTONORM VERTICAL 2.5 MTR - Single store
-    {  
-      id: 4,
-      name: "OCTONORM VERTICAL 2.5 MTR",
-      sku: "ALU-P2-002", 
-      category: "Octonorm",
-      quantity: 45,
-      minStock: 50,
-      maxStock: 200,
-      unitPrice: 35.75,
-      totalValue: 1608.75,
-      supplier: "Aluminum Solutions",
-      location: "Kasna",
-      status: "Low Stock",
-      updatedBy: "Lisa Wilson",
-      updatedDate: "2024-01-13"
-    },
-    // STEEL BEAM 5M - Available in 2 stores
-    {
-      id: 5,
-      name: "STEEL BEAM 5M",
-      sku: "STL-5M-006",
-      category: "Steel Structure",
-      quantity: 85,
-      minStock: 50,
-      maxStock: 200,
-      unitPrice: 450.00,
-      totalValue: 38250,
-      supplier: "SteelWorks Ltd",
-      location: "Delhi",
-      status: "In Stock",
-      updatedBy: "John Smith",
-      updatedDate: "2024-01-12"
-    },
-    {
-      id: 15,
-      name: "STEEL BEAM 5M",
-      sku: "STL-5M-006",
-      category: "Steel Structure",
-      quantity: 40,
-      minStock: 30,
-      maxStock: 150,
-      unitPrice: 450.00,
-      totalValue: 18000,
-      supplier: "SteelWorks Ltd",
-      location: "Noida",
-      status: "In Stock",
-      updatedBy: "Sarah Johnson",
-      updatedDate: "2024-01-11"
-    },
-    // Single store items
-    {
-      id: 6,
-      name: "GLASS SLIDING LOCK",
-      sku: "MOT-5HP-004",
-      category: "Hardware",
-      quantity: 12,
-      minStock: 10,
-      maxStock: 30,
-      unitPrice: 850.00,
-      totalValue: 10200,
-      supplier: "ElectroMotors Inc",
-      location: "Chennai",
-      status: "In Stock",
-      updatedBy: "Mike Davis",
-      updatedDate: "2024-01-10"
-    },
-    {
-      id: 7,
-      name: "HANGAR 10 MTR ROOF COVER",
-      sku: "SAF-HLM-005",
-      category: "Hangar 10 Mtr",
-      quantity: 3,
-      minStock: 25,
-      maxStock: 100,
-      unitPrice: 25.00,
-      totalValue: 75,
-      supplier: "SafetyFirst Co",
-      location: "Noida",
-      status: "Critical",
-      updatedBy: "Lisa Wilson",
-      updatedDate: "2024-01-09"
-    },
-    {
-      id: 8,
-      name: "ALUMINUM PANEL 4X8",
-      sku: "ALU-4X8-007",
-      category: "Panels",
-      quantity: 20,
-      minStock: 30,
-      maxStock: 150,
-      unitPrice: 75.00,
-      totalValue: 1500,
-      supplier: "Panel Systems",
-      location: "Mumbai",
-      status: "Low Stock",
-      updatedBy: "John Smith",
-      updatedDate: "2024-01-08"
-    },
-    {
-      id: 9,
-      name: "CARPET TILES GREY",
-      sku: "CPT-GRY-009",
-      category: "Flooring",
-      quantity: 500,
-      minStock: 200,
-      maxStock: 1000,
-      unitPrice: 12.00,
-      totalValue: 6000,
-      supplier: "FloorCraft",
-      location: "Pune",
-      status: "In Stock",
-      updatedBy: "Sarah Johnson",
-      updatedDate: "2024-01-07"
-    },
-    {
-      id: 10,
-      name: "FABRIC PANELS BLUE",
-      sku: "FAB-BLU-010",
-      category: "Fabric",
-      quantity: 15,
-      minStock: 20,
-      maxStock: 100,
-      unitPrice: 65.00,
-      totalValue: 975,
-      supplier: "TextilePro",
-      location: "Kochi",
-      status: "Low Stock",
-      updatedBy: "Mike Davis",
-      updatedDate: "2024-01-06"
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleEdit = (item: any) => {
+    setEditItem(item);
+    setShowEditModal(true);
+  };
+
+  const handleDelete = async (item: any) => {
+    if (!item?.id) return;
+    if (!confirm(`Delete ${item.name || item.itemName || item.sku}? This cannot be undone.`)) return;
+    setIsProcessing(true);
+    try {
+      await itemStoreService.delete(item.id, user?.id);
+      toast({ title: 'Deleted', description: 'Item removed from store.' });
+      refreshStoreItems();
+    } catch (err) {
+      console.error('Delete failed', err);
+      toast({ title: 'Error', description: 'Failed to delete item.', variant: 'destructive' });
+    } finally {
+      setIsProcessing(false);
     }
-  ];
+  };
 
-  // Consolidate inventory items by name/SKU across all stores
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStoreItems = async (storeName?: string) => {
+    setLoading(true);
+    try {
+      const data = await itemStoreService.getAll(storeName);
+      const items = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
+      setInventoryItems(items || []);
+    } catch (err) {
+      console.error('Failed to fetch store items', err);
+      toast({ title: 'Error', description: 'Failed to load inventory items', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    } 
+  };
+
+  useEffect(() => {
+    const s = storeFilter === 'all' ? undefined : storeFilter;
+    setCurrentPage(1);
+    fetchStoreItems(s);
+  }, [storeFilter]);
+
+  // Helper to refresh current view respecting selected store
+  const refreshStoreItems = () => {
+    const s = storeFilter === 'all' ? undefined : storeFilter;
+    fetchStoreItems(s);
+  };
+
+  const [storesList, setStoresList] = useState<string[]>([]);
+
+  const fetchStores = async () => {
+    try {
+      const data = await storeService.getAllStores();
+      const list = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
+      const names = (list || []).map((s: any) => s.store_name ?? s.StoreName ?? s.name ?? s.storeName ?? s);
+      setStoresList(names.filter(Boolean));
+    } catch (err) {
+      console.error('Failed to fetch stores', err);
+      toast({ title: 'Error', description: 'Failed to load stores', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    fetchStores();
+  }, []);
+
+  // Consolidate inventory items by ItemName/SKU (tolerant to API field naming)
   const consolidatedItems = inventoryItems.reduce((acc, item) => {
-    const key = `${item.name}-${item.sku}`;
+    const name = item.ItemName ?? item.itemName ?? item.name ?? '';
+    const sku = (item.SKU ?? item.sku ?? '') || '';
+    const key = `${name}-${sku}`;
     if (!acc[key]) {
       acc[key] = {
-        id: item.id,
-        name: item.name,
-        sku: item.sku,
-        category: item.category,
-        unitPrice: item.unitPrice,
+        id: item.ItemId ?? item.id ?? item.Id,
+        name,
+        sku,
+        category: item.CategoryName ?? item.categoryName ?? '',
+        unitPrice: Number(item.ItemPrice ?? item.itemPrice ?? item.unitPrice ?? 0),
         totalQuantity: 0,
         totalValue: 0,
-        minStock: 0,
-        maxStock: 0,
-        updatedBy: item.updatedBy,
-        updatedDate: item.updatedDate,
+        minStock: Number(item.minStock ?? 0),
+        maxStock: Number(item.maxStock ?? 0),
+        updatedBy: item.updatedByUser ?? item.updatedBy ?? '',
+        updatedDate: item.UpdatedAt ?? item.updatedAt ?? item.updatedDate ?? item.CreatedAt ?? '',
         stores: []
       };
     }
-    acc[key].totalQuantity += item.quantity;
-    acc[key].totalValue += item.totalValue;
-    acc[key].minStock += item.minStock;
-    acc[key].maxStock += item.maxStock;
-    
+
+    const qty = Number(item.Qty ?? item.qty ?? item.quantity ?? 0);
+    const price = Number(item.ItemPrice ?? item.itemPrice ?? item.unitPrice ?? 0);
+
+    acc[key].totalQuantity += qty;
+    acc[key].totalValue += qty * price;
+    acc[key].minStock += Number(item.minStock ?? 0);
+    acc[key].maxStock += Number(item.maxStock ?? 0);
+
     // Use the most recent update info
-    if (new Date(item.updatedDate) > new Date(acc[key].updatedDate)) {
-      acc[key].updatedBy = item.updatedBy;
-      acc[key].updatedDate = item.updatedDate;
+    const itemUpdated = new Date(item.UpdatedAt ?? item.updatedAt ?? item.updatedDate ?? item.CreatedAt ?? 0);
+    const accUpdated = new Date(acc[key].updatedDate ?? 0);
+    if (itemUpdated > accUpdated) {
+      acc[key].updatedBy = item.UpdatedBy ?? item.updatedBy ?? acc[key].updatedBy;
+      acc[key].updatedDate = item.UpdatedAt ?? item.updatedAt ?? item.updatedDate ?? acc[key].updatedDate;
     }
-    
+
     acc[key].stores.push({
-      location: item.location,
-      quantity: item.quantity,
-      status: item.status,
-      minStock: item.minStock,
-      maxStock: item.maxStock
+      id: item.Id ?? item.id,
+      location: item.StoreName ?? item.storeName ?? '',
+      quantity: qty,
+      status: item.Status ?? item.status ?? '',
+      minStock: Number(item.minStock ?? 0),
+      maxStock: Number(item.maxStock ?? 0)
     });
+
     return acc;
   }, {} as Record<string, any>);
 
-  const consolidatedInventory = Object.values(consolidatedItems);
+  const consolidatedInventory = Object.values(consolidatedItems) as any[];
 
   const getConsolidatedStatusBadge = (item: any) => {
     if (item.totalQuantity <= item.minStock * 0.5) {
@@ -376,20 +216,17 @@ const Inventory = () => {
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
 
-  const getUniqueValues = (field: string) => {
-    return [...new Set(inventoryItems.map(item => item[field as keyof typeof item]))];
-  };
-
-  const categories = getUniqueValues('category');
-  const stores = getUniqueValues('location');
-  const statuses = getUniqueValues('status');
+  const categories = [...new Set(consolidatedInventory.map((it: any) => it.category).filter(Boolean))];
+  const stores = storesList;
+  const statuses = [...new Set(inventoryItems.map((it: any) => it.Status ?? it.status).filter(Boolean))];
 
   const filteredItems = consolidatedInventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = (item.name ?? '').toString().toLowerCase().includes(q) ||
+                         (item.sku ?? '').toString().toLowerCase().includes(q) ||
+                         (item.category ?? '').toString().toLowerCase().includes(q);
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    const matchesStore = storeFilter === "all" || item.stores.some((store: any) => store.location === storeFilter);
+    const matchesStore = storeFilter === "all" || item.stores.some((store: any) => (store.location ?? '').toString() === storeFilter);
     return matchesSearch && matchesCategory && matchesStore;
   });
 
@@ -411,9 +248,9 @@ const Inventory = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedItems = sortedItems.slice(startIndex, startIndex + itemsPerPage);
 
-  const totalValue = filteredItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = filteredItems.filter(item => item.totalQuantity <= item.minStock).length;
-  const criticalItems = filteredItems.filter(item => item.totalQuantity <= item.minStock * 0.5).length;
+  const totalValue = filteredItems.reduce((sum, item) => sum + (item.totalValue ?? 0), 0);
+  const lowStockItems = filteredItems.filter(item => (item.totalQuantity ?? 0) <= (item.minStock ?? 0)).length;
+  const criticalItems = filteredItems.filter(item => (item.totalQuantity ?? 0) <= (item.minStock ?? 0) * 0.5).length;
 
   return (
     <div className="space-y-6">
@@ -423,62 +260,19 @@ const Inventory = () => {
           <h1 className="text-3xl font-bold">Inventory Management</h1>
           <p className="text-muted-foreground mt-1">Track and manage your inventory levels and stock</p>
         </div>
-        <Button size="lg" className="gap-2" onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4" />
-          Add Item
-        </Button>
-      </div>
-
-      {/* Summary Cards */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Items</p>
-                <p className="text-2xl font-bold">{inventoryItems.length}</p>
-              </div>
-              <Package className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold">${totalValue.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Low Stock</p>
-                <p className="text-2xl font-bold text-warning">{lowStockItems}</p>
-              </div>
-              <TrendingDown className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Critical</p>
-                <p className="text-2xl font-bold text-destructive">{criticalItems}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-      </div> */}
+          <Button size="lg" className="gap-2" onClick={() => setShowAddModal(true)} disabled={loading || isProcessing}>
+            { (loading || isProcessing) ? (
+              <span className="inline-flex items-center">
+                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
+                Updating...
+              </span>
+            ) : (
+              <span className="inline-flex items-center">
+                <Plus className="h-4 w-4" />
+                <span className="ml-2">Add Item</span>
+              </span>
+            )}          </Button>
+        </div>
 
       {/* Filters and Search */}
       <Card className="glass-card">
@@ -513,9 +307,11 @@ const Inventory = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Stores</SelectItem>
-                  {stores.map(store => (
-                    <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
-                  ))}
+                  {stores.map((store: any) => {
+                    return (
+                      <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               
@@ -542,7 +338,13 @@ const Inventory = () => {
           <CardTitle>Inventory Items ({sortedItems.length} items)</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          {loading ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
+              Loading inventory...
+            </div>
+          ) : (
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -605,26 +407,27 @@ const Inventory = () => {
                   <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
+                              <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewStoreBreakdown(item)}
                         className="h-8 w-8 p-0"
+                        disabled={loading || isProcessing}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading || isProcessing}>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Item
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                           </DropdownMenuItem>
@@ -635,7 +438,8 @@ const Inventory = () => {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -705,7 +509,7 @@ const Inventory = () => {
                         <TableCell className="font-medium">{store.location}</TableCell>
                         <TableCell className="font-mono">{store.quantity}</TableCell>
                         <TableCell>{selectedItem?.updatedBy}</TableCell>
-                        <TableCell className="text-muted-foreground">{selectedItem?.updatedDate}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDateTime(selectedItem?.updatedDate)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -727,6 +531,23 @@ const Inventory = () => {
       <AddInventoryModal 
         open={showAddModal} 
         onOpenChange={setShowAddModal}
+        onSaved={refreshStoreItems}
+        onStart={() => setIsProcessing(true)}
+        onFinish={() => setIsProcessing(false)}
+      />
+
+      {/* Edit Inventory Modal */}
+      <EditInventoryModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        item={editItem}
+        onStart={() => setIsProcessing(true)}
+        onFinish={() => setIsProcessing(false)}
+        onSaved={() => {
+          refreshStoreItems();
+          toast({ title: 'Saved', description: 'Item changes saved.' });
+          setShowEditModal(false);
+        }}
       />
     </div>
   );
