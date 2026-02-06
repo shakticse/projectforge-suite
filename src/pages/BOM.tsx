@@ -21,11 +21,13 @@ import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLef
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
+import { formatDateTime } from "@/lib/utils";
 
 interface BOMItem {
   id: string;
   projectId: string;
   projectName: string;
+  description: string;
   itemName: string;
   manager: string;
   materials: Array<{
@@ -39,13 +41,17 @@ interface BOMItem {
   endDate: string;
   approvalStatus: 'Pending' | 'Approved' | 'Rejected' | 'In Progress';
   lastUpdated: string;
-  updatedBy: string;
-  createdBy: string;
+  updatedByUser: string;
+  createdByUser: string;
+  dueDate: string;
+  createdDate: string;
+  updatedDate: string;
 }
 
 interface BOMFormData {
   projectId: string;
   itemName: string;
+  description?: string;
   materials: Array<{
     materialId: string;
     quantity: number;
@@ -57,6 +63,7 @@ interface MaterialOption {
   id: string;
   name: string;
   availableStock: number;
+  isGroupedItem?: boolean;
   childItems?: Array<{
     id: string;
     name: string;
@@ -78,9 +85,11 @@ export default function BOM() {
 
   const [projects, setProjects] = useState<{ id: string; projectName: string }[]>([]);
   const [materialsOptions, setMaterialsOptions] = useState<MaterialOption[]>([]);
+  const [loadingBOMs, setLoadingBOMs] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
+      setLoadingBOMs(true);
       try {
         const projRes: any = await projectService.getAllProjects();
         setProjects(projRes || []);
@@ -100,6 +109,8 @@ export default function BOM() {
         setBoms(bomRes || []);
       } catch (err) {
         console.error("Failed to fetch BOMs", err);
+      } finally {
+        setLoadingBOMs(false);
       }
     };
 
@@ -115,6 +126,7 @@ export default function BOM() {
     resolver: yupResolver(bomSchema),
     defaultValues: {
       projectId: "",
+      description: "",
       materials: [],
     },
   });
@@ -124,6 +136,7 @@ export default function BOM() {
     materialId: string;
     quantity: number;
     availableStock: number;
+    isGroupedItem: boolean;
     isChild?: boolean;
     parentId?: number;
     qty?: number;
@@ -146,7 +159,8 @@ export default function BOM() {
       id: newId, 
       materialId: "", 
       quantity: 0, 
-      availableStock: 0 
+      availableStock: 0,
+      isGroupedItem: false
     }, ...materials]);
   };
 
@@ -158,7 +172,8 @@ export default function BOM() {
       quantity: 0, 
       availableStock: 0,
       isCustom: true,
-      customName: ""
+      customName: "",
+      isGroupedItem: false
     }, ...materials]);
   };
 
@@ -181,6 +196,7 @@ export default function BOM() {
         updated.availableStock = selectedMaterial?.availableStock || 0;
         updated.isCustom = false;
         updated.customName = undefined;
+        updated.isGroupedItem = selectedMaterial.isGroupedItem;
         
         // Remove any existing child items for this parent
         updatedMaterials = updatedMaterials.filter(m => m.parentId !== id);
@@ -197,7 +213,8 @@ export default function BOM() {
             parentId: id,
             min_qty: child.quantity,
             perunit_qty: child.perunit,
-            expression: child.expression
+            expression: child.expression,
+            isGroupedItem: false
           }));
           // Find parent row index
           const parentIndex = updatedMaterials.findIndex(m => m.id === id);
@@ -241,14 +258,17 @@ export default function BOM() {
     console.log('BOM form submitted', data); // DEBUG
     try {
       data.createdByEmail = user?.email;
-      const formData = {
-        ...data,
-        materials: materials.map(m => ({
-          itemId: m.materialId,
-          qty: m.quantity,
-          availableStock: m.availableStock
-        }))
-      };
+          // Ensure description is included from the form input
+          const formData = {
+            ...data,
+            description: data.description,
+            items: materials.map(m => ({
+              itemId: m.materialId,
+              qty: m.quantity,
+              availableStock: m.availableStock,
+              isGrouped: !!m.isChild // true if this is a grouped (child) item
+            }))
+          };
 
       if (editingBOM) {
         await bomService.update(editingBOM.id, formData);
@@ -295,7 +315,7 @@ export default function BOM() {
   };
 
   const filteredBOMs = boms.filter(bom =>
-    bom.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // bom.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bom.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bom.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -314,8 +334,12 @@ export default function BOM() {
     }
   };
 
-  const totalItems = materials.length;
-  const totalQuantity = materials.reduce((sum, m) => sum + (m.quantity || 0), 0);
+  //const totalItems = materials.length;
+  //const totalQuantity = materials.reduce((sum, m) => sum + (m.quantity || 0), 0);
+  const totalItems = materials.filter(m => !m.isGroupedItem).length;
+  const totalQuantity = materials
+    .filter(m => !m.isGroupedItem)
+    .reduce((sum, m) => sum + (m.quantity || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -334,7 +358,7 @@ export default function BOM() {
               <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              {console.log('Form state before render:', form.getValues(), materials)}
+              {/* Removed console.log from JSX, as it returns void and is not a valid ReactNode */}
               {form.formState.errors && Object.keys(form.formState.errors).length > 0 && (
                 <div style={{ color: 'red', marginBottom: 8 }}>
                   {Object.entries(form.formState.errors).map(([key, err]) => (
@@ -368,15 +392,20 @@ export default function BOM() {
                       </FormItem>
                     )}
                   />
-                  
-                  <div>
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Description
-                    </label>
-                    <Input placeholder="Add Description" className="mt-2" />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Add Description" className="mt-2" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-
                   <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Materials</h3>
@@ -476,7 +505,7 @@ export default function BOM() {
                                                    />
                                                    <div className="flex flex-col">
                                                      <span>{mat.name}</span>
-                                                     {mat.childItems && (
+                                                     {mat.childItems && mat.childItems.length > 0 && (
                                                        <span className="text-xs text-muted-foreground">
                                                          (has {mat.childItems.length} child items)
                                                        </span>
@@ -600,21 +629,29 @@ export default function BOM() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {loadingBOMs ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading BOMs...</div>
+          ) : boms.length === 0 ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No BOMs found.</div>
+          ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>BOM ID</TableHead>
                   <TableHead>Project Name</TableHead>
-                  <TableHead>BOM For</TableHead>
-                  <TableHead>Supervisor In-Charge</TableHead>
+                  <TableHead>Description</TableHead>
+                  {/* <TableHead>BOM For</TableHead>
+                  <TableHead>Supervisor In-Charge</TableHead> */}
                   {/* <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Total Quantity</TableHead> */}
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead>Updated By</TableHead>
+                  <TableHead>Due Date</TableHead>
                   <TableHead>Created By</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Created Date</TableHead>
+                  <TableHead>Updated By</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  {/* <TableHead>Status</TableHead> */}
                   <TableHead className="text-center">Details</TableHead>
                 </TableRow>
               </TableHeader>
@@ -634,19 +671,22 @@ export default function BOM() {
                       {bom.id}
                     </TableCell>
                     <TableCell>{bom.projectName}</TableCell>
-                    <TableCell>{bom.itemName}</TableCell>
-                    <TableCell>{bom.manager}</TableCell>
+                    <TableCell>{bom.description}</TableCell>
+                    {/* <TableCell>{bom.itemName}</TableCell> */}
+                    {/* <TableCell>{bom.manager}</TableCell> */}
                     {/* <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(bom.endDate).toLocaleDateString()}</TableCell>
                     <TableCell>{bom.totalQuantity}</TableCell> */}
-                    <TableCell>{new Date(bom.lastUpdated).toLocaleDateString()}</TableCell>
-                    <TableCell>{bom.updatedBy}</TableCell>
-                    <TableCell>{bom.createdBy}</TableCell>
-                    <TableCell>
+                    <TableCell>{formatDateTime(bom.dueDate)}</TableCell>
+                    <TableCell>{bom.createdByUser}</TableCell>
+                    <TableCell>{formatDateTime(bom.createdDate)}</TableCell>
+                    <TableCell>{bom.updatedByUser}</TableCell>
+                    <TableCell>{formatDateTime(bom.updatedDate)}</TableCell>
+                    {/* <TableCell>
                       <Badge variant={getStatusBadgeVariant(bom.approvalStatus)}>
                         {bom.approvalStatus}
                       </Badge>
-                    </TableCell>
+                    </TableCell> */}
                      <TableCell className="text-center">
                        <div className="flex items-center justify-center gap-2">
                          {user?.role ? (
@@ -695,8 +735,9 @@ export default function BOM() {
               </TableBody>
             </Table>
           </div>
+          )}
 
-          {totalPages > 1 && (
+          {!loadingBOMs && boms.length > 0 && totalPages > 1 && (
             <div className="flex items-center justify-between pt-4">
               <Button
                 variant="outline"

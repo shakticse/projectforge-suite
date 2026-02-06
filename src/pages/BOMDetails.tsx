@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,11 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Search, Filter, Calendar, User, Eye } from "lucide-react";
+import bomService from "@/services/bomService";
+import { formatDateTime } from "@/lib/utils";
 
 interface BOMDetailItem {
   id: string;
   itemName: string;
-  quantity: number;
+  qty: number;
   requestDate: string;
   modifyDate?: string;
   requestedBy: string;
@@ -39,70 +41,7 @@ interface WorkOrderItem {
   pendingQty: number;
 }
 
-const mockBOMDetails: Record<string, BOMDetailItem[]> = {
-  "BOM-001": [
-    {
-      id: "item-1",
-      itemName: "GLASS STOPPER PVC",
-      quantity: 50,
-      requestDate: "2024-01-10",
-      modifyDate: "2024-01-12",
-      requestedBy: "Mike",
-      categoryHead: "Dave",
-      status: "Allocated"
-    },
-    {
-      id: "item-2", 
-      itemName: "HANGAR 10 MTR ROOF COVER",
-      quantity: 100,
-      requestDate: "2024-01-10",
-      requestedBy: "John",
-      categoryHead: "Harry",
-      status: "Pending"
-    },
-    {
-      id: "item-3",
-      itemName: "GLASS STOPPER PVC",
-      quantity: 150,
-      requestDate: "2024-01-11",
-      modifyDate: "2024-01-12",
-      requestedBy: "John",
-      categoryHead: "Harry",
-      status: "Pending"
-    }
-  ],
-  "BOM-002": [
-    {
-      id: "item-3",
-      itemName: "HAMMER 7 KG",
-      quantity: 200,
-      requestDate: "2024-01-12",
-      requestedBy: "Mike Johnson",
-      categoryHead: "Dave",
-      status: "Pending"
-    },
-    {
-      id: "item-4",
-      itemName: "GLASS STOPPER PVC",
-      quantity: 75,
-      requestDate: "2024-01-12",
-      modifyDate: "2024-01-14",
-      requestedBy: "Mike Johnson",
-      categoryHead: "Harry",
-      status: "Approved"
-    },
-    {
-      id: "item-4",
-      itemName: "GLASS STOPPER PVC",
-      quantity: 55,
-      requestDate: "2024-01-13",
-      modifyDate: "2024-01-14",
-      requestedBy: "Mike Johnson",
-      categoryHead: "Dave",
-      status: "Approved"
-    }
-  ]
-};
+
 
 const mockWorkOrders: Record<string, WorkOrder[]> = {
   "BOM-001": [
@@ -204,10 +143,27 @@ export default function BOMDetails() {
   const [workOrderSearchTerm, setWorkOrderSearchTerm] = useState("");
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [isWorkOrderItemsDialogOpen, setIsWorkOrderItemsDialogOpen] = useState(false);
+  const [items, setItems] = useState<BOMDetailItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const items = mockBOMDetails[id || ""] || [];
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    bomService.getById(id)
+      .then((data) => {
+        // If API returns an object with items, adjust accordingly
+        setItems(Array.isArray(data.items) ? data.items : data.items || []);
+      })
+      .catch((err) => {
+        setError("Failed to load BOM items.");
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
   const workOrders = mockWorkOrders[id || ""] || [];
-  
+
   const filteredItems = items.filter(item =>
     item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.requestedBy.toLowerCase().includes(searchTerm.toLowerCase())
@@ -256,16 +212,16 @@ export default function BOMDetails() {
             Back to BOM
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">BOM List View</h1>
-            <p className="text-muted-foreground">BOM ID: {id}</p>
+            <h1 className="text-2xl font-bold tracking-tight">BOM List View</h1>
+            {/* <p className="text-muted-foreground">BOM ID: {id}</p> */}
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="material-requests" className="space-y-6">
-        <TabsList>
+        {/* <TabsList>
           <TabsTrigger value="material-requests">Material Requests</TabsTrigger>
-        </TabsList>
+        </TabsList> */}
 
         <TabsContent value="material-requests" className="space-y-6">
           <div className="flex items-center justify-between">
@@ -298,53 +254,57 @@ export default function BOMDetails() {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item Name</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Request Date</TableHead>
-                      <TableHead>Last Modified</TableHead>
-                      <TableHead>Requested By</TableHead>
-                      <TableHead>Category Head</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredItems.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{item.itemName}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{new Date(item.requestDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {item.modifyDate 
-                            ? new Date(item.modifyDate).toLocaleDateString()
-                            : "-"
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                            {item.requestedBy}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{item.categoryHead}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(item.status)}>
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {loading ? (
+                  <div className="text-center py-8">Loading BOM items...</div>
+                ) : error ? (
+                  <div className="text-center py-8 text-red-500">{error}</div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item Name</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Request Date</TableHead>
+                          <TableHead>Last Modified</TableHead>
+                          <TableHead>Requested By</TableHead>
+                          <TableHead>Category Head</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredItems.map((item) => (
+                          <TableRow key={item.id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium">{item.itemName}</TableCell>
+                            <TableCell>{item.qty}</TableCell>
+                            <TableCell>{formatDateTime(item.requestDate)}</TableCell>
+                            <TableCell>
+                              {formatDateTime(item.modifyDate)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center">
+                                <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                                {item.requestedBy}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{item.categoryHead}</TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusBadgeVariant("Pending")}>
+                                Pending{/* "Pending"{item.status} */}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {filteredItems.length === 0 && !loading && !error && (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">No items found for this BOM</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-
-              {filteredItems.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No items found for this BOM</p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
