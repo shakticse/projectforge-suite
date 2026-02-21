@@ -447,27 +447,95 @@ const Inventory = () => {
         <Pagination className="mt-6">
           <PaginationContent>
             <PaginationItem>
+              <PaginationLink
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentPage(1);
+                }}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              >
+                First
+              </PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
               <PaginationPrevious 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage > 1) setCurrentPage(prev => Math.max(prev - 1, 1));
+                }}
                 className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
               />
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => setCurrentPage(page)}
-                  isActive={currentPage === page}
-                  className="cursor-pointer"
-                >
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+            {(() => {
+              const pagesPerWindow = 10;
+              const startWindow = Math.floor((currentPage - 1) / pagesPerWindow) * pagesPerWindow + 1;
+              const endWindow = Math.min(startWindow + pagesPerWindow - 1, totalPages);
+              const pages = Array.from({ length: endWindow - startWindow + 1 }, (_, i) => startWindow + i);
+              
+              return (
+                <>
+                  {startWindow > 1 && (
+                    <PaginationItem>
+                      <PaginationLink
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(Math.max(1, startWindow - pagesPerWindow));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        ...
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  {pages.map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(page);
+                        }}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  {endWindow < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(Math.min(endWindow + pagesPerWindow, totalPages));
+                        }}
+                        className="cursor-pointer"
+                      >
+                        ...
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                </>
+              );
+            })()}
             <PaginationItem>
               <PaginationNext 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage < totalPages) setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                }}
+                className={currentPage === totalPages || totalPages <= 10 ? "pointer-events-none opacity-50" : "cursor-pointer"}
               />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationLink
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentPage(totalPages);
+                }}
+                className={currentPage === totalPages || totalPages <= 10 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              >
+                Last
+              </PaginationLink>
             </PaginationItem>
           </PaginationContent>
         </Pagination>

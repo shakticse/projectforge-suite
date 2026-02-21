@@ -23,6 +23,9 @@ import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
 import { formatDateTime } from "@/lib/utils";
 
+// Item type constants
+type ItemType = 'grouped' | 'child' | 'miscellaneous' | 'non-grouped';
+
 interface BOMItem {
   id: string;
   projectId: string;
@@ -136,13 +139,11 @@ export default function BOM() {
     materialId: string;
     quantity: number;
     availableStock: number;
-    isGroupedItem: boolean;
-    isChild?: boolean;
+    itemType: ItemType;
     parentId?: number;
     qty?: number;
     min_qty?: number;
     perunit_qty?: number;
-    isCustom?: boolean;
     customName?: string;
     expression?: string;
   }>>([]);
@@ -160,7 +161,7 @@ export default function BOM() {
       materialId: "", 
       quantity: 0, 
       availableStock: 0,
-      isGroupedItem: false
+      itemType: 'non-grouped'
     }, ...materials]);
   };
 
@@ -171,9 +172,8 @@ export default function BOM() {
       materialId: `custom-${newId}`, 
       quantity: 0, 
       availableStock: 0,
-      isCustom: true,
-      customName: "",
-      isGroupedItem: false
+      itemType: 'miscellaneous',
+      customName: ""
     }, ...materials]);
   };
 
@@ -182,24 +182,39 @@ export default function BOM() {
     setMaterials(materials.filter(m => m.id !== id && m.parentId !== id));
   };
 
+  const getItemTypeLabel = (itemType: ItemType): string => {
+    const typeMap: Record<ItemType, string> = {
+      'grouped': 'Grouped Item (Parent)',
+      'child': 'Child Item',
+      'miscellaneous': 'Miscellaneous Item',
+      'non-grouped': 'Non-Grouped Item'
+    };
+    return typeMap[itemType];
+  };
+
   const updateMaterial = (id: number, field: string, value: any) => {
     setMaterials(currentMaterials => {
       let updatedMaterials = [...currentMaterials];
       
-      const materialIndex = updatedMaterials.findIndex(m => m.id === id);
+      const materialIndex = updatedMaterials.findIndex(m => m.id == id);
       if (materialIndex === -1) return updatedMaterials;
       
       const updated = { ...updatedMaterials[materialIndex], [field]: value };
       
       if (field === 'materialId') {
-        const selectedMaterial = materialsOptions.find(mat => mat.id === value);
+        const selectedMaterial = materialsOptions.find(mat => mat.id == value);
         updated.availableStock = selectedMaterial?.availableStock || 0;
-        updated.isCustom = false;
         updated.customName = undefined;
-        updated.isGroupedItem = selectedMaterial.isGroupedItem;
+        
+        // Determine item type based on whether material has child items
+        if (selectedMaterial?.childItems && selectedMaterial.childItems.length > 0) {
+          updated.itemType = 'grouped';
+        } else {
+          updated.itemType = 'non-grouped';
+        }
         
         // Remove any existing child items for this parent
-        updatedMaterials = updatedMaterials.filter(m => m.parentId !== id);
+        updatedMaterials = updatedMaterials.filter(m => m.parentId != id);
         
         // Add child items if the selected material has them
         if (selectedMaterial?.childItems) {
@@ -207,17 +222,16 @@ export default function BOM() {
           const childItems = selectedMaterial.childItems.map((child, index) => ({
             id: maxId + index + 1,
             materialId: child.id,
-            quantity: 0,//child.quantity + (((updated.quantity -1)*child.perunit) || 1),
+            quantity: 0,
             availableStock: child.availableStock,
-            isChild: true,
+            itemType: 'child' as ItemType,
             parentId: id,
             min_qty: child.quantity,
             perunit_qty: child.perunit,
-            expression: child.expression,
-            isGroupedItem: false
+            expression: child.expression
           }));
           // Find parent row index
-          const parentIndex = updatedMaterials.findIndex(m => m.id === id);
+          const parentIndex = updatedMaterials.findIndex(m => m.id == id);
 
           if (parentIndex !== -1) {
             // Insert child items right after parent
@@ -226,7 +240,6 @@ export default function BOM() {
             // fallback: push at the end (shouldn't normally happen)
             updatedMaterials.push(...childItems);
           }
-          // updatedMaterials.push(...childItems);
         }
         
         // Close the popover
@@ -237,13 +250,27 @@ export default function BOM() {
         updated.customName = value;
       }
       
-      if (field === 'quantity' && !updated.isChild) {
+      if (field === 'itemType') {
+        updated.itemType = value as ItemType;
+      }
+      
+      if (field === 'quantity' && updated.itemType !== 'child') {
         // Update child quantities when parent quantity changes
+        const selectedMaterial = materialsOptions.find(mat => mat.id == updated.materialId);
         updatedMaterials = updatedMaterials.map(m => {
-          if (m.parentId === id && Number.isFinite(m.min_qty)) {
-            m.qty = value;
-            let finalQty =  evaluate(m.expression, m) || 0 ;
-            return { ...m, quantity: finalQty};
+          if (m.parentId === id ) {
+            const ci = selectedMaterial?.childItems?.find(c => c.id == m.materialId);
+            if(ci) {
+              m.qty = value;
+              m.min_qty = ci.quantity;
+              m.perunit_qty = ci.perunit;
+              m.expression = ci.expression;
+              let finalQty =  evaluate(ci.expression || '', m) || 0 ;
+              return { ...m, quantity: finalQty};
+            }
+            else {
+              return { ...m};
+            }
           }
           return m;
         });
@@ -266,7 +293,12 @@ export default function BOM() {
               itemId: m.materialId,
               qty: m.quantity,
               availableStock: m.availableStock,
-              isGrouped: !!m.isChild // true if this is a grouped (child) item
+              itemType: m.itemType,
+              ...(m.itemType === 'miscellaneous' && { customName: m.customName }),
+              ...(m.itemType === 'child' && { parentId: m.parentId }),
+              ...(m.expression && { expression: m.expression }),
+              ...(m.min_qty !== undefined && { min_qty: m.min_qty }),
+              ...(m.perunit_qty !== undefined && { perunit_qty: m.perunit_qty })
             }))
           };
 
@@ -287,25 +319,169 @@ export default function BOM() {
       setMaterials([]);
       setEditingBOM(null);
     } catch (error) {
+      console.error("Error submitting BOM:", error);
       toast.error(editingBOM ? "Failed to update BOM" : "Failed to create BOM");
     }
   };
 
-  const handleEditBOM = (bom: BOMItem) => {
-    setEditingBOM(bom);
-    form.setValue("projectId", bom.projectId);
+  const handleEditBOM = async (bom: BOMItem) => {
+  try {
+    const bomDetails: any = await bomService.getById(bom.id);
+    setEditingBOM(bomDetails);
+
+    // 1. Project Lookup (Optimized)
+    let projectId: string | number = bomDetails.projectId;
+    if (!projectId && bomDetails.projectName) {
+      const targetName = bomDetails.projectName.toLowerCase();
+      projectId = projects.find(p => p.projectName.toLowerCase() == targetName)?.id || '';
+    }
+
+    // Ensure projectId is a string for form value
+    const projectIdStr = projectId?.toString() || '';
     
-    // Convert BOM materials to the format expected by the materials state
-    const bomMaterials = bom.materials.map((material, index) => ({
-      id: index + 1,
-      materialId: material.materialId,
-      quantity: material.quantity,
-      availableStock: material.availableStock,
-    }));
-    
+    // Use setTimeout to ensure form state is ready before setting values
+    setTimeout(() => {
+      form.setValue("projectId", projectIdStr);
+      form.setValue("description", bomDetails.description || '');
+    }, 0);
+
+    // 2. Transform items using itemType from API
+    const bomMaterials = bomDetails.items.map((apiItem: any) => {
+      const itemId = apiItem.itemId?.toString() ?? '';
+      const itemType = apiItem.itemType as ItemType || 'non-grouped';
+      
+      // Look up stock/info from library if needed
+      const materialOption = materialsOptions.find(mat => mat.id?.toString() == itemId);
+
+      return {
+        // Use the actual ID from the DB to ensure React keys stay stable
+        id: apiItem.id, 
+        materialId: itemId,
+        quantity: apiItem.qty,
+        availableStock: materialOption?.availableStock || 0,
+        itemType: itemType,
+        parentId: apiItem.parentId || apiItem.parent_id,
+        customName: apiItem.customName || apiItem.itemName,
+        // Carry over calculation metadata if they exist in DB
+        min_qty: apiItem.min_qty,
+        perunit_qty: apiItem.perunit_qty,
+        expression: apiItem.expression,
+      };
+    });
+
     setMaterials(bomMaterials);
     setOpen(true);
-  };
+  } catch (error) {
+    console.error("Failed to fetch BOM details:", error);
+    toast.error("Failed to fetch BOM details for editing.");
+  }
+};
+
+  // const handleEditBOM = async (bom: BOMItem) => {
+  //   try {
+  //     // Fetch latest BOM details
+  //     const bomDetails: any = await bomService.getById(bom.id);
+  //     setEditingBOM(bomDetails);
+      
+  //     // Find project ID: if not present, match by projectName
+  //     let projectId = bomDetails.projectId;
+  //     if (!projectId && bomDetails.projectName) {
+  //       const matchedProject = projects.find(p => 
+  //         p.projectName.toLowerCase() === bomDetails.projectName.toLowerCase() ||
+  //         p.projectName === bomDetails.projectName
+  //       );
+  //       projectId = matchedProject?.id || '';
+  //     }
+      
+  //     form.setValue("projectId", projectId);
+  //     form.setValue("description", bomDetails.description);
+      
+  //     // Convert BOM items to the format expected by the materials state
+  //     const bomMaterials: typeof materials = [];
+  //     let maxId = 0;
+      
+  //     bomDetails.items.forEach((apiItem: any) => {
+  //       // Normalize item ID to string for consistent comparison
+  //       const itemId = apiItem.itemId?.toString() ?? '';
+        
+  //       // Detect if this is a custom item (materialId starts with "custom-")
+  //       const isCustomItem = itemId.startsWith('custom-');
+
+  //       // check if its a grouped item
+  //       const isGroupedItem = apiItem.isGroupedItem ?? false;
+
+  //       // Look up the item in materialsOptions to get full details (including grouped item info)
+  //       // Ensure both sides are compared as strings
+  //       const materialOption = isGroupedItem 
+  //         ? materialsOptions.find(mat => {
+  //             const matId = mat.id?.toString() ?? '';
+  //             return matId === itemId;
+  //           })
+  //         : null;
+        
+  //       const parentId = maxId + 1;
+  //       maxId = parentId;
+        
+  //       // Add parent item
+  //       if (isCustomItem) {
+  //         // Handle custom items
+  //         bomMaterials.push({
+  //           id: parentId,
+  //           materialId: itemId || `custom-${parentId}`,
+  //           quantity: apiItem.qty,
+  //           availableStock: 0,
+  //           isGroupedItem: false,
+  //           isChild: false,
+  //           isCustom: true,
+  //           customName: apiItem.itemName || apiItem.customName || '', // Try to preserve custom name
+  //         });
+  //       } else {
+  //         // Handle regular items
+  //         bomMaterials.push({
+  //           id: parentId,
+  //           materialId: itemId,
+  //           quantity: apiItem.qty,
+  //           availableStock: materialOption?.availableStock || 0,
+  //           isGroupedItem: materialOption?.isGroupedItem || false,
+  //           isChild: false,
+  //         });
+          
+  //         // Add child items if this is a grouped item
+  //         if (materialOption?.isGroupedItem && materialOption?.childItems) {
+  //           materialOption.childItems.forEach((child) => {
+  //             maxId += 1;
+              
+  //             // Calculate child quantity based on parent quantity and perunit multiplier
+  //             let calculatedQty = 0;
+  //             if (Number.isFinite(child.perunit) && Number.isFinite(apiItem.qty)) {
+  //               calculatedQty = apiItem.qty * child.perunit;
+  //             }
+              
+  //             bomMaterials.push({
+  //               id: maxId,
+  //               materialId: child.id?.toString() ?? '',
+  //               quantity: calculatedQty, // Calculate based on parent qty * perunit
+  //               availableStock: child.availableStock,
+  //               isGroupedItem: false,
+  //               isChild: true,
+  //               parentId: parentId,
+  //               min_qty: child.quantity,
+  //               perunit_qty: child.perunit,
+  //               expression: child.expression,
+  //               qty: apiItem.qty, // Store parent quantity for expression evaluation
+  //             });
+  //           });
+  //         }
+  //       }
+  //     });
+      
+  //     setMaterials(bomMaterials);
+  //     setOpen(true);
+  //   } catch (error) {
+  //     console.error("Failed to fetch BOM details for editing:", error);
+  //     toast.error("Failed to fetch BOM details for editing.");
+  //   }
+  // };
 
   const handleCreateNew = () => {
     setEditingBOM(null);
@@ -336,9 +512,9 @@ export default function BOM() {
 
   //const totalItems = materials.length;
   //const totalQuantity = materials.reduce((sum, m) => sum + (m.quantity || 0), 0);
-  const totalItems = materials.filter(m => !m.isGroupedItem).length;
+  const totalItems = materials.filter(m => m.itemType !== 'grouped').length;
   const totalQuantity = materials
-    .filter(m => !m.isGroupedItem)
+    .filter(m => m.itemType !== 'grouped')
     .reduce((sum, m) => sum + (m.quantity || 0), 0);
 
   return (
@@ -352,8 +528,12 @@ export default function BOM() {
           <Plus className="h-4 w-4 mr-2" />
           Create BOM
         </Button>
-        <Dialog open={open} onOpenChange={(val) => { console.log('Dialog open state changed:', val); setOpen(val); }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <Dialog open={open} onOpenChange={(newOpen) => { if (!newOpen) setOpen(false); }}>
+          <DialogContent 
+            className="max-w-4xl max-h-[90vh] overflow-y-auto"
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
             </DialogHeader>
@@ -374,7 +554,10 @@ export default function BOM() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Project Name</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value?.toString() || ''}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select project" />
@@ -435,17 +618,19 @@ export default function BOM() {
                         </TableHeader>
                         <TableBody>
                           {materials.map((material, index) => {
-                            const materialData = material.isChild 
-                              ? materialsOptions.flatMap(m => m.childItems || []).find(child => child.id === material.materialId)
-                              : materialsOptions.find(m => m.id === material.materialId);
+                            const materialId = material.materialId?.toString() ?? '';
+                            const materialData = materialsOptions.find(m => m.id?.toString() == materialId);
+                            // const materialData = material.isChild 
+                            //   ? materialsOptions.flatMap(m => m.childItems || []).find(child => child.id?.toString() == materialId)
+                            //   : materialsOptions.find(m => m.id?.toString() === materialId);
                             
                             return (
                               <TableRow 
                                 key={material.id} 
-                                className={material.isChild ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
+                                className={material.itemType === 'child' ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
                               >
                                 <TableCell>
-                                  {material.isChild ? (
+                                  {material.itemType === 'child' ? (
                                     <span className="text-muted-foreground ml-4">
                                       {index + 1}
                                     </span>
@@ -454,19 +639,24 @@ export default function BOM() {
                                   )}
                                 </TableCell>
                                  <TableCell>
-                                   {material.isChild ? (
+                                   {material.itemType === 'child' ? (
                                      <div className="pl-4">
                                        <span className="text-sm font-medium">
                                          └&gt; {materialData?.name || 'N/A'}
                                        </span>
                                      </div>
-                                   ) : material.isCustom ? (
-                                     <Input
-                                       placeholder="Enter custom item name"
-                                       value={material.customName || ""}
-                                       onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
-                                       className="w-full"
-                                     />
+                                   ) : material.itemType === 'miscellaneous' ? (
+                                     <div className="space-y-2">
+                                       <Input
+                                         placeholder="Enter custom item name"
+                                         value={material.customName || ""}
+                                         onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
+                                         className="w-full"
+                                       />
+                                       <Badge variant="secondary" className="text-xs">
+                                         {getItemTypeLabel(material.itemType)}
+                                       </Badge>
+                                     </div>
                                    ) : (
                                      <Popover
                                        open={openPopovers[material.id] || false}
@@ -480,7 +670,7 @@ export default function BOM() {
                                            className="w-full justify-between"
                                          >
                                            {material.materialId ? 
-                                             materialsOptions.find(mat => mat.id === material.materialId)?.name || "Select material..." 
+                                             materialsOptions.find(mat => mat.id?.toString() === material.materialId?.toString())?.name || "Select material..." 
                                              : "Select material..."
                                            }
                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -500,7 +690,7 @@ export default function BOM() {
                                                  >
                                                    <Check
                                                      className={`mr-2 h-4 w-4 ${
-                                                       material.materialId === mat.id ? "opacity-100" : "opacity-0"
+                                                       material.materialId?.toString() === mat.id?.toString() ? "opacity-100" : "opacity-0"
                                                      }`}
                                                    />
                                                    <div className="flex flex-col">
@@ -534,11 +724,11 @@ export default function BOM() {
                                     value={material.quantity || ""}
                                     onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
                                     placeholder="0"
-                                    disabled={material.isChild && false} // Child quantities can be edited
+                                    disabled={material.itemType === 'child' && false} // Child quantities can be edited
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  {!material.isChild ? (
+                                  {material.itemType !== 'child' ? (
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -691,7 +881,15 @@ export default function BOM() {
                        <div className="flex items-center justify-center gap-2">
                          {user?.role ? (
                            <>
-                             {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') && (
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                               title="View BOM Consolidate"
+                             >
+                               <Eye className="h-4 w-4" />
+                             </Button>
+                             {/* {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') && ( */}
                                <Button
                                  variant="ghost"
                                  size="sm"
@@ -700,14 +898,7 @@ export default function BOM() {
                                >
                                  <Edit className="h-4 w-4" />
                                </Button>
-                             )}
-                             <Button
-                               variant="ghost"
-                               size="sm"
-                               onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
-                             >
-                               <Eye className="h-4 w-4" />
-                             </Button>
+                             {/* )} */}
                              <Button
                                variant="ghost"
                                size="sm"
