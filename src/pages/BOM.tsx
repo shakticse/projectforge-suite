@@ -153,6 +153,7 @@ export default function BOM() {
     form.setValue("materials", materials);
   }, [materials]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addMaterialRow = () => {
     const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
@@ -283,6 +284,7 @@ export default function BOM() {
 
   const onSubmit = async (data: any) => {
     console.log('BOM form submitted', data); // DEBUG
+    setIsSubmitting(true);
     try {
       data.createdByEmail = user?.email;
           // Ensure description is included from the form input
@@ -321,6 +323,8 @@ export default function BOM() {
     } catch (error) {
       console.error("Error submitting BOM:", error);
       toast.error(editingBOM ? "Failed to update BOM" : "Failed to create BOM");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -619,7 +623,10 @@ export default function BOM() {
                         <TableBody>
                           {materials.map((material, index) => {
                             const materialId = material.materialId?.toString() ?? '';
-                            const materialData = materialsOptions.find(m => m.id?.toString() == materialId);
+                            // If this row is a child item, look up the child inside parent options' childItems
+                            const materialData = material.itemType === 'child'
+                              ? materialsOptions.flatMap(m => m.childItems || []).find(c => c.id?.toString() == materialId)
+                              : materialsOptions.find(m => m.id?.toString() == materialId);
                             // const materialData = material.isChild 
                             //   ? materialsOptions.flatMap(m => m.childItems || []).find(child => child.id?.toString() == materialId)
                             //   : materialsOptions.find(m => m.id?.toString() === materialId);
@@ -720,7 +727,7 @@ export default function BOM() {
                                 <TableCell>
                                   <Input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     value={material.quantity || ""}
                                     onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
                                     placeholder="0"
@@ -775,8 +782,8 @@ export default function BOM() {
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={materials.length === 0}>
-                    {editingBOM ? "Update BOM" : "Create BOM"}
+                  <Button type="submit" disabled={materials.length === 0 || isSubmitting}>
+                    {isSubmitting ? (editingBOM ? "Updating..." : "Creating...") : (editingBOM ? "Update BOM" : "Create BOM")}
                   </Button>
                 </div>
               </form>

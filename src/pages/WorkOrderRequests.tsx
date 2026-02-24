@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,98 +12,56 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Check, ChevronsUpDown, Edit } from "lucide-react";
 import { toast } from "sonner";
 import * as yup from "yup";
+import { serviceListService } from "@/services/serviceListService";
+import { workOrderService } from "@/services/workOrderService";
+import { projectService } from "@/services/projectService";
+import { formatDateTime } from "@/lib/utils";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface WorkOrderRequestItem {
   id: string;
-  materialId: string;
-  materialName: string;
-  category: string;
-  uom: string;
+  serviceId: string;
+  serviceName: string;
+  category?: string;
+  uom?: string;
   qty: number;
 }
 
 interface WorkOrderRequest {
   id: string;
   requestNumber: string;
-  requestedBy: string;
-  project: string;
-  bom: string;
+  createddBy: string;
+  projectName: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'In Progress' | 'Completed';
-  requestDate: string;
-  completeByDate: string;
+  createdBy: string;
+  updatedBy: string;
+  createdDate: string;
+  updatedDate: string;
   items: WorkOrderRequestItem[];
   totalItems: number;
 }
 
-interface MaterialOption {
+interface ServiceOption {
   id: string;
   name: string;
-  category: string;
-  uom: string;
+  category?: string;
+  uom?: string;
 }
 
 const workOrderRequestSchema = yup.object({
   project: yup.string().required("Project is required"),
-  bom: yup.string().required("BOM is required"),
-  items: yup.array().of(
-    yup.object({
-      materialId: yup.string().required("Material is required"),
-      qty: yup.number().min(1, "Quantity must be at least 1").required("Quantity is required"),
-    })
-  ).min(1, "At least one item is required"),
+  description: yup.string().nullable(),
+  items: yup.array().nullable(),
 });
 
-const mockWorkOrderRequests: WorkOrderRequest[] = [
-  {
-    id: "1",
-    requestNumber: "WOR-2024-001",
-    requestedBy: "John Smith",
-    project: "G20 Project",
-    bom: "BOM-001",
-    status: "Pending",
-    requestDate: "2024-01-15",
-    completeByDate: "2024-01-25",
-    items: [
-      { id: "1", materialId: "mat-1", materialName: "Steel Rods", category: "Raw Materials", uom: "Tons", qty: 5 },
-      { id: "2", materialId: "mat-2", materialName: "Concrete Mix", category: "Construction", uom: "Bags", qty: 100 }
-    ],
-    totalItems: 2
-  },
-  {
-    id: "2",
-    requestNumber: "WOR-2024-002",
-    requestedBy: "Sarah Johnson", 
-    project: "India Energy Week",
-    bom: "BOM-002",
-    status: "Approved",
-    requestDate: "2024-01-20",
-    completeByDate: "2024-01-24",
-    items: [
-      { id: "3", materialId: "mat-3", materialName: "Electrical Cables", category: "Electrical", uom: "Meters", qty: 500 }
-    ],
-    totalItems: 1
-  }
-];
 
-const mockMaterials: MaterialOption[] = [
-  { id: "mat-1", name: "Steel Rods", category: "Raw Materials", uom: "Tons" },
-  { id: "mat-2", name: "Concrete Mix", category: "Construction", uom: "Bags" },
-  { id: "mat-3", name: "Electrical Cables", category: "Electrical", uom: "Meters" },
-  { id: "mat-4", name: "BELT TIGHTNER", category: "Mechanical", uom: "Pieces" },
-  { id: "mat-5", name: "MDF 17MM 8'X4'", category: "Construction", uom: "Sheets" },
-  { id: "mat-6", name: "PAPER BLADE 9MM", category: "Tools", uom: "Pieces" },
-  { id: "mat-7", name: "CUTTER WIRE ROPE", category: "Tools", uom: "Meters" },
-  { id: "mat-8", name: "CANOPY BEAM 3 MTR", category: "Construction", uom: "Pieces" }
-];
-
-const projects = ["G20 Project", "India Energy Week", "Kochi Metro"];
-const bomOptions = ["BOM-001", "BOM-002", "BOM-003", "BOM-004"];
 
 export default function WorkOrderRequests() {
-  const [workOrderRequests, setWorkOrderRequests] = useState<WorkOrderRequest[]>(mockWorkOrderRequests);
+  const { user } = useAuth();
+  const [workOrderRequests, setWorkOrderRequests] = useState<WorkOrderRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
@@ -111,32 +70,80 @@ export default function WorkOrderRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [open, setOpen] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; projectName: string }[]>([]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<WorkOrderRequest | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingRequest, setDeletingRequest] = useState<WorkOrderRequest | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [popupMessage, setPopupMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({ type: null, text: '' });
+  const [deletePopupMessage, setDeletePopupMessage] = useState<{ type: 'error' | null; text: string }>({ type: null, text: '' });
 
   const form = useForm({
     resolver: yupResolver(workOrderRequestSchema),
     defaultValues: {
       project: "",
-      bom: "",
+      description: "",
       items: [],
     },
   });
 
   const [formItems, setFormItems] = useState<Array<{
     id: number;
-    materialId: string;
-    materialName: string;
+    serviceId: string;
+    serviceName: string;
     category: string;
     uom: string;
     qty: number;
   }>>([]);
 
+  const fetchWorkOrderRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      const list: any = await workOrderService.getAll();
+      setWorkOrderRequests(list || []);
+    } catch (err) {
+      console.error('Failed to fetch work orders', err);
+      toast.error('Failed to load work orders');
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchAll = async () => {
+       try {
+        const projRes: any = await projectService.getAllProjects();
+        setProjects(projRes || []);
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+      try {
+        const services: any = await serviceListService.getAllServices();
+        setServicesOptions(services || []);
+      } catch (err) {
+        console.error('Failed to fetch services', err);
+      }
+
+      await fetchWorkOrderRequests();
+    };
+
+    fetchAll();
+  }, []);
+
+  useEffect(() => {
+    form.setValue("items", formItems);
+  }, [formItems, form]);
+
   const addNewRow = () => {
     const newId = formItems.length > 0 ? Math.max(...formItems.map(item => item.id)) + 1 : 1;
     setFormItems([...formItems, { 
       id: newId, 
-      materialId: "", 
-      materialName: "",
+      serviceId: "", 
+      serviceName: "",
       category: "", 
       uom: "", 
       qty: 1
@@ -151,57 +158,160 @@ export default function WorkOrderRequests() {
     setFormItems(currentItems => {
       const updatedItems = [...currentItems];
       const itemIndex = updatedItems.findIndex(item => item.id === id);
-      
+
       if (itemIndex === -1) return currentItems;
-      
-      const updated = { ...updatedItems[itemIndex], [field]: value };
-      
-      if (field === 'materialId') {
-        const selectedMaterial = mockMaterials.find(mat => mat.id === value);
-        if (selectedMaterial) {
-          updated.materialName = selectedMaterial.name;
-          updated.category = selectedMaterial.category;
-          updated.uom = selectedMaterial.uom;
+
+      const updated = { ...updatedItems[itemIndex], [field]: value } as any;
+
+      if (field === 'serviceId') {
+        const selected = servicesOptions.find(s => s.id === value);
+        if (selected) {
+          updated.serviceName = selected.name;
+          updated.category = selected.category || '';
+          updated.uom = selected.uom || '';
         }
-        
+
         // Close the popover
         setOpenPopovers(prev => ({ ...prev, [id]: false }));
       }
-      
+
+      if (field === 'qty') {
+        updated.qty = value;
+      }
+
       updatedItems[itemIndex] = updated;
       return updatedItems;
     });
   };
 
   const onSubmit = async (data: any) => {
-    try {
-             const newRequest: WorkOrderRequest = {
-         id: (workOrderRequests.length + 1).toString(),
-         requestNumber: `WOR-2024-${String(workOrderRequests.length + 1).padStart(3, '0')}`,
-         requestedBy: "Current User",
-         project: data.project,
-         bom: data.bom,
-         status: "Pending",
-         requestDate: new Date().toISOString().split('T')[0],
-         completeByDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 10 days from now
-         items: formItems.filter(item => item.materialId.trim() !== "").map((item, index) => ({
-           id: (index + 1).toString(),
-           materialId: item.materialId,
-           materialName: item.materialName,
-           category: item.category,
-           uom: item.uom,
-           qty: item.qty
-         })),
-         totalItems: formItems.filter(item => item.materialId.trim() !== "").length
-       };
+    console.log("Form submitted with data:", data);
+    console.log("FormItems state:", formItems);
+    
+    if (formItems.length === 0) {
+      toast.error("Please add at least one item");
+      return;
+    }
 
-      setWorkOrderRequests([newRequest, ...workOrderRequests]);
-      toast.success("Work order request created successfully!");
+    const itemsWithService = formItems.filter(item => item.serviceId);
+    if (itemsWithService.length === 0) {
+      toast.error("Please select a service for all items");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        createdBy: user?.email,
+        projectId: data.project,
+        description: data.description,
+        items: itemsWithService.map((item) => ({
+          itemId: item.serviceId,
+          qty: item.qty,
+        })),
+      };
+
+      console.log("Submitting payload:", payload);
+      
+      if (editingRequest) {
+        const updated = await workOrderService.update(editingRequest.id, payload);
+        console.log("Update response:", updated);
+        toast.success("Work order request updated successfully!");
+        setEditingRequest(null);
+        setPopupMessage({ type: null, text: '' });
+      } else {
+        const created = await workOrderService.create(payload);
+        console.log("Create response:", created);
+        toast.success("Work order request created successfully!");
+        setPopupMessage({ type: null, text: '' });
+      }
+
+      // refresh list
+      await fetchWorkOrderRequests();
       setOpen(false);
       form.reset();
       setFormItems([]);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to save work order request';
+      setPopupMessage({ type: 'error', text: String(msg) });
+      toast.error(String(msg));
+      console.error("Error saving work order:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = async (request: WorkOrderRequest) => {
+    try {
+      const woDetails: any = await workOrderService.getById(request.id);
+
+      // 1. Project Lookup (Optimized)
+      let projectId: string | number = woDetails.projectId;
+      if (!projectId && woDetails.projectName) {
+        const targetName = woDetails.projectName.toLowerCase();
+        projectId = projects.find(p => p.projectName.toLowerCase() == targetName)?.id || '';
+      }
+
+      // Ensure projectId is a string for form value
+      const projectIdStr = projectId?.toString() || '';
+      
+      // 2. Populate form items from work order items
+      const newFormItems: typeof formItems = [];
+      if (woDetails.items && Array.isArray(woDetails.items)) {
+        woDetails.items.forEach((item: any, index: number) => {
+          // Find the service by itemId
+          const service = servicesOptions.find(s => s.id == item.itemId);
+          
+          newFormItems.push({
+            id: index + 1,
+            serviceId: item.itemId,
+            serviceName: service?.name || '',
+            category: service?.category || '',
+            uom: service?.uom || '',
+            qty: item.qty || 1,
+          });
+        });
+      }
+
+      // Reset form with project data
+      form.reset({
+        project: projectIdStr,
+        description: woDetails.description || '',
+        items: [],
+      });
+
+      // Set form items
+      setFormItems(newFormItems);
+      
+      setEditingRequest(woDetails);
+      setPopupMessage({ type: null, text: '' });
+      setOpen(true);
     } catch (error) {
-      toast.error("Failed to create work order request");
+      console.error("Error fetching work order details:", error);
+      toast.error("Failed to load work order details");
+    }
+  };
+
+  const handleDelete = (request: WorkOrderRequest) => {
+    setDeletingRequest(request);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingRequest) return;
+    setIsDeleting(true);
+    try {
+      await workOrderService.delete(deletingRequest.id);
+      toast.success("Work order request deleted successfully.");
+      setIsDeleteOpen(false);
+      setDeletingRequest(null);
+      await fetchWorkOrderRequests();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete work order request';
+      setDeletePopupMessage({ type: 'error', text: String(msg) });
+      toast.error(String(msg));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -216,16 +326,11 @@ export default function WorkOrderRequests() {
 
   const filteredAndSortedRequests = workOrderRequests
     .filter(request => {
-      const matchesSearch = request.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.requestedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.bom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.items.some(item => 
-                            item.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            item.category.toLowerCase().includes(searchTerm.toLowerCase())
-                          );
+      const lower = searchTerm.toLowerCase();
+      const matchesSearch = request.projectName?.toLowerCase().includes(lower) ||
+                          request.createdBy?.toLowerCase().includes(lower)
       const matchesStatus = statusFilter === "all" || request.status === statusFilter;
-      const matchesProject = projectFilter === "all" || request.project === projectFilter;
+      const matchesProject = projectFilter === "all" || request.projectName === projectFilter;
       return matchesSearch && matchesStatus && matchesProject;
     })
     .sort((a, b) => {
@@ -266,18 +371,27 @@ export default function WorkOrderRequests() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => { setEditingRequest(null); form.reset(); setPopupMessage({ type: null, text: '' }); setFormItems([]); }}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Work Order Request
+              Create Work Order
             </Button>
           </DialogTrigger>
                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             <DialogHeader>
-              <DialogTitle>Create Work Order Request</DialogTitle>
+              <DialogTitle>{editingRequest ? 'Edit Work Order' : 'New Work Order'}</DialogTitle>
             </DialogHeader>
+            
+            {popupMessage.type && (
+              <div className="px-4">
+                <Alert variant={popupMessage.type === 'error' ? 'destructive' : 'default'}>
+                  <AlertTitle>{popupMessage.type === 'error' ? 'Error' : 'Success'}</AlertTitle>
+                  <AlertDescription>{popupMessage.text}</AlertDescription>
+                </Alert>
+              </div>
+            )}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="project"
@@ -292,7 +406,9 @@ export default function WorkOrderRequests() {
                           </FormControl>
                           <SelectContent>
                             {projects.map((project) => (
-                              <SelectItem key={project} value={project}>{project}</SelectItem>
+                              <SelectItem key={project.id.toString()} value={project.id.toString()}>
+                                {project.projectName}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -303,22 +419,13 @@ export default function WorkOrderRequests() {
                   
                   <FormField
                     control={form.control}
-                    name="bom"
+                    name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>BOM</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select BOM" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {bomOptions.map((bom) => (
-                              <SelectItem key={bom} value={bom}>{bom}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter description" className="mt-2" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -366,35 +473,32 @@ export default function WorkOrderRequests() {
                                         aria-expanded={openPopovers[formItem.id] || false}
                                         className="w-full justify-between"
                                       >
-                                        {formItem.materialId ? 
-                                          mockMaterials.find(mat => mat.id === formItem.materialId)?.name || "Select material..." 
-                                          : "Select material..."
+                                        {formItem.serviceId ? 
+                                          servicesOptions.find(s => s.id === formItem.serviceId)?.name || "Select Service..." 
+                                          : "Select Service..."
                                         }
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                       </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[300px] p-0" align="start">
                                       <Command>
-                                        <CommandInput placeholder="Search items..." />
+                                        <CommandInput placeholder="Search Services..." />
                                         <CommandList>
-                                          <CommandEmpty>No material found.</CommandEmpty>
+                                          <CommandEmpty>No service found.</CommandEmpty>
                                           <CommandGroup>
-                                            {mockMaterials.map((material) => (
+                                            {servicesOptions.map((service) => (
                                               <CommandItem
-                                                key={material.id}
-                                                value={material.name}
-                                                onSelect={() => updateFormItem(formItem.id, 'materialId', material.id)}
+                                                key={service.id}
+                                                value={service.name}
+                                                onSelect={() => updateFormItem(formItem.id, 'serviceId', service.id)}
                                               >
                                                 <Check
                                                   className={`mr-2 h-4 w-4 ${
-                                                    formItem.materialId === material.id ? "opacity-100" : "opacity-0"
+                                                    formItem.serviceId === service.id ? "opacity-100" : "opacity-0"
                                                   }`}
                                                 />
                                                 <div className="flex flex-col">
-                                                  <span>{material.name}</span>
-                                                  <span className="text-xs text-muted-foreground">
-                                                    {material.category} • {material.uom}
-                                                  </span>
+                                                  <span>{service.name}</span>
                                                 </div>
                                               </CommandItem>
                                             ))}
@@ -416,7 +520,6 @@ export default function WorkOrderRequests() {
                                 <TableCell className="hidden md:table-cell">
                                   <Input
                                     value={formItem.category}
-                                    onChange={(e) => updateFormItem(formItem.id, 'category', e.target.value)}
                                     disabled
                                     className="bg-muted"
                                   />
@@ -424,7 +527,6 @@ export default function WorkOrderRequests() {
                                 <TableCell className="hidden md:table-cell">
                                   <Input
                                     value={formItem.uom}
-                                    onChange={(e) => updateFormItem(formItem.id, 'uom', e.target.value)}
                                     disabled
                                     className="bg-muted"
                                   />
@@ -470,7 +572,7 @@ export default function WorkOrderRequests() {
                     <div className="flex justify-end space-x-6 pt-4 border-t bg-muted/50 p-4 rounded-lg">
                       <div className="text-sm">
                         <span className="font-medium">Total Items: </span>
-                        <span>{formItems.filter(item => item.materialId.trim() !== "").length}</span>
+                        <span>{formItems.filter(item => item.serviceId).length}</span>
                       </div>
                       <div className="text-sm">
                         <span className="font-medium">Total Quantity: </span>
@@ -481,13 +583,40 @@ export default function WorkOrderRequests() {
                 </div>
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingRequest(null); }}>
                     Cancel
                   </Button>
-                  <Button type="submit">Create Request</Button>
+                  <Button type="submit" disabled={formItems.length === 0 || isSubmitting}>
+                    {isSubmitting ? (editingRequest ? 'Updating...' : 'Creating...') : (editingRequest ? 'Update Request' : 'Create Request')}
+                  </Button>
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDeleteOpen} onOpenChange={(open) => { setIsDeleteOpen(open); if (open) setDeletePopupMessage({ type: null, text: '' }); if (!open) setDeletingRequest(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+            </DialogHeader>
+
+            {deletePopupMessage.type && (
+              <div className="px-4">
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{deletePopupMessage.text}</AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            <div className="py-2">
+              <p>Are you sure you want to delete work order request <strong>{deletingRequest?.id}</strong>? This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <Button variant="outline" onClick={() => { setIsDeleteOpen(false); setDeletingRequest(null); setDeletePopupMessage({ type: null, text: '' }); }} disabled={isDeleting}>Cancel</Button>
+              <Button className="text-destructive" onClick={confirmDelete} disabled={isDeleting}>{isDeleting ? 'Deleting...' : 'Delete'}</Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -527,7 +656,7 @@ export default function WorkOrderRequests() {
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
                 {projects.map((project) => (
-                  <SelectItem key={project} value={project}>{project}</SelectItem>
+                  <SelectItem key={project.id} value={project.id}>{project.projectName}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -540,77 +669,107 @@ export default function WorkOrderRequests() {
           <CardTitle>Work Order Requests</CardTitle>
         </CardHeader>
         <CardContent>
+          {loadingRequests ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading work order requests...</div>
+          ) : workOrderRequests.length === 0 ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No work order requests found.</div>
+          ) : null}
                      <div className="overflow-x-auto">
              <Table>
                <TableHeader>
                  <TableRow>
                    <TableHead 
                      className="cursor-pointer" 
-                     onClick={() => handleSort('requestNumber')}
+                     onClick={() => handleSort('id')}
                    >
                      Request # <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                    </TableHead>
                    <TableHead 
-                     className="cursor-pointer"
-                     onClick={() => handleSort('requestedBy')}
-                   >
-                     Requested By <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                   </TableHead>
-                   <TableHead 
                      className="hidden md:table-cell cursor-pointer"
-                     onClick={() => handleSort('project')}
+                     onClick={() => handleSort('projectName')}
                    >
-                     Project <ArrowUpDown className="ml-2 h-4 w-4 inline" />
-                   </TableHead>
-                   <TableHead 
-                     className="hidden md:table-cell cursor-pointer"
-                     onClick={() => handleSort('bom')}
-                   >
-                     BOM <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                     Project Name<ArrowUpDown className="ml-2 h-4 w-4 inline" />
                    </TableHead>
                    <TableHead>Status</TableHead>
                    <TableHead 
                      className="hidden md:table-cell cursor-pointer"
-                     onClick={() => handleSort('requestDate')}
+                     onClick={() => handleSort('createdDate')}
                    >
-                     Request Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                     Created Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   <TableHead 
+                     className="cursor-pointer"
+                     onClick={() => handleSort('createdBy')}
+                   >
+                     Created By <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                    </TableHead>
                    <TableHead 
                      className="hidden md:table-cell cursor-pointer"
-                     onClick={() => handleSort('completeByDate')}
+                     onClick={() => handleSort('updatedBy')}
                    >
-                     CompleteBy Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                     Updated By <ArrowUpDown className="ml-2 h-4 w-4 inline" />
                    </TableHead>
+                   <TableHead 
+                     className="hidden md:table-cell cursor-pointer"
+                     onClick={() => handleSort('updatedDate')}
+                   >
+                     Updated Date <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+                   </TableHead>
+                   
+                   <TableHead className="w-16">Action</TableHead>
                  </TableRow>
                </TableHeader>
                           <TableBody>
                 {paginatedRequests.map((request) => (
                   <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.requestNumber}</TableCell>
+                    <TableCell className="font-medium">{request.id}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium">{request.requestedBy}</div>
+                          <div><span className="font-medium"></span> {request.projectName}</div>
                         {/* Mobile view: Show project and BOM below requested by */}
                         <div className="md:hidden text-xs text-muted-foreground space-y-1">
-                          <div><span className="font-medium">Project:</span> {request.project}</div>
-                          <div><span className="font-medium">BOM:</span> {request.bom}</div>
-                          <div><span className="font-medium">Request Date:</span> {new Date(request.requestDate).toLocaleDateString()}</div>
-                          <div><span className="font-medium">Complete By:</span> {new Date(request.completeByDate).toLocaleDateString()}</div>
+                          <div><span className="font-medium">Created By:</span> {formatDateTime(request.createdBy)}</div>
+                          <div><span className="font-medium">Updated By:</span> {formatDateTime(request.updatedBy)}</div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{request.project}</TableCell>
-                    <TableCell className="hidden md:table-cell">{request.bom}</TableCell>
+                    {/* <TableCell className="hidden md:table-cell">{request.projectName}</TableCell> */}
                     <TableCell>
                       <Badge variant={getStatusColor(request.status) as any}>
                         {request.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {new Date(request.requestDate).toLocaleDateString()}
+                      {formatDateTime(request.createdDate)}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {new Date(request.completeByDate).toLocaleDateString()}
+                      {request.createdBy?? "N/A"}
+                    </TableCell>
+                     <TableCell className="hidden md:table-cell">
+                      {request.updatedBy?? "N/A"}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {formatDateTime(request.updatedDate)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(request)}
+                          title="Edit Work Order"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(request)}
+                          title="Delete Work Order"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
