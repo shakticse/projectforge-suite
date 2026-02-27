@@ -20,13 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface BOMItem {
@@ -156,7 +149,6 @@ export default function BOMAction() {
   const [selectedBOM, setSelectedBOM] = useState<BOM | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
   const [allocationData, setAllocationData] = useState<Record<string, number>>({});
 
   const filteredBOMs = boms.filter(bom => {
@@ -167,14 +159,13 @@ export default function BOMAction() {
     return matchesSearch && matchesStatus;
   });
 
-  const openAllocationModal = (bom: BOM) => {
+  const openAllocationForm = (bom: BOM) => {
     setSelectedBOM(bom);
     const initialData: Record<string, number> = {};
     bom.items.forEach(item => {
       initialData[item.id] = item.allocatedQuantity;
     });
     setAllocationData(initialData);
-    setIsAllocationModalOpen(true);
   };
 
   const handleBulkUpdate = () => {
@@ -209,9 +200,13 @@ export default function BOMAction() {
       })
     );
     
-    setIsAllocationModalOpen(false);
     setSelectedBOM(null);
     toast.success("BOM quantities updated successfully");
+  };
+
+  const closeAllocationForm = () => {
+    setSelectedBOM(null);
+    setAllocationData({});
   };
 
   const getStatusBadge = (status: string) => {
@@ -332,18 +327,15 @@ export default function BOMAction() {
                   <TableCell className="text-center">{bom.createdDate}</TableCell>
                   <TableCell className="text-center">{bom.modifiedDate}</TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-right">
+                    <div className="flex justify-center">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => openAllocationModal(bom)}
+                        onClick={() => openAllocationForm(bom)}
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Allocate
                       </Button>
-                      {/* <Button size="sm" variant="outline">
-                        <Eye className="h-4 w-4" />
-                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -353,80 +345,199 @@ export default function BOMAction() {
         </CardContent>
       </Card>
 
-      <Dialog open={isAllocationModalOpen} onOpenChange={setIsAllocationModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              In-House Allocation - {selectedBOM?.bomNumber}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedBOM && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                <div>
-                  <span className="text-sm font-medium">Project:</span>
-                  <p className="text-sm text-muted-foreground">{selectedBOM.projectName}</p>
+      {selectedBOM && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Allocation Form */}
+          <Card className="lg:col-span-2 order-2 lg:order-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle className="text-lg">In-House Allocation</CardTitle>
+                <p className="text-sm text-muted-foreground">{selectedBOM.bomNumber}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={closeAllocationForm}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* BOM Info Summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium">Project:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedBOM.projectName}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">BOM Number:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedBOM.bomNumber}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Status:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {getStatusBadge(selectedBOM.status)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">Items:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedBOM.items.length} items
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-sm font-medium">BOM Number:</span>
-                  <p className="text-sm text-muted-foreground">{selectedBOM.bomNumber}</p>
+
+                {/* Items Table */}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm">Item Name</TableHead>
+                        <TableHead className="text-xs sm:text-sm">UOM</TableHead>
+                        {user?.role === "Store Supervisor" && (
+                          <TableHead className="text-right text-xs sm:text-sm">Available</TableHead>
+                        )}
+                        <TableHead className="text-right text-xs sm:text-sm">Required</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm">Pending</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm">Allocate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedBOM.items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium text-xs sm:text-sm">
+                            {item.itemName}
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm">{item.unit}</TableCell>
+                          {user?.role === "Store Supervisor" && (
+                            <TableCell className="text-right text-xs sm:text-sm">
+                              {item.allocatedQuantity}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right text-xs sm:text-sm">
+                            {item.requiredQuantity}
+                          </TableCell>
+                          <TableCell className="text-right text-xs sm:text-sm">
+                            {item.requiredQuantity - (allocationData[item.id] || 0)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              value={allocationData[item.id] || 0}
+                              onChange={(e) =>
+                                setAllocationData({
+                                  ...allocationData,
+                                  [item.id]: Number(e.target.value),
+                                })
+                              }
+                              className="w-16 sm:w-20 text-right text-xs sm:text-sm"
+                              min={0}
+                              max={item.requiredQuantity}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={closeAllocationForm}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleBulkUpdate}
+                    className="w-full sm:w-auto"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Update Allocations
+                  </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>UOM</TableHead>
-                    {(user?.role === 'Store Supervisor') && <TableHead className="text-right">Available Qty</TableHead> }
-                    <TableHead className="text-right">Required</TableHead>
-                    <TableHead className="text-right">Pending</TableHead>
-                    <TableHead className="text-right">Allocate Qty</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedBOM.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.itemName}</TableCell>
-                      <TableCell>{item.specification}</TableCell>
-                      <TableCell>{item.unit}</TableCell>
-                      {(user?.role === 'Store Supervisor') && <TableCell className="text-right">{item.allocatedQuantity}</TableCell>}
-                      <TableCell className="text-right">{item.requiredQuantity}</TableCell>
-                      <TableCell className="text-right">
-                        {item.requiredQuantity - (allocationData[item.id] || 0)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          value={allocationData[item.id] || 0}
-                          onChange={(e) => setAllocationData({
-                            ...allocationData,
-                            [item.id]: Number(e.target.value)
-                          })}
-                          className="w-20 text-right"
-                          min={0}
-                          max={item.requiredQuantity}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          {/* Sidebar Summary on Desktop */}
+          <Card className="order-1 lg:order-2 h-fit">
+            <CardHeader>
+              <CardTitle className="text-lg">Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Progress</span>
+                    <span className="text-sm font-bold">
+                      {selectedBOM.completedItems}/{selectedBOM.totalItems}
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{
+                        width: `${
+                          (selectedBOM.completedItems / selectedBOM.totalItems) * 100
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Math.round(
+                      (selectedBOM.completedItems / selectedBOM.totalItems) * 100
+                    )}
+                    % Complete
+                  </p>
+                </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setIsAllocationModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleBulkUpdate}>
-                  Update Allocations
-                </Button>
+                <div className="space-y-2 pt-4 border-t">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Total Items:</span>
+                    <span className="font-medium">{selectedBOM.totalItems}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Completed:</span>
+                    <span className="font-medium text-green-600">
+                      {selectedBOM.completedItems}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Pending:</span>
+                    <span className="font-medium text-orange-600">
+                      {selectedBOM.totalItems - selectedBOM.completedItems}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Created By:</span>
+                    <p className="font-medium">{selectedBOM.createdBy}</p>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Created Date:</span>
+                    <p className="font-medium">{selectedBOM.createdDate}</p>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Modified Date:</span>
+                    <p className="font-medium">{selectedBOM.modifiedDate}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

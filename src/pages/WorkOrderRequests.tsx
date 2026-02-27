@@ -72,6 +72,7 @@ export default function WorkOrderRequests() {
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState<{ id: string; projectName: string }[]>([]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  const [popoverSearchQueries, setPopoverSearchQueries] = useState<Record<number, string>>({});
   const [servicesOptions, setServicesOptions] = useState<ServiceOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -482,26 +483,39 @@ export default function WorkOrderRequests() {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[300px] p-0" align="start">
                                       <Command>
-                                        <CommandInput placeholder="Search Services..." />
+                                        <CommandInput
+                                          placeholder="Search Services..."
+                                          value={popoverSearchQueries[formItem.id] || ''}
+                                          onValueChange={(value) => setPopoverSearchQueries(prev => ({ ...prev, [formItem.id]: value }))}
+                                        />
                                         <CommandList>
                                           <CommandEmpty>No service found.</CommandEmpty>
                                           <CommandGroup>
-                                            {servicesOptions.map((service) => (
-                                              <CommandItem
-                                                key={service.id}
-                                                value={service.name}
-                                                onSelect={() => updateFormItem(formItem.id, 'serviceId', service.id)}
-                                              >
-                                                <Check
-                                                  className={`mr-2 h-4 w-4 ${
-                                                    formItem.serviceId === service.id ? "opacity-100" : "opacity-0"
-                                                  }`}
-                                                />
-                                                <div className="flex flex-col">
-                                                  <span>{service.name}</span>
-                                                </div>
-                                              </CommandItem>
-                                            ))}
+                                            {servicesOptions
+                                              .filter((service) => {
+                                                const query = (popoverSearchQueries[formItem.id] || '').toLowerCase().trim();
+                                                if (!query) return true;
+                                                return service.name.toLowerCase().includes(query);
+                                              })
+                                              .map((service) => (
+                                                <CommandItem
+                                                  key={service.id}
+                                                  value={service.name}
+                                                  onSelect={() => {
+                                                    updateFormItem(formItem.id, 'serviceId', service.id);
+                                                    setPopoverSearchQueries(prev => ({ ...prev, [formItem.id]: '' }));
+                                                  }}
+                                                >
+                                                  <Check
+                                                    className={`mr-2 h-4 w-4 ${
+                                                      formItem.serviceId === service.id ? "opacity-100" : "opacity-0"
+                                                    }`}
+                                                  />
+                                                  <div className="flex flex-col">
+                                                    <span>{service.name}</span>
+                                                  </div>
+                                                </CommandItem>
+                                              ))}
                                           </CommandGroup>
                                         </CommandList>
                                       </Command>
