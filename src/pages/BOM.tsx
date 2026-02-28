@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -17,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity, Edit } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity, Edit, X } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
@@ -120,7 +119,7 @@ export default function BOM() {
     fetchAll();
   }, []);
 
-  const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingBOM, setEditingBOM] = useState<BOMItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -316,7 +315,7 @@ export default function BOM() {
       const updated = await bomService.getAll();
       setBoms(updated || []);
 
-      setOpen(false);
+      setShowForm(false);
       form.reset();
       setMaterials([]);
       setEditingBOM(null);
@@ -374,7 +373,7 @@ export default function BOM() {
     });
 
     setMaterials(bomMaterials);
-    setOpen(true);
+    setShowForm(true);
   } catch (error) {
     console.error("Failed to fetch BOM details:", error);
     toast.error("Failed to fetch BOM details for editing.");
@@ -491,7 +490,7 @@ export default function BOM() {
     setEditingBOM(null);
     form.reset();
     setMaterials([]);
-    setOpen(true);
+    setShowForm(true);
   };
 
   const filteredBOMs = boms.filter(bom =>
@@ -522,7 +521,7 @@ export default function BOM() {
     .reduce((sum, m) => sum + (m.quantity || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-612812">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
@@ -532,16 +531,29 @@ export default function BOM() {
           <Plus className="h-4 w-4 mr-2" />
           Create BOM
         </Button>
-        <Dialog open={open} onOpenChange={(newOpen) => { if (!newOpen) setOpen(false); }}>
-          <DialogContent 
-            className="max-w-4xl max-h-[90vh] overflow-y-auto"
-            onEscapeKeyDown={(e) => e.preventDefault()}
-            onPointerDownOutside={(e) => e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
+      </div>
+
+      {showForm && (
+        <div className="mt-6 w-full">
+          <Card className="w-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle>{editingBOM ? "Update BOM" : "Create New BOM"}</CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingBOM(null);
+                  form.reset();
+                  setMaterials([]);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
               {/* Removed console.log from JSX, as it returns void and is not a valid ReactNode */}
               {form.formState.errors && Object.keys(form.formState.errors).length > 0 && (
                 <div style={{ color: 'red', marginBottom: 8 }}>
@@ -779,7 +791,12 @@ export default function BOM() {
                 </div>
                 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setShowForm(false);
+                    setEditingBOM(null);
+                    form.reset();
+                    setMaterials([]);
+                  }}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={materials.length === 0 || isSubmitting}>
@@ -788,14 +805,15 @@ export default function BOM() {
                 </div>
               </form>
             </Form>
-          </DialogContent>
-        </Dialog>
+            </CardContent>
+          </Card>
+        </div>
+      )}
         {/* ) : (
           <div className="text-muted-foreground text-sm">
             Only Project Managers can create BOMs
           </div>
         )} */}
-      </div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">

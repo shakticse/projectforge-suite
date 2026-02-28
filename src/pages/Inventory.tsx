@@ -12,6 +12,7 @@ import { itemStoreService } from '@/services/itemStoreService';
 import { storeService } from '@/services/storeService';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { exportToExcel } from '@/lib/exportUtils';
 import { formatDateTime } from '@/lib/utils';
 import {
   Search,
@@ -101,7 +102,7 @@ const Inventory = () => {
       toast({ title: 'Error', description: 'Failed to load inventory items', variant: 'destructive' });
     } finally {
       setLoading(false);
-    } 
+    }
   };
 
   useEffect(() => {
@@ -223,8 +224,8 @@ const Inventory = () => {
   const filteredItems = consolidatedInventory.filter(item => {
     const q = searchTerm.toLowerCase();
     const matchesSearch = (item.name ?? '').toString().toLowerCase().includes(q) ||
-                         (item.sku ?? '').toString().toLowerCase().includes(q) ||
-                         (item.category ?? '').toString().toLowerCase().includes(q);
+      (item.sku ?? '').toString().toLowerCase().includes(q) ||
+      (item.category ?? '').toString().toLowerCase().includes(q);
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     const matchesStore = storeFilter === "all" || item.stores.some((store: any) => (store.location ?? '').toString() === storeFilter);
     return matchesSearch && matchesCategory && matchesStore;
@@ -233,12 +234,12 @@ const Inventory = () => {
   const sortedItems = [...filteredItems].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
-    
+
     if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
       aValue = Number(aValue);
       bValue = Number(bValue);
     }
-    
+
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
@@ -252,200 +253,228 @@ const Inventory = () => {
   const lowStockItems = filteredItems.filter(item => (item.totalQuantity ?? 0) <= (item.minStock ?? 0)).length;
   const criticalItems = filteredItems.filter(item => (item.totalQuantity ?? 0) <= (item.minStock ?? 0) * 0.5).length;
 
+  const handleExport = () => {
+    exportToExcel(consolidatedInventory, 'inventory_export', [
+      { header: 'Item Name', key: 'name' },
+      { header: 'SKU', key: 'sku' },
+      { header: 'Category', key: 'category' },
+      { header: 'Total Quantity', key: 'totalQuantity' },
+      { header: 'Unit Price', key: 'unitPrice' },
+      { header: 'Total Value', key: 'totalValue' },
+      { header: 'Min Stock Level', key: 'minStock' },
+      {
+        header: 'Status', key: (item) => {
+          if (item.totalQuantity <= item.minStock * 0.5) return 'Critical';
+          if (item.totalQuantity <= item.minStock) return 'Low Stock';
+          return 'In Stock';
+        }
+      },
+      { header: 'Last Updated By', key: 'updatedBy' },
+      { header: 'Last Updated At', key: (item) => item.updatedDate ? formatDateTime(item.updatedDate) : '' }
+    ]);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Inventory Management</h1>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 w-full">
+        <div className="w-full min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Inventory Management</h1>
           <p className="text-muted-foreground mt-1">Track and manage your inventory levels and stock</p>
         </div>
-          <Button size="lg" className="gap-2" onClick={() => setShowAddModal(true)} disabled={loading || isProcessing}>
-            { (loading || isProcessing) ? (
-              <span className="inline-flex items-center">
-                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
-                Updating...
-              </span>
-            ) : (
-              <span className="inline-flex items-center">
-                <Plus className="h-4 w-4" />
-                <span className="ml-2">Add Item</span>
-              </span>
-            )}          </Button>
-        </div>
+        <Button size="lg" className="gap-2 w-full sm:w-auto" onClick={() => setShowAddModal(true)} disabled={loading || isProcessing}>
+          {(loading || isProcessing) ? (
+            <span className="inline-flex items-center">
+              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
+              Updating...
+            </span>
+          ) : (
+            <span className="inline-flex items-center">
+              <Plus className="h-4 w-4" />
+              <span className="ml-2">Add Item</span>
+            </span>
+          )}          </Button>
+      </div>
 
       {/* Filters and Search */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
+      <Card className="glass-card w-full min-w-0 overflow-hidden">
+        <CardContent className="p-4 sm:p-6 w-full min-w-0">
+          <div className="flex flex-col gap-4 w-full min-w-0">
+            <div className="flex flex-col md:flex-row gap-4 w-full min-w-0">
+              <div className="flex-1 relative w-full min-w-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search inventory items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-2 w-full md:w-auto shrink-0">
+                <Button variant="outline" size="sm" className="gap-2 w-full h-10">
                   <Filter className="h-4 w-4" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 w-full h-10" onClick={handleExport}>
                   <Download className="h-4 w-4" />
                   Export
                 </Button>
               </div>
             </div>
-            
-            <div className="flex flex-wrap gap-4">
-              <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by store" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  {stores.map((store: any) => {
-                    return (
-                      <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={String(category)} value={String(category)}>{String(category)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
+              <div className="w-full">
+                <Select value={storeFilter} onValueChange={setStoreFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stores</SelectItem>
+                    {stores.map((store: any) => {
+                      return (
+                        <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={String(category)} value={String(category)}>{String(category)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Inventory Table */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Inventory Items ({sortedItems.length} items)</CardTitle>
+      <Card className="glass-card w-full min-w-0 overflow-hidden flex flex-col">
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="truncate">Inventory Items ({sortedItems.length} items)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-6 w-full min-w-0 pb-6">
           {loading ? (
             <div className="mb-4 py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
               Loading inventory...
             </div>
           ) : (
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('name')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Item {getSortIcon('name')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('sku')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    SKU {getSortIcon('sku')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('category')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Category {getSortIcon('category')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('totalQuantity')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Total Quantity {getSortIcon('totalQuantity')}
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    onClick={() => handleSort('unitPrice')}
-                    className="h-auto p-0 font-semibold text-left justify-start"
-                  >
-                    Unit Price {getSortIcon('unitPrice')}
-                  </Button>
-                </TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-sm">{item.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">{item.category}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
-                  <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                              <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewStoreBreakdown(item)}
-                        className="h-8 w-8 p-0"
-                        disabled={loading || isProcessing}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading || isProcessing}>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Item
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            </Table>
+            <div className="w-full overflow-x-auto">
+              <div className="rounded-none sm:rounded-md border min-w-[800px] w-full">
+                <Table className="w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('name')}
+                          className="h-auto p-0 font-semibold text-left justify-start"
+                        >
+                          Item {getSortIcon('name')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('sku')}
+                          className="h-auto p-0 font-semibold text-left justify-start"
+                        >
+                          SKU {getSortIcon('sku')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('category')}
+                          className="h-auto p-0 font-semibold text-left justify-start"
+                        >
+                          Category {getSortIcon('category')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('totalQuantity')}
+                          className="h-auto p-0 font-semibold text-left justify-start"
+                        >
+                          Total Quantity {getSortIcon('totalQuantity')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('unitPrice')}
+                          className="h-auto p-0 font-semibold text-left justify-start"
+                        >
+                          Unit Price {getSortIcon('unitPrice')}
+                        </Button>
+                      </TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-mono text-sm">{item.name}</TableCell>
+                        <TableCell className="font-mono text-sm">{item.sku}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
+                        <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewStoreBreakdown(item)}
+                              className="h-8 w-8 p-0"
+                              disabled={loading || isProcessing}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading || isProcessing}>
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(item)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Item
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {totalPages > 1 && (
-        <Pagination className="mt-6">
-          <PaginationContent>
+        <Pagination className="mt-4 sm:mt-6 w-full min-w-0 overflow-hidden">
+          <PaginationContent className="flex-wrap justify-center sm:justify-start gap-y-2 max-w-full">
             <PaginationItem>
               <PaginationLink
                 onClick={(e) => {
@@ -458,7 +487,7 @@ const Inventory = () => {
               </PaginationLink>
             </PaginationItem>
             <PaginationItem>
-              <PaginationPrevious 
+              <PaginationPrevious
                 onClick={(e) => {
                   e.preventDefault();
                   if (currentPage > 1) setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -471,7 +500,7 @@ const Inventory = () => {
               const startWindow = Math.floor((currentPage - 1) / pagesPerWindow) * pagesPerWindow + 1;
               const endWindow = Math.min(startWindow + pagesPerWindow - 1, totalPages);
               const pages = Array.from({ length: endWindow - startWindow + 1 }, (_, i) => startWindow + i);
-              
+
               return (
                 <>
                   {startWindow > 1 && (
@@ -518,7 +547,7 @@ const Inventory = () => {
               );
             })()}
             <PaginationItem>
-              <PaginationNext 
+              <PaginationNext
                 onClick={(e) => {
                   e.preventDefault();
                   if (currentPage < totalPages) setCurrentPage(prev => Math.min(prev + 1, totalPages));
@@ -543,12 +572,12 @@ const Inventory = () => {
 
       {/* Store Breakdown Dialog */}
       <Dialog open={showStoreBreakdown} onOpenChange={setShowStoreBreakdown}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-[90vw] md:w-full overflow-hidden flex flex-col max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Store Breakdown - {selectedItem?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">SKU</p>
                 <p className="font-mono">{selectedItem?.sku}</p>
@@ -558,11 +587,11 @@ const Inventory = () => {
                 <p>{selectedItem?.category}</p>
               </div>
             </div>
-            
+
             <div className="space-y-3">
               <h3 className="font-semibold">Stock by Store</h3>
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
+              <div className="border rounded-lg overflow-hidden overflow-x-auto w-full">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Store Location</TableHead>
@@ -584,7 +613,7 @@ const Inventory = () => {
                 </Table>
               </div>
             </div>
-            
+
             <div className="border-t pt-3">
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Total Quantity:</span>
@@ -596,8 +625,8 @@ const Inventory = () => {
       </Dialog>
 
       {/* Add Inventory Modal */}
-      <AddInventoryModal 
-        open={showAddModal} 
+      <AddInventoryModal
+        open={showAddModal}
         onOpenChange={setShowAddModal}
         onSaved={refreshStoreItems}
         onStart={() => setIsProcessing(true)}
