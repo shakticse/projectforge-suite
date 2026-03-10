@@ -45,15 +45,15 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/projectforge-suite/">
-      {/* <BrowserRouter basename="/">  */}
+      {/* <BrowserRouter basename="/projectforge-suite/"> */}
+      <BrowserRouter basename="/">
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
           {/* <Route path="/signup" element={<Signup />} /> */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/mfa-verify" element={<MfaVerify />} />
-          
+
           {/* Protected Routes with Layout */}
           <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><AppLayout><Projects /></AppLayout></ProtectedRoute>} />

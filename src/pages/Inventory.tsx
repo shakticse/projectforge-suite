@@ -362,19 +362,18 @@ const Inventory = () => {
         <CardHeader className="px-4 sm:px-6">
           <CardTitle className="truncate">Inventory Items ({sortedItems.length} items)</CardTitle>
         </CardHeader>
-        <CardContent className="px-0 sm:px-6 w-full min-w-0 pb-6">
+        <CardContent className="p-0 sm:p-6 sm:pt-0 w-full min-w-0">
           {loading ? (
             <div className="mb-4 py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>
               Loading inventory...
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <div className="rounded-none sm:rounded-md border min-w-[800px] w-full">
-                <Table className="w-full">
+            <div className="w-full overflow-x-auto rounded-none sm:rounded-md border border-x-0 sm:border-x">
+              <Table className="w-full border-separate border-spacing-0" style={{ minWidth: '700px' }}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>
+                      <TableHead className="w-[180px] min-w-[180px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('name')}
@@ -383,7 +382,7 @@ const Inventory = () => {
                           Item {getSortIcon('name')}
                         </Button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[120px] min-w-[120px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('sku')}
@@ -392,7 +391,7 @@ const Inventory = () => {
                           SKU {getSortIcon('sku')}
                         </Button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[130px] min-w-[130px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('category')}
@@ -401,39 +400,39 @@ const Inventory = () => {
                           Category {getSortIcon('category')}
                         </Button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[100px] min-w-[100px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('totalQuantity')}
-                          className="h-auto p-0 font-semibold text-left justify-start"
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
                         >
-                          Total Quantity {getSortIcon('totalQuantity')}
+                          Qty {getSortIcon('totalQuantity')}
                         </Button>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="w-[100px] min-w-[100px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('unitPrice')}
-                          className="h-auto p-0 font-semibold text-left justify-start"
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
                         >
-                          Unit Price {getSortIcon('unitPrice')}
+                          Price {getSortIcon('unitPrice')}
                         </Button>
                       </TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="w-[80px] min-w-[80px] sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedItems.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm">{item.name}</TableCell>
-                        <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                        <TableCell className="font-mono text-sm truncate max-w-[180px]" title={item.name}>{item.name}</TableCell>
+                        <TableCell className="font-mono text-sm truncate max-w-[120px]" title={item.sku}>{item.sku}</TableCell>
+                        <TableCell className="max-w-[130px]">
+                          <Badge variant="outline" className="text-xs truncate max-w-full">{item.category}</Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
-                        <TableCell>₹{item.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="font-mono text-sm whitespace-nowrap">₹{item.unitPrice.toFixed(2)}</TableCell>
+                        <TableCell className="sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -466,9 +465,9 @@ const Inventory = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
             </div>
           )}
+          <div className="h-4 sm:h-0"></div>
         </CardContent>
       </Card>
 

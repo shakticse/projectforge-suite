@@ -11,6 +11,11 @@ export const bomService = {
     return response.data;
   },
 
+  async GetConsolidatedBomItemsById(id: string | number) {
+    const response = await api.get(`/api/bom/GetConsolidatedBomItemsById/${id}`);
+    return response.data;
+  },
+
   async create(data: any) {
     const response = await api.post('/api/bom', data);
     return response.data;
