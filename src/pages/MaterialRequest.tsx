@@ -223,17 +223,17 @@ const MaterialRequest = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Material Requests</h1>
+        <h1 className="text-3xl font-bold">Intra-Store Allocation Requests</h1>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Material Request
+              Create Intra-Store Allocation Request
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Material Request</DialogTitle>
+              <DialogTitle>Create Intra-Store Allocation Request</DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
@@ -358,7 +358,7 @@ const MaterialRequest = () => {
                 <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateMR}>Create Material Request</Button>
+                <Button onClick={handleCreateMR}>Create Intra-Store Allocation Request</Button>
               </div>
             </div>
           </DialogContent>
@@ -367,7 +367,7 @@ const MaterialRequest = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Material Requests List</CardTitle>
+          <CardTitle>Intra-Store Allocation Requests List</CardTitle>
           <div className="flex space-x-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />

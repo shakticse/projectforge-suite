@@ -217,13 +217,13 @@ export default function WorkOrderRequests() {
       if (editingRequest) {
         const updated = await workOrderService.update(editingRequest.id, payload);
         console.log("Update response:", updated);
-        toast.success("Work order request updated successfully!");
+        toast.success("Work request updated successfully!");
         setEditingRequest(null);
         setPopupMessage({ type: null, text: '' });
       } else {
         const created = await workOrderService.create(payload);
         console.log("Create response:", created);
-        toast.success("Work order request created successfully!");
+        toast.success("Work request created successfully!");
         setPopupMessage({ type: null, text: '' });
       }
 
@@ -233,10 +233,10 @@ export default function WorkOrderRequests() {
       form.reset();
       setFormItems([]);
     } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'Failed to save work order request';
+      const msg = error?.response?.data?.message || error?.message || 'Failed to save work request';
       setPopupMessage({ type: 'error', text: String(msg) });
       toast.error(String(msg));
-      console.error("Error saving work order:", error);
+      console.error("Error saving work request:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -288,8 +288,8 @@ export default function WorkOrderRequests() {
       setPopupMessage({ type: null, text: '' });
       setOpen(true);
     } catch (error) {
-      console.error("Error fetching work order details:", error);
-      toast.error("Failed to load work order details");
+      console.error("Error fetching work request details:", error);
+      toast.error("Failed to load work request details");
     }
   };
 
@@ -303,12 +303,12 @@ export default function WorkOrderRequests() {
     setIsDeleting(true);
     try {
       await workOrderService.delete(deletingRequest.id);
-      toast.success("Work order request deleted successfully.");
+      toast.success("Work request deleted successfully.");
       setIsDeleteOpen(false);
       setDeletingRequest(null);
       await fetchWorkOrderRequests();
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to delete work order request';
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete work request';
       setDeletePopupMessage({ type: 'error', text: String(msg) });
       toast.error(String(msg));
     } finally {
@@ -367,19 +367,19 @@ export default function WorkOrderRequests() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Work Order Requests</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Work Requests</h1>
           <p className="text-muted-foreground">Request items for work orders and track approvals</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingRequest(null); form.reset(); setPopupMessage({ type: null, text: '' }); setFormItems([]); }}>
               <Plus className="h-4 w-4 mr-2" />
-              Create Work Order
+              Create Work Request
             </Button>
           </DialogTrigger>
                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             <DialogHeader>
-              <DialogTitle>{editingRequest ? 'Edit Work Order' : 'New Work Order'}</DialogTitle>
+              <DialogTitle>{editingRequest ? 'Edit Work Request' : 'New Work Request'}</DialogTitle>
             </DialogHeader>
             
             {popupMessage.type && (
@@ -625,7 +625,7 @@ export default function WorkOrderRequests() {
             )}
 
             <div className="py-2">
-              <p>Are you sure you want to delete work order request <strong>{deletingRequest?.id}</strong>? This action cannot be undone.</p>
+              <p>Are you sure you want to delete work request <strong>{deletingRequest?.id}</strong>? This action cannot be undone.</p>
             </div>
             <div className="flex justify-end space-x-2 mt-4">
               <Button variant="outline" onClick={() => { setIsDeleteOpen(false); setDeletingRequest(null); setDeletePopupMessage({ type: null, text: '' }); }} disabled={isDeleting}>Cancel</Button>
@@ -680,13 +680,13 @@ export default function WorkOrderRequests() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Work Order Requests</CardTitle>
+          <CardTitle>Work Requests</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingRequests ? (
-            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading work order requests...</div>
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading work requests...</div>
           ) : workOrderRequests.length === 0 ? (
-            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No work order requests found.</div>
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No work requests found.</div>
           ) : null}
                      <div className="overflow-x-auto">
              <Table>
@@ -771,7 +771,7 @@ export default function WorkOrderRequests() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(request)}
-                          title="Edit Work Order"
+                          title="Edit Work Request"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -779,7 +779,7 @@ export default function WorkOrderRequests() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(request)}
-                          title="Delete Work Order"
+                          title="Delete Work Request"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

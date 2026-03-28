@@ -23,6 +23,7 @@ import BOMStatus from "./pages/BOMStatus";
 import WorkOrders from "./pages/WorkOrders";
 import WorkOrderRequests from "./pages/WorkOrderRequests";
 import PurchaseRequest from "./pages/PurchaseRequests";
+import OutsourcingRequests from "./pages/OutsourcingRequests";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import GatePass from "./pages/GatePass";
 import VehicleRequest from "./pages/VehicleRequest";
@@ -37,8 +38,21 @@ import RoleManagement from "./pages/RoleManagement";
 import AccessDenied from "./pages/AccessDenied";
 import MfaVerify from "./pages/MfaVerify";
 import NotFound from "./pages/NotFound";
+import { useNavigate } from 'react-router-dom';
+import { setNavigate } from './lib/navigateRef';
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
+
+function NavigationRegistrar() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setNavigate(navigate); // ✅ Registers the real navigate function
+  }, [navigate]);
+
+  return null;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -47,6 +61,7 @@ const App = () => (
       <Sonner />
       {/* <BrowserRouter basename="/projectforge-suite/"> */}
       <BrowserRouter basename="/">
+      <NavigationRegistrar />
         <Routes>
           {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
@@ -69,6 +84,7 @@ const App = () => (
           <Route path="/work-orders" element={<ProtectedRoute><AppLayout><WorkOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/work-requests" element={<ProtectedRoute><AppLayout><WorkOrderRequests /></AppLayout></ProtectedRoute>} />
           <Route path="/purchase-requests" element={<ProtectedRoute><AppLayout><PurchaseRequest /></AppLayout></ProtectedRoute>} />
+          <Route path="/outsourcing-requests" element={<ProtectedRoute><AppLayout><OutsourcingRequests /></AppLayout></ProtectedRoute>} />
           <Route path="/purchase-orders" element={<ProtectedRoute><AppLayout><PurchaseOrders /></AppLayout></ProtectedRoute>} />
           <Route path="/gate-pass" element={<ProtectedRoute><AppLayout><GatePass /></AppLayout></ProtectedRoute>} />
           <Route path="/vehicle-request" element={<ProtectedRoute><AppLayout><VehicleRequest /></AppLayout></ProtectedRoute>} />

@@ -31,7 +31,7 @@ export default function Signup() {
     try {
       await authService.signup(data);
       toast.success("Account created successfully! Please login.");
-      navigate("/login");
+      navigate("/login", { replace: true });
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
@@ -64,7 +64,7 @@ export default function Signup() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="email"
@@ -78,7 +78,7 @@ export default function Signup() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -92,7 +92,7 @@ export default function Signup() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="confirmPassword"
@@ -106,7 +106,7 @@ export default function Signup() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="role"
@@ -130,13 +130,13 @@ export default function Signup() {
                   </FormItem>
                 )}
               />
-              
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
           </Form>
-          
+
           <div className="mt-4 text-center text-sm">
             Already have an account?{" "}
             <Link to="/login" className="text-primary hover:underline">

@@ -22,7 +22,6 @@ import {
   Package,
   TrendingUp,
   TrendingDown,
-  MoreVertical,
   Edit,
   Trash2,
   Eye,
@@ -39,14 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'unitPrice';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'allocatedQty' | 'availableQuantity' | 'unitPrice';
 type SortDirection = 'asc' | 'desc';
 
 const Inventory = () => {
@@ -148,6 +140,8 @@ const Inventory = () => {
         category: item.CategoryName ?? item.categoryName ?? '',
         unitPrice: Number(item.ItemPrice ?? item.itemPrice ?? item.unitPrice ?? 0),
         totalQuantity: 0,
+        allocatedQty: 0,
+        availableQuantity: 0,
         totalValue: 0,
         minStock: Number(item.minStock ?? 0),
         maxStock: Number(item.maxStock ?? 0),
@@ -159,8 +153,24 @@ const Inventory = () => {
 
     const qty = Number(item.Qty ?? item.qty ?? item.quantity ?? 0);
     const price = Number(item.ItemPrice ?? item.itemPrice ?? item.unitPrice ?? 0);
+    const allocated = Number(
+      item.allocatedQty ??
+        item.allocattedQty ??
+        item.AllocatedQty ??
+        item.AllocattedQty ??
+        0
+    );
+    const availableQty = Number(
+      item.availableQty ??
+        item.AvailableQty ??
+        item.availableQuantity ??
+        item.AvailableQuantity ??
+        0
+    );
 
     acc[key].totalQuantity += qty;
+    acc[key].allocatedQty += allocated;
+    acc[key].availableQuantity += availableQty;
     acc[key].totalValue += qty * price;
     acc[key].minStock += Number(item.minStock ?? 0);
     acc[key].maxStock += Number(item.maxStock ?? 0);
@@ -235,7 +245,12 @@ const Inventory = () => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
-    if (sortField === 'totalQuantity' || sortField === 'unitPrice') {
+    if (
+      sortField === 'totalQuantity' ||
+      sortField === 'allocatedQty' ||
+      sortField === 'availableQuantity' ||
+      sortField === 'unitPrice'
+    ) {
       aValue = Number(aValue);
       bValue = Number(bValue);
     }
@@ -259,6 +274,8 @@ const Inventory = () => {
       { header: 'SKU', key: 'sku' },
       { header: 'Category', key: 'category' },
       { header: 'Total Quantity', key: 'totalQuantity' },
+      { header: 'Allocated Qty', key: 'allocatedQty' },
+      { header: 'Available Qty', key: 'availableQuantity' },
       { header: 'Unit Price', key: 'unitPrice' },
       { header: 'Total Value', key: 'totalValue' },
       { header: 'Min Stock Level', key: 'minStock' },
@@ -370,7 +387,7 @@ const Inventory = () => {
             </div>
           ) : (
             <div className="w-full overflow-x-auto rounded-none sm:rounded-md border border-x-0 sm:border-x">
-              <Table className="w-full border-separate border-spacing-0" style={{ minWidth: '700px' }}>
+              <Table className="w-full border-separate border-spacing-0" style={{ minWidth: '880px' }}>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[180px] min-w-[180px]">
@@ -409,6 +426,24 @@ const Inventory = () => {
                           Qty {getSortIcon('totalQuantity')}
                         </Button>
                       </TableHead>
+                      {/* <TableHead className="w-[100px] min-w-[100px]">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('allocatedQty')}
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
+                        >
+                          Allocated {getSortIcon('allocatedQty')}
+                        </Button>
+                      </TableHead> */}
+                      <TableHead className="w-[120px] min-w-[120px]">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('availableQuantity')}
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
+                        >
+                          Available {getSortIcon('availableQuantity')}
+                        </Button>
+                      </TableHead>
                       <TableHead className="w-[100px] min-w-[100px]">
                         <Button
                           variant="ghost"
@@ -430,35 +465,43 @@ const Inventory = () => {
                           <Badge variant="outline" className="text-xs truncate max-w-full">{item.category}</Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
+                        {/* <TableCell className="font-mono text-sm">{item.allocatedQty ?? 0}</TableCell> */}
+                        <TableCell className="font-mono text-sm">{item.availableQuantity ?? 0}</TableCell>
                         <TableCell className="font-mono text-sm whitespace-nowrap">₹{item.unitPrice.toFixed(2)}</TableCell>
                         <TableCell className="sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => handleViewStoreBreakdown(item)}
                               className="h-8 w-8 p-0"
                               disabled={loading || isProcessing}
+                              aria-label="View"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading || isProcessing}>
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEdit(item)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit Item
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {storeFilter !== "all" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleEdit(item)}
+                                disabled={loading || isProcessing}
+                                aria-label="Edit"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleDelete(item)}
+                              disabled={loading || isProcessing}
+                              aria-label="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>

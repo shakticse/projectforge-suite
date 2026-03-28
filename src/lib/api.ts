@@ -163,7 +163,7 @@
 //       async (error: AxiosError) => {
 //         const original = error.config as AxiosRequestConfig & { _retry?: boolean };
 //         const status = error.response?.status;
-        
+
 //         // If 401, try refresh once
 //         if (status === 401 && !original._retry) {
 //           original._retry = true;
@@ -275,12 +275,55 @@
 // export const apiService = new ApiService();
 // export default apiService;
 
-import axios from 'axios';
+// import axios from 'axios';
+// import { useNavigate } from "react-router-dom";
 
-// Create axios instance with base configuration
+// // Create axios instance with base configuration
+// const api = axios.create({
+//   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5234',
+//   //baseURL: import.meta.env.VITE_API_URL || 'https://projecthub.runasp.net',
+//   timeout: 0,
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+// });
+
+// // Request interceptor to add auth token
+// api.interceptors.request.use(
+//   (config) => {
+//     const token = localStorage.getItem('auth_token');
+//     if (token) {
+//       config.headers.Authorization = `Bearer ${token}`;
+//     }
+//     return config;
+//   },
+//   (error) => {
+//     return Promise.reject(error);
+//   }
+// );
+
+// // Response interceptor for error handling
+// api.interceptors.response.use(
+//   (response) => response,
+//   (error) => {
+//     console.log(error.response);
+//     if (error.response?.status === 401) {
+//       localStorage.removeItem('auth_token');
+//       //window.location.href = '/login';
+//       navigate("/login", { replace: true });
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+// export default api;
+
+import axios from 'axios';
+import { getNavigate } from './navigateRef';
+
 const api = axios.create({
-  //baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5234',
-  baseURL: import.meta.env.VITE_API_URL || 'https://projecthub.runasp.net',
+  //baseURL: import.meta.env.VITE_API_URL || 'https://projecthub.runasp.net',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5234',
   timeout: 0,
   headers: {
     'Content-Type': 'application/json',
@@ -294,21 +337,21 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    else {
+      getNavigate()?.('/login', { replace: true }); // ✅ Safe call
+    }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.log(error.response);
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      getNavigate()?.('/login', { replace: true }); // ✅ Safe call
     }
     return Promise.reject(error);
   }

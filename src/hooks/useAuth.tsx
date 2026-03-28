@@ -6,18 +6,19 @@ import { toast } from 'sonner';
 export function useAuth() {
   const [user, setUser] = useState(authService.getCurrentUser());
   const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   // Check authentication status
   const checkAuth = useCallback(() => {
     const currentUser = authService.getCurrentUser();
     const currentAuthStatus = authService.isAuthenticated();
-    
+
     console.log('useAuth: checkAuth called', { currentUser, currentAuthStatus });
-    
+
     setUser(currentUser);
     setIsAuthenticated(currentAuthStatus);
-    
+
     return currentAuthStatus;
   }, []);
 
@@ -27,19 +28,19 @@ export function useAuth() {
     try {
       await authService.logout();
       console.log('AuthService logout completed');
-      
+
       setUser(null);
       setIsAuthenticated(false);
-      
+
       console.log('Local state cleared, redirecting to login');
       toast.success("Logged out successfully");
-      
+
       // Use replace to prevent back navigation
       navigate("/login", { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       toast.error("Logout failed");
-      
+
       // Even if logout fails, clear local state and redirect
       console.log('Logout failed, but clearing local state and redirecting');
       setUser(null);
@@ -72,21 +73,23 @@ export function useAuth() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [checkAuth]);
 
-  // Initial auth check
+  // Initial auth check — runs once and signals loading is done
   useEffect(() => {
     console.log('useAuth: Initial auth check');
     checkAuth();
+    setIsLoading(false);
   }, [checkAuth]);
 
   return {
     user,
     isAuthenticated,
+    isLoading,
     login,
     logout,
     checkAuth,

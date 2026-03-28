@@ -1,5 +1,5 @@
-import { ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ReactNode } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/authService';
 
@@ -9,20 +9,17 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  useEffect(() => {
-    console.log('ProtectedRoute: isAuthenticated =', isAuthenticated);
-    if (!isAuthenticated) {
-      console.log('ProtectedRoute: Redirecting to login');
-      navigate('/login', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
-
-  // Only render children if authenticated
-  if (!isAuthenticated) {
-    console.log('ProtectedRoute: Not authenticated, returning null');
+  // While auth state is being determined, render nothing (avoid flash)
+  if (isLoading) {
     return null;
+  }
+
+  // Not authenticated — redirect synchronously during render (no useEffect delay)
+  if (!isAuthenticated) {
+    console.log('ProtectedRoute: Not authenticated, redirecting to login');
+    return <Navigate to="/login" replace />;
   }
 
   // Check permissions for this route (if user has allowed menus)
@@ -38,10 +35,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       { path: '/inventory', title: 'Inventory' },
       { path: '/vendors', title: 'Vendors' },
       { path: '/purchase-requests', title: 'Purchase Request' },
+      { path: '/outsourcing-requests', title: 'Outsourcing Request' },
       { path: '/purchase-orders', title: 'Purchase Orders' },
       { path: '/bom', title: 'Bill of Materials' },
       { path: '/bom-action', title: 'BOM Allocation' },
-      { path: '/material-request', title: 'Material Request' },
+      { path: '/material-request', title: 'Intra-Store Allocation' },
       { path: '/work-requests', title: 'Work Request' },
       { path: '/work-orders', title: 'Work Order' },
       { path: '/mrn-list', title: 'MRN List/Challan' },
@@ -60,7 +58,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     if (matched && allowedMenuNames.length > 0 && !allowedMenuNames.includes(matched.title)) {
       // User doesn't have permission for this route
       console.warn('ProtectedRoute: Access denied to', pathname, 'for user', currentUser?.email);
-      // If already showing Access Denied, do nothing to avoid loop
       if (pathname !== '/access-denied') {
         navigate('/access-denied', { replace: true });
       }

@@ -35,14 +35,14 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { purchaseRequestSimpleFormSchema } from "@/lib/validations";
-import { purchaseRequestService } from "@/services/purchaseRequestService";
+import { outsourcingRequestService } from "@/services/outsourcingRequestService";
 import { itemService } from "@/services/itemService";
 import { useToast } from "@/hooks/use-toast";
 
 /** Normalized row for the list table */
-export interface PurchaseRequestRow {
+export interface OutsourcingRequestRow {
   id: string;
-  prNo: string;
+  osNo: string;
   name: string;
   createdBy: string;
   createdDate: string;
@@ -73,23 +73,23 @@ export interface ViewLineItem {
   status: string;
 }
 
-function mapDetailItemsToViewLines(raw: any): ViewLineItem[] {
-  const arr = Array.isArray(raw) ? raw : [];
+function mapDetailItemsToViewLines(items: any): ViewLineItem[] {
+  const arr = Array.isArray(items) ? items : [];
   return arr.map((it: any, i: number) => ({
     name: it.name ?? `Item ${i + 1}`,
-    uom: it.uom,
+    uom: it.uom ?? "",
     qty: Number(it.qty ?? 0) || 0,
     status: String(it.status ?? "Pending"),
   }));
 }
 
-function mapListResponse(data: any): PurchaseRequestRow[] {
+function mapListResponse(data: any): OutsourcingRequestRow[] {
   const raw = Array.isArray(data) ? data : data?.data ?? [];
-  return (raw as any[]).map((r, idx) => ({
+  return (raw as any[]).map((r) => ({
     id: String(r.id),
-    prNo: String(r.id ?? ""),
+    osNo: String(r.osNo ?? r.osNumber ?? r.OSNumber ?? r.id ?? ""),
     name: r.name ?? "",
-    createdBy: r.createdByUser ?? "",
+    createdBy: r.createdByUser ?? r.createdBy ?? "",
     createdDate: r.createdDate ?? "",
     status: r.status ?? "Pending",
   }));
@@ -107,15 +107,15 @@ function mapCatalogItem(raw: any): CatalogItem | null {
   };
 }
 
-const itemsPerPage = 10;
+const itemsPerPage = 100;
 
-export default function PurchaseRequests() {
+export default function OutsourcingRequests() {
   const { toast } = useToast();
-  const [rows, setRows] = useState<PurchaseRequestRow[]>([]);
+  const [rows, setRows] = useState<OutsourcingRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortColumn, setSortColumn] = useState<keyof PurchaseRequestRow>("createdDate");
+  const [sortColumn, setSortColumn] = useState<keyof OutsourcingRequestRow>("createdDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const [showCreatePanel, setShowCreatePanel] = useState(false);
@@ -127,19 +127,19 @@ export default function PurchaseRequests() {
   const [loadingCatalog, setLoadingCatalog] = useState(false);
 
   const [viewOpen, setViewOpen] = useState(false);
-  const [viewRow, setViewRow] = useState<PurchaseRequestRow | null>(null);
+  const [viewRow, setViewRow] = useState<OutsourcingRequestRow | null>(null);
   const [viewLineItems, setViewLineItems] = useState<ViewLineItem[]>([]);
   const [viewDetailLoading, setViewDetailLoading] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
-  const [editing, setEditing] = useState<PurchaseRequestRow | null>(null);
+  const [editing, setEditing] = useState<OutsourcingRequestRow | null>(null);
   const [editLineItems, setEditLineItems] = useState<LineRow[]>([]);
   const [editItemQuery, setEditItemQuery] = useState("");
   const [editCatalogOpen, setEditCatalogOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState<PurchaseRequestRow | null>(null);
+  const [deleting, setDeleting] = useState<OutsourcingRequestRow | null>(null);
   const [deletingInProgress, setDeletingInProgress] = useState(false);
 
   const createSearchRef = useRef<HTMLDivElement>(null);
@@ -168,12 +168,12 @@ export default function PurchaseRequests() {
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await purchaseRequestService.getAll();
+      const res = await outsourcingRequestService.getAll();
       setRows(mapListResponse(res));
     } catch (err: any) {
       toast({
         title: "Error",
-        description: err?.response?.data?.message || err?.message || "Failed to load purchase requests",
+        description: err?.response?.data?.message || err?.message || "Failed to load outsourcing requests",
         variant: "destructive",
       });
       setRows([]);
@@ -275,7 +275,7 @@ export default function PurchaseRequests() {
     }
   };
 
-  const handleSort = (column: keyof PurchaseRequestRow) => {
+  const handleSort = (column: keyof OutsourcingRequestRow) => {
     if (sortColumn === column) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -288,7 +288,7 @@ export default function PurchaseRequests() {
     const q = searchTerm.toLowerCase();
     return rows.filter(
       (r) =>
-        r.prNo.toLowerCase().includes(q) ||
+        r.osNo.toLowerCase().includes(q) ||
         r.name.toLowerCase().includes(q) ||
         r.createdBy.toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q)
@@ -327,7 +327,7 @@ export default function PurchaseRequests() {
     if (lineItems.length === 0) {
       toast({
         title: "Validation",
-        description: "Add at least one item to the purchase request.",
+        description: "Add at least one item to the outsourcing request.",
         variant: "destructive",
       });
       return;
@@ -342,7 +342,7 @@ export default function PurchaseRequests() {
     }
     setSaving(true);
     try {
-      await purchaseRequestService.create({
+      await outsourcingRequestService.create({
         name: data.requestName,
         description: data.description || undefined,
         items: validLines.map((l) => ({
@@ -350,7 +350,7 @@ export default function PurchaseRequests() {
           quantity: l.quantity,
         })),
       });
-      toast({ title: "Success", description: "Purchase request created successfully." });
+      toast({ title: "Success", description: "Outsourcing request created successfully." });
       form.reset();
       setLineItems([]);
       setShowCreatePanel(false);
@@ -358,7 +358,7 @@ export default function PurchaseRequests() {
     } catch (err: any) {
       toast({
         title: "Error",
-        description: err?.response?.data?.message || err?.message || "Failed to create purchase request",
+        description: err?.response?.data?.message || err?.message || "Failed to create outsourcing request",
         variant: "destructive",
       });
     } finally {
@@ -366,20 +366,20 @@ export default function PurchaseRequests() {
     }
   });
 
-  const openView = async (row: PurchaseRequestRow) => {
+  const openView = async (row: OutsourcingRequestRow) => {
     setViewRow(row);
     setViewOpen(true);
     setViewDetailLoading(true);
     setViewLineItems([]);
     try {
-      const detail: any = await purchaseRequestService.getById(row.id);
+      const detail: any = await outsourcingRequestService.getById(row.id);
       const raw = detail?.data ?? detail;
       setViewLineItems(mapDetailItemsToViewLines(raw));
     } catch (err: any) {
       toast({
         title: "Error",
         description:
-          err?.response?.data?.message || err?.message || "Failed to load purchase request details",
+          err?.response?.data?.message || err?.message || "Failed to load outsourcing request details",
         variant: "destructive",
       });
       setViewLineItems([]);
@@ -388,7 +388,7 @@ export default function PurchaseRequests() {
     }
   };
 
-  const openEdit = async (row: PurchaseRequestRow) => {
+  const openEdit = async (row: OutsourcingRequestRow) => {
     setEditing(row);
     setEditOpen(true);
     setSavingEdit(false);
@@ -396,7 +396,7 @@ export default function PurchaseRequests() {
     setEditLineItems([]);
     setEditItemQuery("");
     try {
-      const detail: any = await purchaseRequestService.getById(row.id);
+      const detail: any = await outsourcingRequestService.getById(row.id);
       const raw = detail?.data ?? detail;
       editForm.reset({
         requestName: raw?.name ?? raw?.requestName ?? row.name,
@@ -445,12 +445,12 @@ export default function PurchaseRequests() {
     }
     setSavingEdit(true);
     try {
-      await purchaseRequestService.update(editing.id, {
+      await outsourcingRequestService.update(editing.id, {
         name: data.requestName,
         description: data.description || undefined,
         items: validLines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
       });
-      toast({ title: "Success", description: "Purchase request updated." });
+      toast({ title: "Success", description: "Outsourcing request updated." });
       setEditOpen(false);
       setEditing(null);
       fetchList();
@@ -469,8 +469,8 @@ export default function PurchaseRequests() {
     if (!deleting) return;
     setDeletingInProgress(true);
     try {
-      await purchaseRequestService.delete(deleting.id);
-      toast({ title: "Deleted", description: "Purchase request removed." });
+      await outsourcingRequestService.delete(deleting.id);
+      toast({ title: "Deleted", description: "Outsourcing request removed." });
       setDeleteOpen(false);
       setDeleting(null);
       fetchList();
@@ -497,9 +497,9 @@ export default function PurchaseRequests() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Purchase Request</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Outsourcing Request</h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage purchase requests and line items
+            Create and manage outsourcing requests and line items
           </p>
         </div>
         <Button
@@ -515,7 +515,7 @@ export default function PurchaseRequests() {
           }}
         >
           <Plus className="h-4 w-4" />
-          Create Purchase Request
+          Create Outsourcing Request
         </Button>
       </div>
 
@@ -524,7 +524,7 @@ export default function PurchaseRequests() {
         <Card className="glass-card border-primary/20">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">New Purchase Request</CardTitle>
+              <CardTitle className="text-lg">New Outsourcing Request</CardTitle>
               <Button variant="ghost" size="icon" onClick={() => setShowCreatePanel(false)} aria-label="Close">
                 <X className="h-4 w-4" />
               </Button>
@@ -670,7 +670,7 @@ export default function PurchaseRequests() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by PR no, name, creator, status..."
+              placeholder="Search by OS no, name, creator, status..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -682,7 +682,7 @@ export default function PurchaseRequests() {
       <Card className="glass-card">
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-12 text-center text-sm text-muted-foreground">Loading purchase requests...</div>
+            <div className="p-12 text-center text-sm text-muted-foreground">Loading outsourcing requests...</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -692,9 +692,9 @@ export default function PurchaseRequests() {
                       <Button
                         variant="ghost"
                         className="h-auto p-0 font-semibold hover:bg-transparent"
-                        onClick={() => handleSort("prNo")}
+                        onClick={() => handleSort("osNo")}
                       >
-                        PR No
+                        OS No
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
@@ -744,7 +744,7 @@ export default function PurchaseRequests() {
                 <TableBody>
                   {paginatedRows.map((row) => (
                     <TableRow key={row.id} className="border-b border-border/50 hover:bg-muted/50">
-                      <TableCell className="font-medium">{row.prNo}</TableCell>
+                      <TableCell className="font-medium">{row.osNo}</TableCell>
                       <TableCell>{row.name}</TableCell>
                       <TableCell>{row.createdBy}</TableCell>
                       <TableCell>
@@ -843,9 +843,9 @@ export default function PurchaseRequests() {
         <Card className="glass-card">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium">No purchase requests</h3>
+            <h3 className="mb-2 text-lg font-medium">No outsourcing requests</h3>
             <p className="mb-6 text-center text-muted-foreground">
-              {searchTerm ? "Try a different search" : "Create your first purchase request using the button above"}
+              {searchTerm ? "Try a different search" : "Create your first outsourcing request using the button above"}
             </p>
           </CardContent>
         </Card>
@@ -864,13 +864,13 @@ export default function PurchaseRequests() {
       >
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Purchase Request Details</DialogTitle>
+            <DialogTitle>Outsourcing Request Details</DialogTitle>
           </DialogHeader>
           {viewRow && (
             <div className="space-y-4 text-sm">
               <div className="grid gap-1 rounded-lg border bg-muted/30 p-3">
                 <p>
-                  <span className="text-muted-foreground">PR No:</span> {viewRow.prNo}
+                  <span className="text-muted-foreground">OS No:</span> {viewRow.osNo}
                 </p>
                 <p>
                   <span className="text-muted-foreground">Name:</span> {viewRow.name}
@@ -933,7 +933,7 @@ export default function PurchaseRequests() {
       <Dialog open={editOpen} onOpenChange={(open) => { if (!savingEdit) setEditOpen(open); }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Purchase Request</DialogTitle>
+            <DialogTitle>Edit Outsourcing Request</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={onEditSubmit} className="space-y-4">
@@ -1056,10 +1056,10 @@ export default function PurchaseRequests() {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete purchase request?</DialogTitle>
+            <DialogTitle>Delete outsourcing request?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will permanently delete <strong>{deleting?.name}</strong> ({deleting?.prNo}).
+            This will permanently delete <strong>{deleting?.name}</strong> ({deleting?.osNo}).
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deletingInProgress}>

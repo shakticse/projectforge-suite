@@ -154,6 +154,14 @@ export default function BOMDetails() {
     bomService.getById(id)
       .then((data) => {
         // If API returns an object with items, adjust accordingly
+        setSelectedWorkOrder({
+          id: data.id,
+          workOrderId: data.workOrderId,
+          createdBy: data.createdByUser,
+          createdDate: data.createdDate,
+          lastUpdatedDate: data.updatedDate,
+          status: "In Progress"
+        });
         setItems(Array.isArray(data.items) ? data.items : data.items || []);
       })
       .catch((err) => {
@@ -268,7 +276,7 @@ export default function BOMDetails() {
                           <TableHead>Request Date</TableHead>
                           <TableHead>Last Modified</TableHead>
                           <TableHead>Requested By</TableHead>
-                          <TableHead>Category Head</TableHead>
+                          {/* <TableHead>Category Head</TableHead> */}
                           <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -277,17 +285,17 @@ export default function BOMDetails() {
                           <TableRow key={item.id} className="hover:bg-muted/50">
                             <TableCell className="font-medium">{item.itemName}</TableCell>
                             <TableCell>{item.qty}</TableCell>
-                            <TableCell>{formatDateTime(item.requestDate)}</TableCell>
+                            <TableCell>{formatDateTime(selectedWorkOrder.createdDate)}</TableCell>
                             <TableCell>
                               {formatDateTime(item.modifyDate)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center">
                                 <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                                {item.requestedBy}
+                                {selectedWorkOrder.createdBy}
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium">{item.categoryHead}</TableCell>
+                            {/* <TableCell className="font-medium">{item.categoryHead}</TableCell> */}
                             <TableCell>
                               <Badge variant={getStatusBadgeVariant("Pending")}>
                                 Pending{/* "Pending"{item.status} */}

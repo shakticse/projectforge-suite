@@ -105,6 +105,12 @@ export const purchaseRequestSchema = yup.object({
   deliveryDate: yup.string().required('Delivery date is required'),
 });
 
+/** Simplified Purchase Request form (name + description + line items submitted separately) */
+export const purchaseRequestSimpleFormSchema = yup.object({
+  requestName: yup.string().trim().required('Request name is required').min(2, 'Request name must be at least 2 characters'),
+  description: yup.string().trim().default(''),
+});
+
 // Gate Pass validation schema
 export const gatePassSchema = yup.object({
   type: yup.string().oneOf(['Inward', 'Outward']).required('Type is required'),

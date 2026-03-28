@@ -8,16 +8,29 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Search, Package, FileText, Calendar, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, History, Eye } from "lucide-react";
 import ChangeHistoryModal from "@/components/bom/ChangeHistoryModal";
+import { bomService } from "@/services/bomService";
+import { toast } from "sonner";
 
+// API returns: item_name, unit of measurement, total_qty, total_allotted_qty, total_purchased_qty, total_fabrication_qty
 interface BOMConsolidateItem {
   id: string;
-  materialName: string;
-  requiredQuantity: number;
-  inhouse: number;
-  purchased: number;
-  outsourced: number;
-  unit: string;
-  status: 'Complete' | 'Partial' | 'Pending';
+  item_name?: string;
+  itemName?: string;
+  materialName?: string;
+  unit?: string;
+  qty?: number;
+  total_qty?: number;
+  totalQty?: number;
+  requiredQuantity?: number;
+  total_allotted_qty?: number;
+  totalAllottedQty?: number;
+  allottedQty?: number;
+  purchasedQty?: number;
+  purchased?: number;
+  fabricationQty?: number;
+  fabrication?: number;
+  inhouse?: number;
+  outsourced?: number;
 }
 
 interface ChangeItem {
@@ -40,87 +53,49 @@ interface ChangeHistory {
 }
 
 interface BOMConsolidateDetails {
-  id: string;
-  projectName: string;
-  itemName: string;
-  totalItems: number;
-  createdBy: string;
-  createdDate: string;
-  status: 'Approved' | 'Pending' | 'Rejected' | 'In Progress';
-  items: BOMConsolidateItem[];
+  id?: string;
+  projectName?: string;
+  itemName?: string;
+  totalItems?: number;
+  createdBy?: string;
+  createdDate?: string;
+  status?: 'Approved' | 'Pending' | 'Rejected' | 'In Progress';
+  items?: BOMConsolidateItem[];
 }
 
-const mockConsolidateData: BOMConsolidateDetails = {
-  id: "BOM-001",
-  projectName: "Office Building Construction",
-  itemName: "Foundation Work",
-  totalItems: 15,
-  createdBy: "Jane Smith",
-  createdDate: "2024-01-10",
-  status: "Approved",
-  items: [
-    {
-      id: "1",
-      materialName: "Cement",
-      requiredQuantity: 50,
-      inhouse: 20,
-      purchased: 25,
-      outsourced: 5,
-      unit: "bags",
-      status: "Complete"
-    },
-    {
-      id: "2", 
-      materialName: "Steel Rebar",
-      requiredQuantity: 100,
-      inhouse: 40,
-      purchased: 50,
-      outsourced: 0,
-      unit: "kg",
-      status: "Partial"
-    },
-    {
-      id: "3",
-      materialName: "Concrete Blocks",
-      requiredQuantity: 200,
-      inhouse: 0,
-      purchased: 150,
-      outsourced: 50,
-      unit: "pieces",
-      status: "Complete"
-    },
-    {
-      id: "4",
-      materialName: "Sand",
-      requiredQuantity: 75,
-      inhouse: 25,
-      purchased: 30,
-      outsourced: 0,
-      unit: "cubic meters",
-      status: "Partial"
-    },
-    {
-      id: "5",
-      materialName: "MAXIMA VERTICAL 2.5 MTR",
-      requiredQuantity: 15,
-      inhouse: 10,
-      purchased: 5,
-      outsourced: 0,
-      unit: "pieces",
-      status: "Complete"
-    },
-    {
-      id: "6",
-      materialName: "OCTONORM VERTICAL 2.5 MTR",
-      requiredQuantity: 25,
-      inhouse: 15,
-      purchased: 10,
-      outsourced: 0,
-      unit: "pieces",
-      status: "Complete"
-    }
-  ]
-};
+// Normalize API response (handles snake_case and camelCase)
+function getItemName(item: BOMConsolidateItem): string {
+  return item.item_name ?? item.itemName ?? item.materialName ?? '';
+}
+
+function getTotalQty(item: BOMConsolidateItem): number {
+  return item.qty ?? 0;
+}
+
+function getTotalAllottedQty(item: BOMConsolidateItem): number {
+  return item.allottedQty ?? 0;
+}
+
+function getTotalPurchasedQty(item: BOMConsolidateItem): number {
+  return item.purchasedQty ?? 0;
+}
+
+function getTotalFabricationQty(item: BOMConsolidateItem): number {
+  return item.fabricationQty ?? 0;
+}
+
+function getUnit(item: BOMConsolidateItem): string {
+  return item.unit ?? '';
+}
+
+// Status: total allocated === total qty → completed; 0 → pending; else in progress
+function getItemStatus(item: BOMConsolidateItem): 'completed' | 'pending' | 'in progress' {
+  const totalQty = getTotalQty(item);
+  const totalAllotted = getTotalAllottedQty(item);
+  if (totalAllotted >= totalQty && totalQty > 0) return 'completed';
+  if (totalAllotted === 0) return 'pending';
+  return 'in progress';
+}
 
 const mockChangeHistory: ChangeHistory[] = [
   {
@@ -200,23 +175,49 @@ const mockChangeHistory: ChangeHistory[] = [
   }
 ];
 
-type SortField = 'materialName' | 'requiredQuantity' | 'inhouse' | 'purchased' | 'outsourced' | 'unit' | 'status';
+type SortField = 'item_name' | 'unit' | 'total_qty' | 'total_allotted_qty' | 'total_purchased_qty' | 'total_fabrication_qty' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 export default function BOMConsolidateDetails() {
   const { bomId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [bomData] = useState<BOMConsolidateDetails>(mockConsolidateData);
+  const [bomData, setBomData] = useState<BOMConsolidateDetails | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   
   // Sorting states
-  const [sortField, setSortField] = useState<SortField>('materialName');
+  const [sortField, setSortField] = useState<SortField>('item_name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Fetch consolidated BOM items from API
+  useEffect(() => {
+    if (!bomId) return;
+    setLoading(true);
+    bomService
+      .GetConsolidatedBomItemsById(bomId)
+      .then((data: any) => {
+        const raw = data?.data ?? data;
+        const items = Array.isArray(raw) ? raw : raw?.items ?? [];
+        setBomData({
+          id: raw?.id ?? bomId,
+          projectName: raw?.projectName ?? raw?.project_name,
+          itemName: raw?.itemName ?? raw?.item_name,
+          createdDate: raw?.createdDate ?? raw?.created_date,
+          status: raw?.status,
+          items: items.map((it: any, idx: number) => ({ ...it, id: it.id ?? it.itemId ?? String(idx) })),
+        });
+      })
+      .catch(() => {
+        toast.error("Failed to load BOM details");
+        setBomData(null);
+      })
+      .finally(() => setLoading(false));
+  }, [bomId]);
 
   // Change history modal states
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
@@ -227,18 +228,30 @@ export default function BOMConsolidateDetails() {
     setIsChangeModalOpen(true);
   };
 
+  const items = bomData?.items ?? [];
+
   // Filter and sort items
-  const filteredItems = bomData.items.filter(item =>
-    item.materialName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = items.filter(item =>
+    getItemName(item).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedItems = [...filteredItems].sort((a, b) => {
-    let aValue: any = a[sortField];
-    let bValue: any = b[sortField];
+    let aValue: any;
+    let bValue: any;
+    switch (sortField) {
+      case 'item_name': aValue = getItemName(a); bValue = getItemName(b); break;
+      case 'unit': aValue = getUnit(a); bValue = getUnit(b); break;
+      case 'total_qty': aValue = getTotalQty(a); bValue = getTotalQty(b); break;
+      case 'total_allotted_qty': aValue = getTotalAllottedQty(a); bValue = getTotalAllottedQty(b); break;
+      case 'total_purchased_qty': aValue = getTotalPurchasedQty(a); bValue = getTotalPurchasedQty(b); break;
+      case 'total_fabrication_qty': aValue = getTotalFabricationQty(a); bValue = getTotalFabricationQty(b); break;
+      case 'status': aValue = getItemStatus(a); bValue = getItemStatus(b); break;
+      default: aValue = a[sortField as keyof BOMConsolidateItem]; bValue = b[sortField as keyof BOMConsolidateItem];
+    }
     
     if (typeof aValue === 'string') {
       aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
+      bValue = String(bValue ?? '').toLowerCase();
     }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -282,13 +295,42 @@ export default function BOMConsolidateDetails() {
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'Complete': return 'default';
-      case 'Partial': return 'secondary';
-      case 'Pending': return 'outline';
-      default: return 'secondary';
+  const getStatusName = (item: BOMConsolidateItem) => {
+    //if item qty is same as allotted then its completed
+    if(item.qty && item.qty == item.allottedQty) {
+      return 'Completed';
     }
+    else if(item.qty && item.allottedQty > 0) {
+      return 'In-Progress';
+    }
+    else {
+      return 'Pending';
+    }
+    // switch (status) {
+    //   case 'completed': return 'default';
+    //   case 'in progress': return 'secondary';
+    //   case 'pending': return 'outline';
+    //   default: return 'secondary';
+    // }
+  };
+
+  const getStatusBadgeVariant = (item: BOMConsolidateItem) => {
+    //if item qty is same as allotted then its completed
+    if(item.qty && item.qty == item.allottedQty) {
+      return 'default'; //completed
+    }
+    else if(item.qty && item.allottedQty > 0) {
+      return 'warning'; //in progress
+    }
+    else {
+      return 'outline'; //'pending'
+    }
+    // switch (status) {
+    //   case 'completed': return 'default';
+    //   case 'in progress': return 'secondary';
+    //   case 'pending': return 'outline';
+    //   default: return 'secondary';
+    // }
   };
 
   const getBOMStatusBadgeVariant = (status: string) => {
@@ -299,14 +341,6 @@ export default function BOMConsolidateDetails() {
       case 'In Progress': return 'outline';
       default: return 'secondary';
     }
-  };
-
-  const getTotalQuantity = (item: BOMConsolidateItem) => {
-    return item.inhouse + item.purchased + item.outsourced;
-  };
-
-  const getCompletionPercentage = (item: BOMConsolidateItem) => {
-    return Math.round((getTotalQuantity(item) / item.requiredQuantity) * 100);
   };
 
   return (
@@ -326,33 +360,37 @@ export default function BOMConsolidateDetails() {
             <p className="text-muted-foreground">Material allocation breakdown for BOM {bomId}</p>
           </div>
         </div>
-        <Badge variant={getBOMStatusBadgeVariant(bomData.status)} className="text-sm">
-          {bomData.status}
-        </Badge>
+        {bomData?.status && (
+          <Badge variant={getBOMStatusBadgeVariant(bomData.status)} className="text-sm">
+            {bomData.status}
+          </Badge>
+        )}
       </div>
 
       {/* BOM Summary Card */}
-      <Card className="pl-2 pt-4">
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-4">
-              <p className="text-lg font-semibold">{bomData.id}</p>
+      {bomData && (
+        <Card className="pl-2 pt-4">
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-4">
+                <p className="text-lg font-semibold">{bomData.id ?? bomId}</p>
+              </div>
+              <div className="space-y-4">
+                <p className="text-lg font-semibold">{bomData.projectName ?? '-'}</p>
+              </div>
+              <div className="space-y-4">
+                <p className="text-lg font-semibold">{bomData.itemName ?? '-'}</p>
+              </div>
+              <div className="space-y-4">
+                <p className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                  {bomData.createdDate ? new Date(bomData.createdDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : '-'}
+                </p>
+              </div>
             </div>
-            <div className="space-y-4">
-              <p className="text-lg font-semibold">{bomData.projectName}</p>
-            </div>
-            <div className="space-y-4">
-              <p className="text-lg font-semibold">{bomData.itemName}</p>
-            </div>
-            <div className="space-y-4">
-              <p className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                {new Date(bomData.createdDate).toLocaleDateString("en-GB", { day: "numeric",  month: "short"})}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
       {/* <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -409,14 +447,14 @@ export default function BOMConsolidateDetails() {
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
               className="border rounded px-2 py-1 text-sm bg-background"
             >
-              <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
+              <option value={100}>100</option>
             </select>
           </div>
           <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} materials
+            {loading ? 'Loading...' : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems} materials`}
           </div>
         </div>
       </div>
@@ -431,65 +469,69 @@ export default function BOMConsolidateDetails() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-10 w-10" />
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('materialName')}
+                    onClick={() => handleSort('item_name')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Material Name</span>
-                      {getSortIcon('materialName')}
+                      <span>Item Name</span>
+                      {getSortIcon('item_name')}
                     </div>
                   </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('requiredQuantity')}
-                  >
-                    <div className="flex items-center justify-end space-x-1">
-                      <span>Required Quantity</span>
-                      {getSortIcon('requiredQuantity')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('inhouse')}
-                  >
-                    <div className="flex items-center justify-end space-x-1">
-                      <span>Inhouse</span>
-                      {getSortIcon('inhouse')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('purchased')}
-                  >
-                    <div className="flex items-center justify-end space-x-1">
-                      <span>Purchased</span>
-                      {getSortIcon('purchased')}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('outsourced')}
-                  >
-                    <div className="flex items-center justify-end space-x-1">
-                      <span>Outsourced</span>
-                      {getSortIcon('outsourced')}
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-right">Total Allocated</TableHead>
-                  {/* <TableHead 
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort('unit')}
                   >
                     <div className="flex items-center space-x-1">
-                      <span>Unit</span>
+                      <span>Unit of Measurement</span>
                       {getSortIcon('unit')}
                     </div>
-                  </TableHead> */}
-                  <TableHead 
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('total_qty')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Req. Qty</span>
+                      {getSortIcon('total_qty')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('total_allotted_qty')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Allotted Qty</span>
+                      {getSortIcon('total_allotted_qty')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('total_purchased_qty')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Purchased Qty</span>
+                      {getSortIcon('total_purchased_qty')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-right cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('total_fabrication_qty')}
+                  >
+                    <div className="flex items-center justify-end space-x-1">
+                      <span>Fabrication Qty</span>
+                      {getSortIcon('total_fabrication_qty')}
+                    </div>
+                  </TableHead>
+                  <TableHead
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleSort('status')}
                   >
@@ -498,73 +540,37 @@ export default function BOMConsolidateDetails() {
                       {getSortIcon('status')}
                     </div>
                   </TableHead>
-                  {/* <TableHead className="text-right">Completion %</TableHead> */}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentItems.map((item) => {
-                  const totalAllocated = getTotalQuantity(item);
-                  const completionPercentage = getCompletionPercentage(item);
-                  
+                  const status = getItemStatus(item);
                   return (
                     <TableRow key={item.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">{item.materialName}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {item.requiredQuantity}
-                      </TableCell>
+                      <TableCell className="font-medium">{item.itemName}</TableCell>
+                      <TableCell>{item.unit || '-'}</TableCell>
+                      <TableCell className="text-right font-medium">{item.qty}</TableCell>
                       <TableCell className="text-right">
-                        <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                          {item.inhouse}
+                        <span className={getTotalAllottedQty(item) >= getTotalQty(item) && getTotalQty(item) > 0 ? 'text-green-600 font-medium' : 'text-orange-600'}>
+                          {getTotalAllottedQty(item)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-700/10">
-                          {item.purchased}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10">
-                          {item.outsourced}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        <span className={`${totalAllocated >= item.requiredQuantity ? 'text-green-600' : 'text-orange-600'}`}>
-                          {totalAllocated}
-                        </span>
-                      </TableCell>
-                      {/* <TableCell>
-                        <span className="text-sm text-muted-foreground">{item.unit}</span>
-                      </TableCell> */}
+                      <TableCell className={item.purchasedQty > 0 ? "text-right font-medium" : "text-right"}>{item.purchasedQty}</TableCell>
+                      <TableCell className={item.fabricationQty > 0 ? "text-right font-medium" : "text-right"}>{item.fabricationQty}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(item.status)}>
-                          {item.status}
+                        <Badge variant={getStatusBadgeVariant(item)}>
+                          {getStatusName(item)}
                         </Badge>
                       </TableCell>
-                      {/* <TableCell className="text-right">
-                        <div className="flex items-center space-x-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                completionPercentage >= 100 ? 'bg-green-500' : 
-                                completionPercentage >= 75 ? 'bg-blue-500' : 
-                                completionPercentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
-                              style={{ width: `${Math.min(completionPercentage, 100)}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium min-w-12">
-                            {completionPercentage}%
-                          </span>
-                        </div>
-                      </TableCell> */}
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            )}
           </div>
 
-          {currentItems.length === 0 && filteredItems.length === 0 && (
+          {!loading && currentItems.length === 0 && filteredItems.length === 0 && (
             <div className="text-center py-12">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No materials found</p>

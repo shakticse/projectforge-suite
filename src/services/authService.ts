@@ -15,7 +15,7 @@ export interface SignupData {
 }
 
 export interface User {
-  id: string;
+  id?: string;
   name: string;
   email: string;
   role: string;
@@ -88,7 +88,7 @@ export const authService = {
     //   localStorage.setItem('user', JSON.stringify(demoUser.user));
     //   return { token, user: demoUser.user };
     // }
-    
+
     // For other credentials, make API call
     const response = await api.post('/api/auth/login', credentials);
     const data = response.data || {};
@@ -155,7 +155,7 @@ export const authService = {
     else {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-      throw(message);
+      throw (message);
     }
   },
 

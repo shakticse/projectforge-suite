@@ -8,6 +8,7 @@ import {
   Warehouse,
   Clock,
   ShoppingCart,
+  Factory,
   CheckCircle2,
   AlertCircle,
   SkipForward,
@@ -38,11 +39,14 @@ import {
 import { toast } from "sonner";
 
 import { bomService } from "@/services/bomService";
+import { bomAllocationService, type BomAllocationItem } from "@/services/bomAllocationService";
 import { storeService } from "@/services/storeService";
 import { projectService } from "@/services/projectService";
 import { itemStoreService } from "@/services/itemStoreService";
 import { itemService } from "@/services/itemService";
 import { formatDateTime } from "@/lib/utils";
+import { authService } from "@/services/authService";
+import { NumberSchema } from "yup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,8 +55,8 @@ interface BOMItem {
   itemName: string;
   specification?: string;
   unit: string;
-  requiredQuantity: number;
-  allocatedQuantity: number;
+  qty: number;
+  allottedQty: number;
   pendingQuantity: number;
   status: "pending" | "partial" | "complete";
   priority?: "low" | "medium" | "high";
@@ -105,6 +109,7 @@ const WORKFLOW_STEPS = [
   { id: 1, label: "Store Allocation", icon: Warehouse },
   { id: 2, label: "Expiring Projects", icon: Clock },
   { id: 3, label: "Purchase Order", icon: ShoppingCart },
+  { id: 4, label: "Outsourcing", icon: Factory },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -196,19 +201,22 @@ function SummaryPanel({
   step1Alloc,
   step2Alloc,
   step3Alloc,
+  step4Alloc,
 }: {
   bom: BOM;
   step1Alloc: AllocationMap;
   step2Alloc: AllocationMap;
   step3Alloc: AllocationMap;
+  step4Alloc: AllocationMap;
 }) {
   const totals = bom.items.map((item) => {
     const s1 = step1Alloc[item.id] ?? 0;
     const s2 = step2Alloc[item.id] ?? 0;
     const s3 = step3Alloc[item.id] ?? 0;
-    const totalAllocated = item.allocatedQuantity + s1 + s2;
-    const pending = Math.max(0, item.requiredQuantity - totalAllocated);
-    return { item, s1, s2, s3, totalAllocated, pending };
+    const s4 = step4Alloc[item.id] ?? 0;
+    const totalAllocated = item.allottedQty + s1 + s2;
+    const pending = Math.max(0, item.qty - totalAllocated);
+    return { item, s1, s2, s3, s4, totalAllocated, pending };
   });
 
   const fullyAllocated = totals.filter((t) => t.pending === 0).length;
@@ -237,14 +245,16 @@ function SummaryPanel({
         </div>
 
         <div className="border-t pt-3 space-y-2">
-          {totals.map(({ item, s1, s2, pending }) => (
+          {totals.map(({ item, s1, s2, s3, s4, pending }) => (
             <div key={item.id} className="text-xs">
               <p className="font-medium truncate">{item.itemName}</p>
               <div className="grid grid-cols-2 gap-x-2 text-muted-foreground mt-0.5">
-                <span>Required: {item.requiredQuantity}</span>
+                <span>Required: {item.qty}</span>
                 <span>Pending: <span className={pending > 0 ? "text-orange-600 font-medium" : "text-green-600 font-medium"}>{pending}</span></span>
                 {s1 > 0 && <span className="text-blue-600">Store: +{s1}</span>}
                 {s2 > 0 && <span className="text-purple-600">Project: +{s2}</span>}
+                {s3 > 0 && <span className="text-green-700">PO: +{s3}</span>}
+                {s4 > 0 && <span className="text-slate-700">Outsource: +{s4}</span>}
               </div>
             </div>
           ))}
@@ -261,7 +271,7 @@ function Step1(props: {
   stores: Store[];
   allocations: AllocationMap;
   onChange: (alloc: AllocationMap) => void;
-  onApply: () => void;
+  onApply: (storeId: string, changedItems: BomAllocationItem[]) => void | Promise<void>;
   onSkip: () => void;
 }) {
   const { bom, stores, allocations, onChange, onApply, onSkip } = props;
@@ -269,6 +279,22 @@ function Step1(props: {
   const [selectedStore, setSelectedStore] = useState<string>("");
   const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [localValues, setLocalValues] = useState<Record<string, string>>({});
+  const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    // ✅ Reset local display values
+    console.log("Resetting local display values for BOM:", bom.id);
+    const initial: Record<string, string> = {};
+    bom.items.forEach((item) => {
+      initial[item.id] = "";
+    });
+    setLocalValues(initial);
+    setDirtyItems(new Set());
+
+    // ✅ Reset parent allocations too
+    onChange({});
+  }, [bom.id]); // ← fires every time BOM changes
 
   const fetchStoreItems = useCallback(async (storeName: string) => {
     setLoadingItems(true);
@@ -297,11 +323,11 @@ function Step1(props: {
           .toLowerCase()
           .includes(item.itemName.toLowerCase())
     );
-    return match?.availableQuantity ?? match?.quantity ?? 0;
+    return match?.availableQty ?? 0;
   };
 
   const pendingForItem = (item: BOMItem) =>
-    Math.max(0, item.pendingQuantity - (allocations[item.id] ?? 0));
+    Math.max(0, item.qty - item.allottedQty - (allocations[item.id] ?? 0));
 
   return (
     <div className="space-y-4">
@@ -310,10 +336,10 @@ function Step1(props: {
         <Warehouse className="h-5 w-5 text-blue-600 shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-            Select a store to view available stock
+            Select a store to view available stock.
           </p>
           <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
-            Available quantities update per store selection
+            Available quantities update per store selection.
           </p>
         </div>
         <Select value={selectedStore} onValueChange={handleStoreChange}>
@@ -350,9 +376,9 @@ function Step1(props: {
               const available = selectedStore ? getAvailableQty(item) : "—";
               const pending = pendingForItem(item);
               const maxAllocate =
-                typeof available === "number"
-                  ? Math.min(available, item.pendingQuantity)
-                  : item.pendingQuantity;
+                typeof available == "number"
+                  ? Math.min(available, pending)
+                  : pending;
 
               return (
                 <TableRow key={item.id}>
@@ -381,7 +407,7 @@ function Step1(props: {
                     )}
                   </TableCell>
                   <TableCell className="text-right text-sm">
-                    {item.requiredQuantity}
+                    {item.qty}
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     <span className={pending > 0 ? "text-orange-600" : "text-green-600"}>
@@ -393,19 +419,75 @@ function Step1(props: {
                       type="number"
                       min={0}
                       max={maxAllocate}
-                      value={allocations[item.id] ?? 0}
-                      onChange={(e) =>
-                        onChange({
-                          ...allocations,
-                          [item.id]: Math.min(
-                            Number(e.target.value),
-                            maxAllocate
-                          ),
-                        })
-                      }
+                      // ✅ Read from localValues object
+                      value={localValues[item.id] ?? ""}
+                      onChange={(e) => {
+                        // ✅ Update only this item's local value, no parent call
+                        setLocalValues((prev) => ({
+                          ...prev,
+                          [item.id]: e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const prevAlloc = allocations[item.id];
+                        let val = e.target.value === "" ? undefined : Number(e.target.value);
+                        if (val !== undefined) {
+                          if (isNaN(val) || val < 0) val = 0;
+                          if (val > maxAllocate) val = maxAllocate;
+                        }
+                        // ✅ Snap local display to clamped value
+                        setLocalValues((prev) => ({
+                          ...prev,
+                          [item.id]: val != null ? String(val) : "",
+                        }));
+                        // Track only items the user actually changed
+                        if (val !== prevAlloc) {
+                          setDirtyItems((prev) => {
+                            const next = new Set(prev);
+                            next.add(String(item.id));
+                            return next;
+                          });
+                        }
+                        // ✅ Commit to parent only on blur
+                        onChange({ ...allocations, [item.id]: val });
+                      }}
                       className="w-20 text-right text-sm ml-auto"
                       disabled={item.pendingQuantity === 0}
                     />
+                    {/* <Input
+                      type="number"
+                      min={0}
+                      max={maxAllocate}
+                      value={
+                        // Use empty string for 0 to allow user input
+                        allocations[item.id] === undefined || allocations[item.id] === null
+                          ? ""
+                          : allocations[item.id]
+                      }
+                      onChange={(e) => {
+                        // Allow user to clear the input (empty string)
+                        let valRaw = e.target.value;
+                        let val = valRaw === "" ? "" : Number(valRaw);
+
+                        if (val === "") {
+                          onChange({
+                            ...allocations,
+                            [item.id]: undefined,
+                          });
+                        } else {
+                          // Fix: allow max value; prevent below min, above max
+                          if (Number.isNaN(val)) val = 0;
+                          if (Number(val) > maxAllocate) val = maxAllocate;
+                          if (Number(val) < 0) val = 0;
+                          onChange({
+                            ...allocations,
+                            [item.id]: Number(val),
+                          });
+                        }
+                      }}
+                      className="w-20 text-right text-sm ml-auto"
+                      disabled={item.pendingQuantity === 0}
+                    /> */}
                   </TableCell>
                 </TableRow>
               );
@@ -420,7 +502,26 @@ function Step1(props: {
           <SkipForward className="h-4 w-4" />
           Skip this step
         </Button>
-        <Button onClick={onApply} className="gap-2">
+        <Button
+          onClick={() => {
+            if (!selectedStore) {
+              toast.error("Please select a store first");
+              return;
+            }
+
+            const changedItems: BomAllocationItem[] = Array.from(dirtyItems)
+              .map((id) => {
+                const allottedQty = allocations[id];
+                if (typeof allottedQty !== "number") return null;
+                const itemId: string | number = /^[0-9]+$/.test(id) ? Number(id) : id;
+                return { itemId, allottedQty } satisfies BomAllocationItem;
+              })
+              .filter((x): x is BomAllocationItem => !!x && x.allottedQty > 0);
+
+            onApply(selectedStore, changedItems);
+          }}
+          className="gap-2"
+        >
           Apply & Continue
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -610,11 +711,9 @@ function Step3(props: {
   step1Alloc: AllocationMap;
   step2Alloc: AllocationMap;
   poItems: AllocationMap;
-  poSuppliers: Record<string, string>;
   onChangeQty: (alloc: AllocationMap) => void;
-  onChangeSupplier: (suppliers: Record<string, string>) => void;
   onCreatePO: () => void;
-  onFinish: () => void;
+  onContinue: () => void;
   onBack: () => void;
 }) {
   const {
@@ -622,21 +721,19 @@ function Step3(props: {
     step1Alloc,
     step2Alloc,
     poItems,
-    poSuppliers,
     onChangeQty,
-    onChangeSupplier,
     onCreatePO,
-    onFinish,
+    onContinue,
     onBack,
   } = props;
 
   const [showFullyAllocated, setShowFullyAllocated] = useState(false);
 
   const rows = bom.items.map((item) => {
-    const existing = item.allocatedQuantity;
+    const existing = item.allottedQty;
     const s1 = step1Alloc[item.id] ?? 0;
     const s2 = step2Alloc[item.id] ?? 0;
-    const pending = Math.max(0, item.requiredQuantity - existing - s1 - s2);
+    const pending = Math.max(0, item.qty - existing - s1 - s2);
     return { item, pending };
   });
 
@@ -650,7 +747,7 @@ function Step3(props: {
         <ShoppingCart className="h-5 w-5 text-green-600 shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium text-green-900 dark:text-green-100">
-            Create Purchase Order
+            Create Purchase Request
           </p>
           <p className="text-xs text-green-600/80 dark:text-green-400 mt-0.5">
             {pendingRows.length > 0
@@ -675,7 +772,7 @@ function Step3(props: {
           <CheckCircle2 className="h-12 w-12 text-green-500" />
           <p className="font-medium">All items are fully allocated!</p>
           <p className="text-sm text-muted-foreground">
-            No purchase order needed.
+            No purchase request needed.
           </p>
         </div>
       ) : (
@@ -687,7 +784,6 @@ function Step3(props: {
                 <TableHead className="text-xs">UOM</TableHead>
                 <TableHead className="text-right text-xs">Pending Qty</TableHead>
                 <TableHead className="text-right text-xs">PO Qty</TableHead>
-                <TableHead className="text-xs">Supplier</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -709,25 +805,24 @@ function Step3(props: {
                     <Input
                       type="number"
                       min={0}
-                      value={poItems[item.id] ?? pending}
-                      onChange={(e) =>
-                        onChangeQty({ ...poItems, [item.id]: Number(e.target.value) })
-                      }
+                      max={pending}
+                      placeholder="0"
+                      value={poItems[item.id] === undefined ? "" : poItems[item.id]}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          const next = { ...poItems };
+                          delete next[item.id];
+                          onChangeQty(next);
+                          return;
+                        }
+                        const n = parseFloat(val);
+                        if (!Number.isNaN(n)) {
+                          const clamped = Math.min(Math.max(0, n), pending);
+                          onChangeQty({ ...poItems, [item.id]: clamped });
+                        }
+                      }}
                       className="w-20 text-right text-sm ml-auto"
-                      disabled={pending === 0}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      placeholder={item.supplier ?? "Supplier name…"}
-                      value={poSuppliers[item.id] ?? item.supplier ?? ""}
-                      onChange={(e) =>
-                        onChangeSupplier({
-                          ...poSuppliers,
-                          [item.id]: e.target.value,
-                        })
-                      }
-                      className="text-sm min-w-[140px]"
                       disabled={pending === 0}
                     />
                   </TableCell>
@@ -745,13 +840,163 @@ function Step3(props: {
           Back
         </Button>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={onFinish}>
-            Finish without PO
+          <Button variant="ghost" onClick={onContinue}>
+            Skip Purchase Request
           </Button>
           {pendingRows.length > 0 && (
             <Button onClick={onCreatePO} className="gap-2">
               <ShoppingCart className="h-4 w-4" />
-              Create Purchase Order
+              Create Purchase Request
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Outsourcing Request ───────────────────────────────────────────────
+
+function Step4(props: {
+  bom: BOM;
+  step1Alloc: AllocationMap;
+  step2Alloc: AllocationMap;
+  step3Alloc: AllocationMap;
+  outsourceItems: AllocationMap;
+  onChangeQty: (alloc: AllocationMap) => void;
+  onCreateOutsource: () => void;
+  onFinish: () => void;
+  onBack: () => void;
+}) {
+  const {
+    bom,
+    step1Alloc,
+    step2Alloc,
+    step3Alloc,
+    outsourceItems,
+    onChangeQty,
+    onCreateOutsource,
+    onFinish,
+    onBack,
+  } = props;
+
+  const [showFullyAllocated, setShowFullyAllocated] = useState(false);
+
+  const rows = bom.items.map((item) => {
+    const existing = item.allottedQty;
+    const s1 = step1Alloc[item.id] ?? 0;
+    const s2 = step2Alloc[item.id] ?? 0;
+    const s3 = step3Alloc[item.id] ?? 0;
+    const pending = Math.max(0, item.qty - existing - s1 - s2 - s3);
+    return { item, pending };
+  });
+
+  const pendingRows = rows.filter((r) => r.pending > 0);
+  const doneRows = rows.filter((r) => r.pending === 0);
+  const displayRows = showFullyAllocated ? rows : pendingRows;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-950/20 rounded-lg border border-slate-200 dark:border-slate-800">
+        <Factory className="h-5 w-5 text-slate-700 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Create Outsource Request
+          </p>
+          <p className="text-xs text-slate-600/80 dark:text-slate-400 mt-0.5">
+            {pendingRows.length > 0
+              ? `${pendingRows.length} item(s) can be outsourced`
+              : "All items are allocated! You can finish without creating an outsource request."}
+          </p>
+        </div>
+        {doneRows.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowFullyAllocated((v) => !v)}
+            className="text-xs"
+          >
+            {showFullyAllocated ? "Hide" : "Show"} allocated
+          </Button>
+        )}
+      </div>
+
+      {pendingRows.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-10">
+          <CheckCircle2 className="h-12 w-12 text-green-500" />
+          <p className="font-medium">All items are fully allocated!</p>
+          <p className="text-sm text-muted-foreground">No outsourcing needed.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="text-xs">Item Name</TableHead>
+                <TableHead className="text-xs">UOM</TableHead>
+                <TableHead className="text-right text-xs">Pending Qty</TableHead>
+                <TableHead className="text-right text-xs">Outsource Qty</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayRows.map(({ item, pending }) => (
+                <TableRow key={item.id} className={pending === 0 ? "opacity-50" : ""}>
+                  <TableCell className="font-medium text-sm">{item.itemName}</TableCell>
+                  <TableCell className="text-sm">{item.unit}</TableCell>
+                  <TableCell className="text-right text-sm">
+                    <span className={pending > 0 ? "text-orange-600 font-medium" : "text-green-600"}>
+                      {pending}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={pending}
+                      placeholder="0"
+                      value={
+                        outsourceItems[item.id] === undefined
+                          ? ""
+                          : outsourceItems[item.id]
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          const next = { ...outsourceItems };
+                          delete next[item.id];
+                          onChangeQty(next);
+                          return;
+                        }
+                        const n = parseFloat(val);
+                        if (!Number.isNaN(n)) {
+                          const clamped = Math.min(Math.max(0, n), pending);
+                          onChangeQty({ ...outsourceItems, [item.id]: clamped });
+                        }
+                      }}
+                      className="w-20 text-right text-sm ml-auto"
+                      disabled={pending === 0}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-2">
+        <Button variant="outline" size="sm" onClick={onBack} className="gap-1">
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onFinish}>
+            Skip Outsource Request
+          </Button>
+          {pendingRows.length > 0 && (
+            <Button onClick={onCreateOutsource} className="gap-2">
+              <Factory className="h-4 w-4" />
+              Create Outsource Request
             </Button>
           )}
         </div>
@@ -781,7 +1026,7 @@ export default function BOMAction() {
   const [step1Alloc, setStep1Alloc] = useState<AllocationMap>({});
   const [step2Alloc, setStep2Alloc] = useState<AllocationMap>({});
   const [poQty, setPoQty] = useState<AllocationMap>({});
-  const [poSuppliers, setPoSuppliers] = useState<Record<string, string>>({});
+  const [outsourceQty, setOutsourceQty] = useState<AllocationMap>({});
 
   // ── Load data ──
   useEffect(() => {
@@ -827,7 +1072,6 @@ export default function BOMAction() {
       defaultPO[item.id] = item.pendingQuantity;
     });
     setPoQty(defaultPO);
-    setPoSuppliers({});
   };
 
   const closeWorkflow = () => {
@@ -836,36 +1080,152 @@ export default function BOMAction() {
     setStep1Alloc({});
     setStep2Alloc({});
     setPoQty({});
-    setPoSuppliers({});
+    setOutsourceQty({});
   };
 
   // ── Step handlers ──
-  const applyStep1 = () => setCurrentStep(2);
+  const applyStep1 = async (storeId: string | number, changedItems: BomAllocationItem[]) => {
+    if (!selectedBOM) return;
+
+    // Requirement: only send items whose qty user updated.
+    // If nothing changed, skip the API call but continue workflow.
+    if (!changedItems.length) {
+      setCurrentStep(2);
+      return;
+    }
+
+    const currentUser: any = authService.getCurrentUser();
+    const allottedByUserId =
+      currentUser?.id ??
+      currentUser?.userId ??
+      currentUser?.UserId ??
+      currentUser?.email ??
+      "unknown";
+
+    try {
+      await bomAllocationService.allocate({
+        bomId: selectedBOM.id,
+        storeId,
+        allottedByUserId,
+        items: changedItems,
+      });
+      toast.success("Store allocation saved");
+      setCurrentStep(2);
+    } catch (e: any) {
+      console.error("Step 1 allocation failed", e);
+      toast.error(e?.message ?? "Failed to save store allocation");
+    }
+  };
   const skipStep1 = () => { setStep1Alloc({}); setCurrentStep(2); };
 
   const applyStep2 = () => {
-    // Re-calculate default PO qty based on remaining pending after s1+s2
-    if (selectedBOM) {
-      const newPO: AllocationMap = {};
-      selectedBOM.items.forEach((item) => {
-        const s1 = step1Alloc[item.id] ?? 0;
-        const s2 = step2Alloc[item.id] ?? 0;
-        const remaining = Math.max(0, item.pendingQuantity - s1 - s2);
-        newPO[item.id] = remaining;
-      });
-      setPoQty(newPO);
-    }
+    // Do not auto-assign PO quantities; user must enter explicit values.
+    setPoQty({});
     setCurrentStep(3);
   };
   const skipStep2 = () => { setStep2Alloc({}); applyStep2(); };
 
-  const handleCreatePO = () => {
-    // In production this would call a purchaseOrderService.create()
-    toast.success("Purchase order created successfully!");
-    closeWorkflow();
+  const handleCreatePO = async () => {
+    if (!selectedBOM) return;
+
+    // Step 3: submit only rows explicitly entered by user.
+    const changedItems: BomAllocationItem[] = selectedBOM.items
+      .map((item) => {
+        const s1 = step1Alloc[item.id] ?? 0;
+        const s2 = step2Alloc[item.id] ?? 0;
+        const pending = Math.max(0, item.qty - item.allottedQty - s1 - s2);
+
+        const raw = poQty[item.id];
+        if (raw === undefined) return null;
+        const allottedQty = Math.max(0, Number(raw) || 0); // guard against NaN → null in JSON
+        if (allottedQty <= 0) return null;
+        const capped = Math.min(allottedQty, pending);
+
+        const idStr = String(item.id);
+        const itemId: string | number = /^[0-9]+$/.test(idStr) ? Number(idStr) : idStr;
+        return { itemId, allottedQty: capped } satisfies BomAllocationItem;
+      })
+      .filter((x): x is BomAllocationItem => !!x);
+
+    if (!changedItems.length) {
+      toast.error("No modified Purchase Request quantities to submit");
+      return;
+    }
+
+    const currentUser: any = authService.getCurrentUser();
+    const allottedByUserId =
+      currentUser?.id ??
+      currentUser?.userId ??
+      currentUser?.UserId ??
+      currentUser?.email ??
+      "unknown";
+
+    try {
+      await bomAllocationService.createPurchaseOrder({
+        bomId: selectedBOM.id,
+        allottedByUserId,
+        items: changedItems,
+      });
+      toast.success("Purchase Request created successfully!");
+      setCurrentStep(4);
+    } catch (e: any) {
+      console.error("Create Purchase Request failed", e);
+      toast.error(e?.message ?? "Failed to create purchase request");
+    }
   };
 
-  const handleFinishWithoutPO = () => {
+  const handleContinueFromPO = () => setCurrentStep(4);
+
+  const handleCreateOutsource = async () => {
+    if (!selectedBOM) return;
+
+    // Step 4: do NOT auto-assign pending into state (inputs start empty). Only submit rows the user explicitly filled.
+    const changedItems: BomAllocationItem[] = selectedBOM.items
+      .map((item) => {
+        const s1 = step1Alloc[item.id] ?? 0;
+        const s2 = step2Alloc[item.id] ?? 0;
+        const pending = Math.max(0, item.qty - item.allottedQty - s1 - s2);
+
+        const raw = outsourceQty[item.id];
+        if (raw === undefined) return null;
+        const allottedQty = Math.max(0, Number(raw) || 0);
+        if (allottedQty <= 0) return null;
+        const capped = Math.min(allottedQty, pending);
+
+        const idStr = String(item.id);
+        const itemId: string | number = /^[0-9]+$/.test(idStr) ? Number(idStr) : idStr;
+        return { itemId, allottedQty: capped } satisfies BomAllocationItem;
+      })
+      .filter((x): x is BomAllocationItem => !!x);
+
+    if (!changedItems.length) {
+      toast.error("Enter outsource quantity for at least one item.");
+      return;
+    }
+
+    const currentUser: any = authService.getCurrentUser();
+    const allottedByUserId =
+      currentUser?.id ??
+      currentUser?.userId ??
+      currentUser?.UserId ??
+      currentUser?.email ??
+      "unknown";
+
+    try {
+      await bomAllocationService.createOutsourceRequest({
+        bomId: selectedBOM.id,
+        allottedByUserId,
+        items: changedItems,
+      });
+      toast.success("Outsource request created successfully!");
+      closeWorkflow();
+    } catch (e: any) {
+      console.error("Create outsource request failed", e);
+      toast.error(e?.message ?? "Failed to create outsource request");
+    }
+  };
+
+  const handleFinishWithoutOutsource = () => {
     toast.success("Allocation saved successfully!");
     closeWorkflow();
   };
@@ -1032,12 +1392,23 @@ export default function BOMAction() {
                   step1Alloc={step1Alloc}
                   step2Alloc={step2Alloc}
                   poItems={poQty}
-                  poSuppliers={poSuppliers}
                   onChangeQty={setPoQty}
-                  onChangeSupplier={setPoSuppliers}
                   onCreatePO={handleCreatePO}
-                  onFinish={handleFinishWithoutPO}
+                  onContinue={handleContinueFromPO}
                   onBack={() => setCurrentStep(2)}
+                />
+              )}
+              {currentStep === 4 && (
+                <Step4
+                  bom={selectedBOM}
+                  step1Alloc={step1Alloc}
+                  step2Alloc={step2Alloc}
+                  step3Alloc={poQty}
+                  outsourceItems={outsourceQty}
+                  onChangeQty={setOutsourceQty}
+                  onCreateOutsource={handleCreateOutsource}
+                  onFinish={handleFinishWithoutOutsource}
+                  onBack={() => setCurrentStep(3)}
                 />
               )}
             </CardContent>
@@ -1050,6 +1421,7 @@ export default function BOMAction() {
               step1Alloc={step1Alloc}
               step2Alloc={step2Alloc}
               step3Alloc={poQty}
+              step4Alloc={outsourceQty}
             />
           </div>
         </div>
