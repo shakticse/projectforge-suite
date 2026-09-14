@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { AddInventoryModal } from "@/components/inventory/AddInventoryModal";
 import EditInventoryModal from "@/components/inventory/EditInventoryModal";
@@ -64,21 +64,11 @@ const Inventory = () => {
     setShowEditModal(true);
   };
 
-  const handleDelete = async (item: any) => {
-    if (!item?.id) return;
-    if (!confirm(`Delete ${item.name || item.itemName || item.sku}? This cannot be undone.`)) return;
-    setIsProcessing(true);
-    try {
-      await itemStoreService.delete(item.id, user?.id);
-      toast({ title: 'Deleted', description: 'Item removed from store.' });
-      refreshStoreItems();
-    } catch (err) {
-      console.error('Delete failed', err);
-      toast({ title: 'Error', description: 'Failed to delete item.', variant: 'destructive' });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+
+
+
 
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -291,8 +281,31 @@ const Inventory = () => {
     ]);
   };
 
+  const openDeleteDialog = (item: any) => {
+    setDeleteTarget(item);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget?.id) return;
+    setIsProcessing(true);
+    try {
+      await itemStoreService.delete(deleteTarget.id, user?.id);
+      toast({ title: 'Deleted', description: 'Item removed from store.' });
+      refreshStoreItems();
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Delete failed', err);
+      toast({ title: 'Error', description: 'Failed to delete item.', variant: 'destructive' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full min-w-0">
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 w-full">
         <div className="w-full min-w-0">
@@ -373,6 +386,26 @@ const Inventory = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete item?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.name || deleteTarget?.itemName || deleteTarget?.sku} will be permanently removed from store inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isProcessing}>
+              {isProcessing ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Inventory Table */}
       <Card className="glass-card w-full min-w-0 overflow-hidden flex flex-col">
@@ -496,7 +529,8 @@ const Inventory = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 p-0"
-                              onClick={() => handleDelete(item)}
+onClick={() => openDeleteDialog(item)}
+
                               disabled={loading || isProcessing}
                               aria-label="Delete"
                             >

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { authService } from "@/services/authService";
 import {
@@ -24,6 +23,7 @@ import {
   Shield,
   Store,
   Factory,
+  PanelTop,
 } from "lucide-react";
 
 import {
@@ -143,7 +143,6 @@ const getMenuItems = (userRole: string) => {
 
 export function AppSidebar() {
   const { state, toggleSidebar, isMobile, setOpenMobile } = useSidebar();
-  const [isHovered, setIsHovered] = useState(false);
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
@@ -166,110 +165,119 @@ export function AppSidebar() {
     if (isMobile) {
       setOpenMobile(false);
     }
-    // Close hover state after click
-    setIsHovered(false);
   };
 
-  // Handle mouse enter/leave for hover behavior
-  const handleMouseEnter = () => {
-    if (collapsed && !isMobile) {
-      setIsHovered(true);
-    }
+  const labelStateClass = !collapsed
+    ? "max-w-[12rem] opacity-100 translate-x-0"
+    : "max-w-0 opacity-0 -translate-x-1";
+  const collapsedClass = collapsed
+    ? "justify-center gap-0 !h-10 !w-10 !p-0 mx-auto"
+    : "h-10 gap-3 px-3";
+
+  // Sidebar primitives can handle the active styling.
+  const resolveIsActive = (item: { url: string }) => isActive(item.url);
+
+  const getNavClassName = ({ isActive: active }: { isActive: boolean }) => {
+    return active
+      ? `nav-pill nav-pill-active text-white ${collapsedClass}`
+      : `nav-pill hover:border-sidebar-border/70 hover:bg-sidebar-accent/70 hover:text-white ${collapsedClass}`;
   };
 
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
-
-  // Determine if sidebar should show expanded content
-  const showExpanded = !collapsed || (collapsed && isHovered);
-
-  const getNavClassName = ({ isActive }: { isActive: boolean }) => {
-    const baseClasses = "flex items-center rounded-lg transition-smooth text-sm font-medium";
-    const stateClasses = isActive
-      ? "bg-destructive text-primary-foreground shadow-sm"
-      : "text-foreground hover:bg-secondary hover:text-foreground";
-    
-    // Adjust padding and gap based on collapsed state
-    const layoutClasses = collapsed && !isHovered 
-      ? "justify-center p-2.5" 
-      : "gap-3 px-3 py-2.5";
-    
-    return `${baseClasses} ${stateClasses} ${layoutClasses}`;
-  };
 
   return (
-    <Sidebar 
-      className={`${collapsed && !isHovered ? "w-16" : "w-64"} transition-smooth border-r bg-muted/30 backdrop-blur-sm`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <Sidebar
+      collapsible="icon"
+      className={`${collapsed ? "w-14" : "w-[16.5rem]"} transition-smooth border-r-0 bg-transparent`}
     >
-      <div className={`flex h-16 items-center border-b bg-background/80 ${collapsed && !isHovered ? "justify-center px-2" : "justify-between px-4"}`}>
-        {showExpanded && (
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
+      <div className="sidebar-shell flex h-full flex-col overflow-hidden rounded-none">
+        <div className={`relative flex h-20 items-center border-b border-white/10 ${collapsed ? "justify-center px-2" : "justify-between px-4"}`}>
+          <div className= { `${collapsed ? "" : "gap-3"} flex items-center` }>
+            <div className="gradient-hero flex h-11 w-11 items-center justify-center rounded-none shadow-md">
+              <PanelTop className="h-5 w-5 text-primary-foreground" />
             </div>
-            <h1 className="font-semibold text-lg">Pavillions and Interiors</h1>
+            <div className={`overflow-hidden transition-all duration-300 ease-out ${labelStateClass}`}>
+              <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.24em] text-sidebar-foreground/60">
+                Project Control
+              </p>
+              <h1 className="whitespace-nowrap text-base font-semibold tracking-[0.01em] text-sidebar-foreground">
+                Pavillions and Interiors
+              </h1>
+            </div>
           </div>
-        )}
-        {!showExpanded && (
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
-          </div>
-        )}
-        <button
-          onClick={toggleSidebar}
-          className={`p-2 hover:bg-secondary rounded-lg transition-smooth ${collapsed && !isHovered ? "absolute top-2 right-2" : ""}`}
-        >
-          <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
-        </button>
-      </div>
+          {!collapsed && (
+            <button
+              onClick={toggleSidebar}
+              aria-label="Collapse sidebar"
+              className="rounded-none border border-white/10 bg-white/5 p-2 text-sidebar-foreground shadow-sm hover:bg-primary/20 hover:text-white transition-smooth"
+            >
+              <ChevronLeft className="h-4 w-4 transition-transform" />
+            </button>
+          )}
+        </div>
 
-      <SidebarContent className={`${collapsed && !isHovered ? "p-2" : "p-4"} bg-primary`}>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/"} 
-                      className={getNavClassName}
-                      onClick={handleMenuClick}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {showExpanded && <span className="font-medium">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <div className="mt-auto pt-6">
-          <SidebarGroup>
+        <SidebarContent className={`${collapsed ? "px-2 py-3" : "p-4"} [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-primary/25 [&::-webkit-scrollbar-track]:bg-transparent scrollbar-thin`}>
+          <SidebarGroup className={collapsed ? "p-0" : undefined}>
+            <SidebarGroupLabel
+              className={`mb-2 overflow-hidden px-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60 transition-all duration-300 ease-out ${labelStateClass}`}
+            >
+              Operations
+            </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to="/settings" 
-                      className={getNavClassName}
-                      onClick={handleMenuClick}
-                    >
-                      <Settings className="h-5 w-5 flex-shrink-0" />
-                      {showExpanded && <span className="font-medium">Settings</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              <SidebarMenu className="space-y-1">
+                {menuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={resolveIsActive(item)} tooltip={item.title}>
+                      <NavLink 
+                        to={item.url} 
+                        end={item.url === "/"} 
+                        className={getNavClassName}
+                        onClick={handleMenuClick}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span
+                          className={`inline-block overflow-hidden whitespace-nowrap font-medium tracking-[0.01em] transition-all duration-300 ease-out ${labelStateClass}`}
+                        >
+                          {item.title}
+                        </span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        </div>
+
+          <div className="mt-auto pt-6">
+            <SidebarGroup className={collapsed ? "p-0" : undefined}>
+              <SidebarGroupLabel
+                className={`mb-2 overflow-hidden px-3 text-[11px] uppercase tracking-[0.24em] text-sidebar-foreground/60 transition-all duration-300 ease-out ${labelStateClass}`}
+              >
+                Preferences
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={currentPath.startsWith("/settings")} tooltip="Settings">
+                      <NavLink 
+                        to="/settings" 
+                        className={getNavClassName}
+                        onClick={handleMenuClick}
+                      >
+                        <Settings className="h-5 w-5 flex-shrink-0" />
+                        <span
+                          className={`inline-block overflow-hidden whitespace-nowrap font-medium transition-all duration-300 ease-out ${labelStateClass}`}
+                        >
+                          Settings
+                        </span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </div>
       </SidebarContent>
+      </div>
     </Sidebar>
   );
 }

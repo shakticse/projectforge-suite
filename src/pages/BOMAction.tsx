@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ import { itemService } from "@/services/itemService";
 import { formatDateTime } from "@/lib/utils";
 import { authService } from "@/services/authService";
 import { NumberSchema } from "yup";
+import { useNavigate } from "react-router-dom";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -209,6 +211,8 @@ function SummaryPanel({
   step3Alloc: AllocationMap;
   step4Alloc: AllocationMap;
 }) {
+  const [showFullyAllocated, setShowFullyAllocated] = useState(false);
+
   const totals = bom.items.map((item) => {
     const s1 = step1Alloc[item.id] ?? 0;
     const s2 = step2Alloc[item.id] ?? 0;
@@ -219,7 +223,12 @@ function SummaryPanel({
     return { item, s1, s2, s3, s4, totalAllocated, pending };
   });
 
-  const fullyAllocated = totals.filter((t) => t.pending === 0).length;
+  const pendingRows = totals.filter((t) => t.pending > 0);
+  const doneRows = totals.filter((t) => t.pending === 0);
+  const orderedTotals = [...pendingRows, ...doneRows];
+  const displayTotals = showFullyAllocated ? orderedTotals : pendingRows;
+
+  const fullyAllocated = doneRows.length;
   const progressPct = Math.round((fullyAllocated / bom.items.length) * 100);
 
   return (
@@ -245,7 +254,29 @@ function SummaryPanel({
         </div>
 
         <div className="border-t pt-3 space-y-2">
-          {totals.map(({ item, s1, s2, s3, s4, pending }) => (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {pendingRows.length > 0
+                ? `${pendingRows.length} with pending qty`
+                : "No pending qty"}
+            </p>
+            {doneRows.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullyAllocated((v) => !v)}
+                className="text-xs h-7 px-2 shrink-0"
+              >
+                {showFullyAllocated ? "Hide" : "Show"} allocated
+              </Button>
+            )}
+          </div>
+          {displayTotals.length === 0 && doneRows.length > 0 && (
+            <p className="text-xs text-muted-foreground italic">
+              All lines are fully allocated for store/project. Use &quot;Show allocated&quot; to list them.
+            </p>
+          )}
+          {displayTotals.map(({ item, s1, s2, s3, s4, pending }) => (
             <div key={item.id} className="text-xs">
               <p className="font-medium truncate">{item.itemName}</p>
               <div className="grid grid-cols-2 gap-x-2 text-muted-foreground mt-0.5">
@@ -281,6 +312,7 @@ function Step1(props: {
   const [loadingItems, setLoadingItems] = useState(false);
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
   const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
+  const [showFullyAllocated, setShowFullyAllocated] = useState(false);
 
   useEffect(() => {
     // ✅ Reset local display values
@@ -291,6 +323,7 @@ function Step1(props: {
     });
     setLocalValues(initial);
     setDirtyItems(new Set());
+    setShowFullyAllocated(false);
 
     // ✅ Reset parent allocations too
     onChange({});
@@ -329,6 +362,14 @@ function Step1(props: {
   const pendingForItem = (item: BOMItem) =>
     Math.max(0, item.qty - item.allottedQty - (allocations[item.id] ?? 0));
 
+  const rowsWithPending = bom.items.map((item) => ({
+    item,
+    pending: pendingForItem(item),
+  }));
+  const pendingRows = rowsWithPending.filter((r) => r.pending > 0);
+  const doneRows = rowsWithPending.filter((r) => r.pending === 0);
+  const displayRows = showFullyAllocated ? [...pendingRows, ...doneRows] : pendingRows;
+
   return (
     <div className="space-y-4">
       {/* Store selector */}
@@ -340,8 +381,21 @@ function Step1(props: {
           </p>
           <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-0.5">
             Available quantities update per store selection.
+            {pendingRows.length > 0 && doneRows.length > 0 && !showFullyAllocated
+              ? ` Showing ${pendingRows.length} with pending qty.`
+              : null}
           </p>
         </div>
+        {doneRows.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowFullyAllocated((v) => !v)}
+            className="text-xs shrink-0"
+          >
+            {showFullyAllocated ? "Hide" : "Show"} allocated
+          </Button>
+        )}
         <Select value={selectedStore} onValueChange={handleStoreChange}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Choose store…" />
@@ -372,9 +426,19 @@ function Step1(props: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {bom.items.map((item) => {
+            {displayRows.length === 0 && doneRows.length > 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-sm text-muted-foreground py-10"
+                >
+                  All items are fully allocated for this step. Use &quot;Show allocated&quot; to
+                  see them in the table.
+                </TableCell>
+              </TableRow>
+            )}
+            {displayRows.map(({ item, pending }) => {
               const available = selectedStore ? getAvailableQty(item) : "—";
-              const pending = pendingForItem(item);
               const maxAllocate =
                 typeof available == "number"
                   ? Math.min(available, pending)
@@ -711,6 +775,8 @@ function Step3(props: {
   step1Alloc: AllocationMap;
   step2Alloc: AllocationMap;
   poItems: AllocationMap;
+  dueDate: string;
+  onDueDateChange: (value: string) => void;
   onChangeQty: (alloc: AllocationMap) => void;
   onCreatePO: () => void;
   onContinue: () => void;
@@ -721,6 +787,8 @@ function Step3(props: {
     step1Alloc,
     step2Alloc,
     poItems,
+    dueDate,
+    onDueDateChange,
     onChangeQty,
     onCreatePO,
     onContinue,
@@ -743,9 +811,9 @@ function Step3(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-100 dark:border-green-900">
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-100 dark:border-green-900">
         <ShoppingCart className="h-5 w-5 text-green-600 shrink-0" />
-        <div className="flex-1">
+        <div className="flex-1 min-w-[200px]">
           <p className="text-sm font-medium text-green-900 dark:text-green-100">
             Create Purchase Request
           </p>
@@ -755,12 +823,28 @@ function Step3(props: {
               : "All items are allocated! You can finish without creating a PO."}
           </p>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <label
+            htmlFor="pr-due-date"
+            className="text-xs font-medium text-green-900 dark:text-green-100 whitespace-nowrap"
+          >
+            Due date <span className="text-destructive">*</span>
+          </label>
+          <Input
+            id="pr-due-date"
+            type="date"
+            required
+            value={dueDate}
+            onChange={(e) => onDueDateChange(e.target.value)}
+            className="h-8 w-[150px] text-sm bg-background"
+          />
+        </div>
         {doneRows.length > 0 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowFullyAllocated((v) => !v)}
-            className="text-xs"
+            className="text-xs shrink-0"
           >
             {showFullyAllocated ? "Hide" : "Show"} allocated
           </Button>
@@ -863,6 +947,8 @@ function Step4(props: {
   step2Alloc: AllocationMap;
   step3Alloc: AllocationMap;
   outsourceItems: AllocationMap;
+  dueDate: string;
+  onDueDateChange: (value: string) => void;
   onChangeQty: (alloc: AllocationMap) => void;
   onCreateOutsource: () => void;
   onFinish: () => void;
@@ -874,6 +960,8 @@ function Step4(props: {
     step2Alloc,
     step3Alloc,
     outsourceItems,
+    dueDate,
+    onDueDateChange,
     onChangeQty,
     onCreateOutsource,
     onFinish,
@@ -897,9 +985,9 @@ function Step4(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-950/20 rounded-lg border border-slate-200 dark:border-slate-800">
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-slate-50 dark:bg-slate-950/20 rounded-lg border border-slate-200 dark:border-slate-800">
         <Factory className="h-5 w-5 text-slate-700 shrink-0" />
-        <div className="flex-1">
+        <div className="flex-1 min-w-[200px]">
           <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
             Create Outsource Request
           </p>
@@ -909,12 +997,28 @@ function Step4(props: {
               : "All items are allocated! You can finish without creating an outsource request."}
           </p>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <label
+            htmlFor="os-due-date"
+            className="text-xs font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap"
+          >
+            Due date <span className="text-destructive">*</span>
+          </label>
+          <Input
+            id="os-due-date"
+            type="date"
+            required
+            value={dueDate}
+            onChange={(e) => onDueDateChange(e.target.value)}
+            className="h-8 w-[150px] text-sm bg-background"
+          />
+        </div>
         {doneRows.length > 0 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowFullyAllocated((v) => !v)}
-            className="text-xs"
+            className="text-xs shrink-0"
           >
             {showFullyAllocated ? "Hide" : "Show"} allocated
           </Button>
@@ -1026,7 +1130,10 @@ export default function BOMAction() {
   const [step1Alloc, setStep1Alloc] = useState<AllocationMap>({});
   const [step2Alloc, setStep2Alloc] = useState<AllocationMap>({});
   const [poQty, setPoQty] = useState<AllocationMap>({});
+  const [purchaseRequestDueDate, setPurchaseRequestDueDate] = useState("");
+  const [outsourceRequestDueDate, setOutsourceRequestDueDate] = useState("");
   const [outsourceQty, setOutsourceQty] = useState<AllocationMap>({});
+  const navigate = useNavigate();
 
   // ── Load data ──
   useEffect(() => {
@@ -1072,6 +1179,8 @@ export default function BOMAction() {
       defaultPO[item.id] = item.pendingQuantity;
     });
     setPoQty(defaultPO);
+    setPurchaseRequestDueDate("");
+    setOutsourceRequestDueDate("");
   };
 
   const closeWorkflow = () => {
@@ -1080,6 +1189,8 @@ export default function BOMAction() {
     setStep1Alloc({});
     setStep2Alloc({});
     setPoQty({});
+    setPurchaseRequestDueDate("");
+    setOutsourceRequestDueDate("");
     setOutsourceQty({});
   };
 
@@ -1152,6 +1263,12 @@ export default function BOMAction() {
       return;
     }
 
+    const trimmedDue = purchaseRequestDueDate.trim();
+    if (!trimmedDue) {
+      toast.error("Due date is required");
+      return;
+    }
+
     const currentUser: any = authService.getCurrentUser();
     const allottedByUserId =
       currentUser?.id ??
@@ -1165,6 +1282,7 @@ export default function BOMAction() {
         bomId: selectedBOM.id,
         allottedByUserId,
         items: changedItems,
+        dueDate: trimmedDue,
       });
       toast.success("Purchase Request created successfully!");
       setCurrentStep(4);
@@ -1184,7 +1302,8 @@ export default function BOMAction() {
       .map((item) => {
         const s1 = step1Alloc[item.id] ?? 0;
         const s2 = step2Alloc[item.id] ?? 0;
-        const pending = Math.max(0, item.qty - item.allottedQty - s1 - s2);
+        const s3 = poQty[item.id] ?? 0;
+        const pending = Math.max(0, item.qty - item.allottedQty - s1 - s2 - s3);
 
         const raw = outsourceQty[item.id];
         if (raw === undefined) return null;
@@ -1203,6 +1322,12 @@ export default function BOMAction() {
       return;
     }
 
+    const trimmedOsDue = outsourceRequestDueDate.trim();
+    if (!trimmedOsDue) {
+      toast.error("Due date is required");
+      return;
+    }
+
     const currentUser: any = authService.getCurrentUser();
     const allottedByUserId =
       currentUser?.id ??
@@ -1216,6 +1341,7 @@ export default function BOMAction() {
         bomId: selectedBOM.id,
         allottedByUserId,
         items: changedItems,
+        dueDate: trimmedOsDue,
       });
       toast.success("Outsource request created successfully!");
       closeWorkflow();
@@ -1317,6 +1443,14 @@ export default function BOMAction() {
                       <TableCell className="text-center">{formatDateTime(bom.updatedDate)}</TableCell>
                       <TableCell className="text-center">
                         <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                          title="View BOM Consolidate"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
                           size="sm"
                           variant={selectedBOM?.id === bom.id ? "default" : "outline"}
                           onClick={() => openWorkflow(bom)}
@@ -1392,6 +1526,8 @@ export default function BOMAction() {
                   step1Alloc={step1Alloc}
                   step2Alloc={step2Alloc}
                   poItems={poQty}
+                  dueDate={purchaseRequestDueDate}
+                  onDueDateChange={setPurchaseRequestDueDate}
                   onChangeQty={setPoQty}
                   onCreatePO={handleCreatePO}
                   onContinue={handleContinueFromPO}
@@ -1405,6 +1541,8 @@ export default function BOMAction() {
                   step2Alloc={step2Alloc}
                   step3Alloc={poQty}
                   outsourceItems={outsourceQty}
+                  dueDate={outsourceRequestDueDate}
+                  onDueDateChange={setOutsourceRequestDueDate}
                   onChangeQty={setOutsourceQty}
                   onCreateOutsource={handleCreateOutsource}
                   onFinish={handleFinishWithoutOutsource}

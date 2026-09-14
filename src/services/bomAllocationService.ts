@@ -12,8 +12,12 @@ export type BomAllocationRequest = {
   items: BomAllocationItem[];
 };
 
-export type BomPurchaseOrderRequest = Omit<BomAllocationRequest, "storeId">;
-export type BomOutsourceRequest = Omit<BomAllocationRequest, "storeId">;
+export type BomPurchaseOrderRequest = Omit<BomAllocationRequest, "storeId"> & {
+  dueDate: string;
+};
+export type BomOutsourceRequest = Omit<BomAllocationRequest, "storeId"> & {
+  dueDate: string;
+};
 
 export const bomAllocationService = {
   async allocate(data: BomAllocationRequest) {

@@ -173,8 +173,8 @@ export default function BOMDetails() {
   const workOrders = mockWorkOrders[id || ""] || [];
 
   const filteredItems = items.filter(item =>
-    item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.requestedBy.toLowerCase().includes(searchTerm.toLowerCase())
+    item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) 
+    // || item.requestedBy?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredWorkOrders = workOrders.filter(wo =>

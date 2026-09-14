@@ -6,7 +6,7 @@ import { itemService } from "@/services/itemService";
 import { itemStoreService } from "@/services/itemStoreService";
 import { bomService } from "@/services/bomService";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, Type, List, Activity, Edit, X } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, List, Activity, Edit, X } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
@@ -152,29 +152,76 @@ export default function BOM() {
     form.setValue("materials", materials);
   }, [materials]);
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  const [openMaterialPicker, setOpenMaterialPicker] = useState(false);
+  const [materialPickerSearch, setMaterialPickerSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const addMaterialRow = () => {
-    const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
-    setMaterials([{ 
-      id: newId, 
-      materialId: "", 
-      quantity: 0, 
-      availableStock: 0,
-      itemType: 'non-grouped'
-    }, ...materials]);
+  const addMaterialFromOption = (selectedMaterial: MaterialOption) => {
+    setMaterials((currentMaterials) => {
+      const baseMax =
+        currentMaterials.length > 0
+          ? Math.max(...currentMaterials.map((m) => m.id))
+          : 0;
+      const newId = baseMax + 1;
+      const parentRow = {
+        id: newId,
+        materialId: selectedMaterial.id,
+        quantity: 0,
+        availableStock: selectedMaterial.availableStock || 0,
+        itemType:
+          selectedMaterial.childItems && selectedMaterial.childItems.length > 0
+            ? ("grouped" as ItemType)
+            : ("non-grouped" as ItemType),
+      };
+      let next = [parentRow, ...currentMaterials];
+      if (selectedMaterial.childItems && selectedMaterial.childItems.length > 0) {
+        const maxId = Math.max(...next.map((m) => m.id), 0);
+        const childItems = selectedMaterial.childItems.map((child, index) => ({
+          id: maxId + index + 1,
+          materialId: child.id,
+          quantity: 0,
+          availableStock: child.availableStock,
+          itemType: "child" as ItemType,
+          parentId: newId,
+          min_qty: child.quantity,
+          perunit_qty: child.perunit,
+          expression: child.expression,
+        }));
+        const parentIndex = next.findIndex((m) => m.id === newId);
+        if (parentIndex !== -1) {
+          next.splice(parentIndex + 1, 0, ...childItems);
+        } else {
+          next.push(...childItems);
+        }
+      }
+      return next;
+    });
+    setOpenMaterialPicker(false);
+    setMaterialPickerSearch("");
   };
 
-  const addCustomMaterialRow = () => {
-    const newId = materials.length > 0 ? Math.max(...materials.map(m => m.id)) + 1 : 1;
-    setMaterials([{ 
-      id: newId, 
-      materialId: `custom-${newId}`, 
-      quantity: 0, 
-      availableStock: 0,
-      itemType: 'miscellaneous',
-      customName: ""
-    }, ...materials]);
+  const addMiscellaneousByName = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setMaterials((currentMaterials) => {
+      const newId =
+        currentMaterials.length > 0
+          ? Math.max(...currentMaterials.map((m) => m.id)) + 1
+          : 1;
+      return [
+        {
+          id: newId,
+          materialId: `custom-${newId}`,
+          quantity: 0,
+          availableStock: 0,
+          itemType: "miscellaneous" as ItemType,
+          customName: trimmed,
+        },
+        ...currentMaterials,
+      ];
+    });
+    setOpenMaterialPicker(false);
+    setMaterialPickerSearch("");
   };
 
   const removeMaterialRow = (id: number) => {
@@ -496,7 +543,7 @@ export default function BOM() {
   const filteredBOMs = boms.filter(bom =>
     // bom.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bom.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bom.id.toLowerCase().includes(searchTerm.toLowerCase())
+    bom.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredBOMs.length / itemsPerPage);
@@ -520,8 +567,19 @@ export default function BOM() {
     .filter(m => m.itemType !== 'grouped')
     .reduce((sum, m) => sum + (m.quantity || 0), 0);
 
+  const pickerTrim = materialPickerSearch.trim();
+  const pickerLower = pickerTrim.toLowerCase();
+  const filteredPickerMaterials = pickerTrim
+    ? materialsOptions.filter(
+        (m) =>
+          m.name.toLowerCase().includes(pickerLower) ||
+          (m.id != null && m.id.toString().toLowerCase().includes(pickerLower))
+      )
+    : materialsOptions;
+  const showAddMiscellaneous = pickerTrim.length > 0 && filteredPickerMaterials.length === 0;
+
   return (
-    <div className="space-y-612812">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bill of Materials</h1>
@@ -606,33 +664,99 @@ export default function BOM() {
                   />
                 </div>
                   <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Materials</h3>
-                    <div className="flex gap-2">
-                      <Button type="button" onClick={addMaterialRow} size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Material
-                      </Button>
-                      <Button type="button" onClick={addCustomMaterialRow} size="sm" variant="outline">
-                        <Type className="h-4 w-4 mr-2" />
-                        Add Miscellaneous Item
-                      </Button>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <h3 className="text-lg font-semibold shrink-0">Materials</h3>
+                    <div className="w-full sm:max-w-md sm:ml-auto">
+                      <Popover
+                        open={openMaterialPicker}
+                        onOpenChange={(open) => {
+                          setOpenMaterialPicker(open);
+                          if (!open) setMaterialPickerSearch("");
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openMaterialPicker}
+                            className="w-full justify-between"
+                          >
+                            <span className="truncate text-muted-foreground">
+                              Search catalog or type a new item name…
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[min(100vw-2rem,28rem)] p-0" align="end">
+                          <Command shouldFilter={false}>
+                            <CommandInput
+                              placeholder="Search materials or type name…"
+                              value={materialPickerSearch}
+                              onValueChange={setMaterialPickerSearch}
+                            />
+                            <CommandList>
+                              {filteredPickerMaterials.length > 0 && (
+                                <CommandGroup heading="Catalog items">
+                                  {filteredPickerMaterials.map((mat) => (
+                                    <CommandItem
+                                      key={mat.id}
+                                      value={`${mat.name} ${mat.id}`}
+                                      onSelect={() => addMaterialFromOption(mat)}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span>{mat.name}</span>
+                                        {mat.childItems && mat.childItems.length > 0 && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ({mat.childItems.length} child items)
+                                          </span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
+                              {showAddMiscellaneous && (
+                                <CommandGroup heading="Not in catalog">
+                                  <CommandItem
+                                    value={`__misc__:${pickerTrim}`}
+                                    onSelect={() => addMiscellaneousByName(pickerTrim)}
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add &quot;{pickerTrim}&quot; as miscellaneous item
+                                  </CommandItem>
+                                </CommandGroup>
+                              )}
+                              {!pickerTrim && materialsOptions.length === 0 && (
+                                <CommandEmpty>No materials in catalog.</CommandEmpty>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
 
                   {materials.length > 0 && (
-                    <div className="border rounded-lg overflow-hidden">
-                      <Table>
+                    <div className="border rounded-lg overflow-hidden bg-card">
+                      <Table className="text-xs">
                         <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-16">Row #</TableHead>
-                            <TableHead>Material</TableHead>
-                            {/* <TableHead className="w-32">Available Stock</TableHead> */}
-                            <TableHead className="w-32">Required Quantity</TableHead>
-                            <TableHead className="w-16">Action</TableHead>
+                          <TableRow className="border-b border-border/60 hover:bg-transparent">
+                            <TableHead className="h-8 w-10 min-w-[2.5rem] px-2 py-1.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                              #
+                            </TableHead>
+                            <TableHead className="h-8 px-2 py-1.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                              Material
+                            </TableHead>
+                            <TableHead className="h-8 w-28 px-2 py-1.5 text-right align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                              Req. qty
+                            </TableHead>
+                            <TableHead className="h-8 w-12 px-1 py-1.5 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                              <span className="sr-only">Actions</span>
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="[&_tr:last-child]:border-b [&_tr]:border-b [&_tr]:border-border/50">
                           {materials.map((material, index) => {
                             const materialId = material.materialId?.toString() ?? '';
                             // If this row is a child item, look up the child inside parent options' childItems
@@ -644,57 +768,73 @@ export default function BOM() {
                             //   : materialsOptions.find(m => m.id?.toString() === materialId);
                             
                             return (
-                              <TableRow 
-                                key={material.id} 
-                                className={material.itemType === 'child' ? "bg-muted/30 border-l-4 border-l-primary/30" : ""}
+                              <TableRow
+                                key={material.id}
+                                className={
+                                  material.itemType === "child"
+                                    ? "bg-muted/20 border-l-2 border-l-primary/35 hover:bg-muted/35"
+                                    : "hover:bg-muted/40"
+                                }
                               >
-                                <TableCell>
-                                  {material.itemType === 'child' ? (
-                                    <span className="text-muted-foreground ml-4">
-                                      {index + 1}
-                                    </span>
+                                <TableCell className="w-10 min-w-[2.5rem] px-2 py-1 align-middle leading-none text-muted-foreground tabular-nums">
+                                  {material.itemType === "child" ? (
+                                    <span className="pl-2">{index + 1}</span>
                                   ) : (
                                     index + 1
                                   )}
                                 </TableCell>
-                                 <TableCell>
-                                   {material.itemType === 'child' ? (
-                                     <div className="pl-4">
-                                       <span className="text-sm font-medium">
-                                         └&gt; {materialData?.name || 'N/A'}
-                                       </span>
-                                     </div>
-                                   ) : material.itemType === 'miscellaneous' ? (
-                                     <div className="space-y-2">
-                                       <Input
-                                         placeholder="Enter custom item name"
-                                         value={material.customName || ""}
-                                         onChange={(e) => updateMaterial(material.id, 'customName', e.target.value)}
-                                         className="w-full"
-                                       />
-                                       <Badge variant="secondary" className="text-xs">
-                                         {getItemTypeLabel(material.itemType)}
-                                       </Badge>
-                                     </div>
-                                   ) : (
-                                     <Popover
-                                       open={openPopovers[material.id] || false}
-                                       onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [material.id]: open }))}
-                                     >
-                                       <PopoverTrigger asChild>
-                                         <Button
-                                           variant="outline"
-                                           role="combobox"
-                                           aria-expanded={openPopovers[material.id] || false}
-                                           className="w-full justify-between"
-                                         >
-                                           {material.materialId ? 
-                                             materialsOptions.find(mat => mat.id?.toString() === material.materialId?.toString())?.name || "Select material..." 
-                                             : "Select material..."
-                                           }
-                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                         </Button>
-                                       </PopoverTrigger>
+                                <TableCell className="px-2 py-1 align-middle leading-snug">
+                                  {material.itemType === "child" ? (
+                                    <span className="block pl-2 text-xs font-medium leading-tight text-foreground">
+                                      <span className="text-muted-foreground mr-0.5">└</span>
+                                      {materialData?.name || "N/A"}
+                                    </span>
+                                  ) : material.itemType === "miscellaneous" ? (
+                                    <div className="flex flex-col gap-1">
+                                      <Input
+                                        placeholder="Custom item name"
+                                        value={material.customName || ""}
+                                        onChange={(e) =>
+                                          updateMaterial(material.id, "customName", e.target.value)
+                                        }
+                                        className="h-8 w-full min-w-0 px-2 py-1 text-xs leading-tight"
+                                      />
+                                      <Badge
+                                        variant="secondary"
+                                        className="w-fit px-1.5 py-0 text-[10px] font-normal leading-tight"
+                                      >
+                                        {getItemTypeLabel(material.itemType)}
+                                      </Badge>
+                                    </div>
+                                  ) : (
+                                    <Popover
+                                      open={openPopovers[material.id] || false}
+                                      onOpenChange={(open) =>
+                                        setOpenPopovers((prev) => ({
+                                          ...prev,
+                                          [material.id]: open,
+                                        }))
+                                      }
+                                    >
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          role="combobox"
+                                          aria-expanded={openPopovers[material.id] || false}
+                                          className="h-8 w-full min-w-0 justify-between gap-1 px-2 py-1 text-xs font-normal leading-tight"
+                                        >
+                                          <span className="truncate text-left">
+                                            {material.materialId
+                                              ? materialsOptions.find(
+                                                  (mat) =>
+                                                    mat.id?.toString() ===
+                                                    material.materialId?.toString()
+                                                )?.name || "Select…"
+                                              : "Select material…"}
+                                          </span>
+                                          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                                        </Button>
+                                      </PopoverTrigger>
                                        <PopoverContent className="w-full p-0" align="start">
                                          <Command>
                                            <CommandInput placeholder="Search materials..." />
@@ -736,28 +876,33 @@ export default function BOM() {
                                     className="bg-muted"
                                   />
                                 </TableCell> */}
-                                <TableCell>
+                                <TableCell className="w-28 px-2 py-1 align-middle">
                                   <Input
                                     type="number"
                                     min="0"
                                     value={material.quantity || ""}
-                                    onChange={(e) => updateMaterial(material.id, 'quantity', Number(e.target.value))}
+                                    onChange={(e) =>
+                                      updateMaterial(material.id, "quantity", Number(e.target.value))
+                                    }
                                     placeholder="0"
-                                    disabled={material.itemType === 'child' && false} // Child quantities can be edited
+                                    disabled={material.itemType === "child" && false}
+                                    className="h-8 w-full max-w-[5.5rem] ml-auto block px-2 py-1 text-right text-xs tabular-nums leading-tight"
                                   />
                                 </TableCell>
-                                <TableCell>
-                                  {material.itemType !== 'child' ? (
+                                <TableCell className="w-12 px-1 py-1 align-middle text-center">
+                                  {material.itemType !== "child" ? (
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="sm"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                                       onClick={() => removeMaterialRow(material.id)}
+                                      aria-label="Remove row"
                                     >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                      <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   ) : (
-                                    <div className="w-8"></div>
+                                    <span className="inline-block h-8 w-8" aria-hidden />
                                   )}
                                 </TableCell>
                               </TableRow>
@@ -772,7 +917,10 @@ export default function BOM() {
                     <div className="border border-dashed rounded-lg p-8 text-center">
                       <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">No materials added yet</p>
-                      <p className="text-sm text-muted-foreground">Click "Add Material" to get started</p>
+                      <p className="text-sm text-muted-foreground">
+                        Use the search field above to add a catalog item or type a new name as a
+                        miscellaneous item.
+                      </p>
                     </div>
                   )}
 
@@ -815,120 +963,135 @@ export default function BOM() {
           </div>
         )} */}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/70 p-3 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
             <Input
               placeholder="Search BOMs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="h-10 rounded-xl border-border/70 bg-background/80 pl-10 shadow-none transition-smooth focus:bg-background"
             />
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="h-10 rounded-xl border-border/70 bg-background/80 px-4 shadow-none">
             <Filter className="h-4 w-4 mr-2" />
             Filter
           </Button>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-sm font-medium text-muted-foreground">
           Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredBOMs.length)} of {filteredBOMs.length} results
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2" />
-            BOM Records
+      <Card className="overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-card">
+        <CardHeader className="border-b border-border/60 bg-gradient-to-r from-background/95 to-primary/5 px-5 py-4">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+              <FileText className="h-5 w-5" />
+            </span>
+            <span>BOM Records</span>
           </CardTitle>
+          <CardDescription className="pl-[3.25rem]">
+            Track project BOMs, ownership, and recent update activity.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loadingBOMs ? (
             <div className="mb-4 py-6 text-center text-sm text-muted-foreground">Loading BOMs...</div>
           ) : boms.length === 0 ? (
             <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No BOMs found.</div>
           ) : (
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>BOM ID</TableHead>
-                  <TableHead>Project Name</TableHead>
-                  <TableHead>Description</TableHead>
+            <Table className="min-w-[1120px]">
+              <TableHeader className="bg-muted/45">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">BOM ID</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Project Name</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Description</TableHead>
                   {/* <TableHead>BOM For</TableHead>
                   <TableHead>Supervisor In-Charge</TableHead> */}
                   {/* <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Total Quantity</TableHead> */}
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Created Date</TableHead>
-                  <TableHead>Updated By</TableHead>
-                  <TableHead>Last Updated</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Due Date</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Created By</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Created Date</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Updated By</TableHead>
+                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Last Updated</TableHead>
                   {/* <TableHead>Status</TableHead> */}
-                  <TableHead className="text-center">Details</TableHead>
+                  <TableHead className="h-11 px-5 text-center text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Details</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="divide-y divide-border/60">
                 {paginatedBOMs.map((bom) => (
                   <TableRow key={bom.id} className={`${
-                    user?.role === 'Project Manager' ? 'hover:bg-muted/50 cursor-pointer' : ''
+                    user?.role === 'Project Manager' ? 'group hover:bg-primary/5' : 'hover:bg-muted/30'
                   }`}>
                     <TableCell 
-                      className={`font-medium ${
+                      className={`px-5 py-4 align-top text-sm font-semibold tabular-nums ${
                         user?.role === 'Project Manager' 
-                          ? 'text-primary hover:underline cursor-pointer' 
+                          ? 'text-primary cursor-pointer' 
                           : 'text-foreground'
                       }`}
                       onClick={user?.role === 'Project Manager' ? () => navigate(`/bom/${bom.id}`) : undefined}
                     >
-                      {bom.id}
+                      <span className="inline-flex h-8 min-w-10 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 px-2 text-primary transition-smooth group-hover:border-primary/25 group-hover:bg-primary/15">
+                        {bom.id}
+                      </span>
                     </TableCell>
-                    <TableCell>{bom.projectName}</TableCell>
-                    <TableCell>{bom.description}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm font-medium text-foreground">{bom.projectName}</TableCell>
+                    <TableCell className="max-w-[16rem] px-5 py-4 align-top text-sm text-muted-foreground">
+                      <span className="line-clamp-2">{bom.description || "NA"}</span>
+                    </TableCell>
                     {/* <TableCell>{bom.itemName}</TableCell> */}
                     {/* <TableCell>{bom.manager}</TableCell> */}
                     {/* <TableCell>{new Date(bom.startDate).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(bom.endDate).toLocaleDateString()}</TableCell>
                     <TableCell>{bom.totalQuantity}</TableCell> */}
-                    <TableCell>{formatDateTime(bom.dueDate)}</TableCell>
-                    <TableCell>{bom.createdByUser}</TableCell>
-                    <TableCell>{formatDateTime(bom.createdDate)}</TableCell>
-                    <TableCell>{bom.updatedByUser}</TableCell>
-                    <TableCell>{formatDateTime(bom.updatedDate)}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm text-foreground/80">{formatDateTime(bom.dueDate)}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm text-foreground/80">{bom.createdByUser}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm text-foreground/80">{formatDateTime(bom.createdDate)}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm text-foreground/80">{bom.updatedByUser}</TableCell>
+                    <TableCell className="px-5 py-4 align-top text-sm text-foreground/80">{formatDateTime(bom.updatedDate)}</TableCell>
                     {/* <TableCell>
                       <Badge variant={getStatusBadgeVariant(bom.approvalStatus)}>
                         {bom.approvalStatus}
                       </Badge>
                     </TableCell> */}
-                     <TableCell className="text-center">
-                       <div className="flex items-center justify-center gap-2">
+                     <TableCell className="px-5 py-4 text-center align-top">
+                       <div className="flex items-center justify-center gap-1.5">
                          {user?.role ? (
                            <>
                              <Button
                                variant="ghost"
-                               size="sm"
+                               size="icon"
+                               className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
                                title="View BOM Consolidate"
+                               aria-label={`View consolidated BOM ${bom.id}`}
                              >
                                <Eye className="h-4 w-4" />
                              </Button>
                              {/* {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor' || user?.role === 'Project Supervisor') && ( */}
                                <Button
                                  variant="ghost"
-                                 size="sm"
+                                 size="icon"
+                                 className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                  onClick={() => handleEditBOM(bom)}
                                  title="Edit BOM"
+                                 aria-label={`Edit BOM ${bom.id}`}
                                >
                                  <Edit className="h-4 w-4" />
                                </Button>
                              {/* )} */}
                              <Button
                                variant="ghost"
-                               size="sm"
+                               size="icon"
+                               className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
                                onClick={() => navigate(`/bom-details/${bom.id}`)}
                                title="View BOM Items List"
+                               aria-label={`View BOM ${bom.id} items`}
                              >
                                <List className="h-4 w-4" />
                              </Button>
@@ -954,10 +1117,11 @@ export default function BOM() {
           )}
 
           {!loadingBOMs && boms.length > 0 && totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-5 py-4">
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-xl"
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
               >
@@ -970,6 +1134,7 @@ export default function BOM() {
                     key={page}
                     variant={currentPage === page ? "default" : "outline"}
                     size="sm"
+                    className="h-8 min-w-8 rounded-xl px-3"
                     onClick={() => setCurrentPage(page)}
                   >
                     {page}
@@ -979,6 +1144,7 @@ export default function BOM() {
               <Button
                 variant="outline"
                 size="sm"
+                className="rounded-xl"
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
               >
