@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: "ES2022"
+    target: "ES2022",
+    sourcemap: false
   },
 }));

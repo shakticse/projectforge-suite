@@ -14,6 +14,8 @@ export type PurchaseRequestCreatePayload = {
 
 export type PurchaseRequestUpdatePayload = Partial<PurchaseRequestCreatePayload> & {
   status?: string;
+  items?: Array<PurchaseRequestLineInput & { requestItemId?: number }>;
+  deletedRequestItemIds?: number[];
 };
 
 export const purchaseRequestService = {

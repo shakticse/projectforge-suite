@@ -7,10 +7,10 @@ interface ChangeItem {
   id: string;
   action: 'added' | 'updated' | 'deleted';
   materialName: string;
-  field?: string;
-  oldValue?: string | number;
-  newValue?: string | number;
-  unit?: string;
+  groupName?: string;
+  oldQty?: string | null;
+  newQty?: string | null;
+  otherChanges: string[];
 }
 
 interface ChangeHistoryModalProps {
@@ -48,19 +48,6 @@ export default function ChangeHistoryModal({
     }
   };
 
-  const formatChangeDescription = (change: ChangeItem) => {
-    switch (change.action) {
-      case 'added':
-        return `Added new material: ${change.materialName}`;
-      case 'deleted':
-        return `Deleted material: ${change.materialName}`;
-      case 'updated':
-        return `Updated ${change.field} from ${change.oldValue} to ${change.newValue}`;
-      default:
-        return 'Unknown action';
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -88,50 +75,28 @@ export default function ChangeHistoryModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Material Name</TableHead>
-                  {/* <TableHead>Description</TableHead>
-                  <TableHead>Field</TableHead> */}
-                  <TableHead>Old Value</TableHead>
-                  <TableHead>New Value</TableHead>
+                  <TableHead>Item Name</TableHead>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Change</TableHead>
+                  <TableHead className="text-right">Previous Qty</TableHead>
+                  <TableHead className="text-right">New Qty</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {changes.map((change) => (
                   <TableRow key={change.id}>
+                    <TableCell className="font-medium">{change.materialName}</TableCell>
+                    <TableCell>{change.groupName || '—'}</TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         {getActionIcon(change.action)}
                         <Badge variant={getActionBadgeVariant(change.action)} className="text-xs">
                           {change.action.charAt(0).toUpperCase() + change.action.slice(1)}
                         </Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{change.materialName}</TableCell>
-                    {/* <TableCell className="text-sm text-muted-foreground">
-                      {formatChangeDescription(change)}
-                    </TableCell>
-                    <TableCell>
-                      {change.field && (
-                        <Badge variant="outline" className="text-xs">
-                          {change.field}
-                        </Badge>
-                      )}
-                    </TableCell> */}
-                    <TableCell>
-                      {change.oldValue && (
-                        <span className="text-sm text-red-600 line-through">
-                          {change.oldValue}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {change.newValue && (
-                        <span className="text-sm text-green-600 font-medium">
-                          {change.newValue}
-                        </span>
-                      )}
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-red-600">{change.oldQty ?? '—'}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium text-green-700">{change.newQty ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

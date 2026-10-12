@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   Save,
@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Package,
   Eye,
+  ArrowDownToLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 import { bomService } from "@/services/bomService";
@@ -313,6 +323,7 @@ function Step1(props: {
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
   const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
   const [showFullyAllocated, setShowFullyAllocated] = useState(false);
+  const [storePromptOpen, setStorePromptOpen] = useState(false);
 
   useEffect(() => {
     // ✅ Reset local display values
@@ -485,7 +496,14 @@ function Step1(props: {
                       max={maxAllocate}
                       // ✅ Read from localValues object
                       value={localValues[item.id] ?? ""}
+                      onFocus={() => {
+                        if (!selectedStore) setStorePromptOpen(true);
+                      }}
                       onChange={(e) => {
+                        if (!selectedStore) {
+                          setStorePromptOpen(true);
+                          return;
+                        }
                         // ✅ Update only this item's local value, no parent call
                         setLocalValues((prev) => ({
                           ...prev,
@@ -559,6 +577,22 @@ function Step1(props: {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={storePromptOpen} onOpenChange={setStorePromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Select a store first</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a store above before entering an allocation quantity.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setStorePromptOpen(false)}>
+              Select store
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-2">
@@ -1133,6 +1167,7 @@ export default function BOMAction() {
   const [purchaseRequestDueDate, setPurchaseRequestDueDate] = useState("");
   const [outsourceRequestDueDate, setOutsourceRequestDueDate] = useState("");
   const [outsourceQty, setOutsourceQty] = useState<AllocationMap>({});
+  const bomListRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   // ── Load data ──
@@ -1399,8 +1434,9 @@ export default function BOMAction() {
         </CardContent>
       </Card>
 
-      {/* BOM List */}
-      <Card>
+      <div className="flex flex-col gap-6">
+        {/* BOM List */}
+        <Card ref={bomListRef} className="order-last scroll-mt-6">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">BOMs</CardTitle>
         </CardHeader>
@@ -1465,11 +1501,11 @@ export default function BOMAction() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
 
-      {/* ── Workflow ── */}
-      {selectedBOM && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Workflow ── */}
+        {selectedBOM && (
+          <div className="order-first scroll-mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Workflow Panel */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-start justify-between pb-4">
@@ -1562,7 +1598,21 @@ export default function BOMAction() {
               step4Alloc={outsourceQty}
             />
           </div>
-        </div>
+          </div>
+        )}
+      </div>
+
+      {selectedBOM && (
+        <Button
+          type="button"
+          size="icon"
+          className="fixed bottom-6 right-6 z-50 h-11 w-11 rounded-full shadow-lg"
+          onClick={() => bomListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          title="Go to BOM grid"
+          aria-label="Go to BOM grid"
+        >
+          <ArrowDownToLine className="h-5 w-5" />
+        </Button>
       )}
     </div>
   );

@@ -16,6 +16,16 @@ export const bomService = {
     return response.data;
   },
 
+  async getAuditHistory(id: string | number) {
+    const response = await api.get(`/api/Bom/audit/${id}`);
+    return response.data;
+  },
+
+  async getAuditOperationDetails(id: string | number, operationId: string) {
+    const response = await api.get(`/api/Bom/audit/${id}/${operationId}`);
+    return response.data;
+  },
+
   async create(data: any) {
     const response = await api.post('/api/bom', data);
     return response.data;

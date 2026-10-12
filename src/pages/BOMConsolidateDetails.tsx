@@ -37,19 +37,80 @@ interface ChangeItem {
   id: string;
   action: 'added' | 'updated' | 'deleted';
   materialName: string;
+  groupName?: string;
   field?: string;
-  oldValue?: string | number;
-  newValue?: string | number;
+  oldQty?: string | null;
+  newQty?: string | null;
+  otherChanges: string[];
   unit?: string;
 }
 
 interface ChangeHistory {
   id: string;
+  auditOperationId: string;
   transactionId: string;
   updatedBy: string;
   updateDate: string;
   changesCount: number;
-  changes: ChangeItem[];
+  changes?: ChangeItem[];
+}
+
+interface BomAuditChange {
+  itemId?: number | null;
+  itemName: string;
+  groupName?: string | null;
+  changeType: string;
+  previousQuantity?: number | null;
+  updatedQuantity?: number | null;
+}
+
+interface BomAuditOperation {
+  auditOperationId: string;
+  bomId: number;
+  auditDate: string;
+  modifiedByUser?: string | null;
+  changesCount: number;
+  changes?: BomAuditChange[];
+}
+
+interface BomAuditRecord {
+  id: number;
+  bomItemId?: number | null;
+  auditDate: string;
+  modifiedByUser?: string | null;
+  changeType: string;
+  fieldName: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+  description?: string | null;
+}
+
+interface BomAuditSnapshot {
+  id?: number;
+  itemId?: number;
+  itemName?: string;
+  itemType?: string;
+  groupId?: number | null;
+  groupName?: string | null;
+  qty?: number;
+}
+
+function parseAuditSnapshot(value?: string | null): BomAuditSnapshot | null {
+  if (!value) return null;
+  try {
+    const snapshot = JSON.parse(value) as Record<string, unknown>;
+    return {
+      id: Number(snapshot.id ?? snapshot.Id) || undefined,
+      itemId: Number(snapshot.itemId ?? snapshot.ItemId) || undefined,
+      itemName: String(snapshot.itemName ?? snapshot.ItemName ?? '') || undefined,
+      itemType: String(snapshot.itemType ?? snapshot.ItemType ?? '') || undefined,
+      groupId: Number(snapshot.groupId ?? snapshot.GroupId) || null,
+      groupName: String(snapshot.groupName ?? snapshot.GroupName ?? '') || null,
+      qty: Number(snapshot.qty ?? snapshot.Qty),
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface BOMConsolidateDetails {
@@ -96,84 +157,6 @@ function getItemStatus(item: BOMConsolidateItem): 'completed' | 'pending' | 'in 
   if (totalAllotted === 0) return 'pending';
   return 'in progress';
 }
-
-const mockChangeHistory: ChangeHistory[] = [
-  {
-    id: "1",
-    transactionId: "001",
-    updatedBy: "John Doe",
-    updateDate: "2024-01-15T14:30:00Z",
-    changesCount: 3,
-    changes: [
-      {
-        id: "c1",
-        action: "updated",
-        materialName: "Cement",
-        field: "Required Quantity",
-        oldValue: 45,
-        newValue: 50,
-        unit: "bags"
-      },
-      {
-        id: "c2",
-        action: "updated",
-        materialName: "Steel Rebar",
-        field: "Purchased",
-        oldValue: 45,
-        newValue: 50,
-        unit: "kg"
-      },
-      {
-        id: "c3",
-        action: "added",
-        materialName: "MAXIMA VERTICAL 2.5 MTR",
-        newValue: 15,
-        unit: "pieces"
-      }
-    ]
-  },
-  {
-    id: "2",
-    transactionId: "002",
-    updatedBy: "Jane Smith",
-    updateDate: "2024-01-12T09:15:00Z",
-    changesCount: 2,
-    changes: [
-      {
-        id: "c4",
-        action: "added",
-        materialName: "Sand",
-        newValue: 75,
-        unit: "cubic meters"
-      },
-      {
-        id: "c5",
-        action: "deleted",
-        materialName: "Gravel",
-        oldValue: 30,
-        unit: "cubic meters"
-      }
-    ]
-  },
-  {
-    id: "3",
-    transactionId: "003",
-    updatedBy: "Mike Johnson",
-    updateDate: "2024-01-11T16:45:00Z",
-    changesCount: 1,
-    changes: [
-      {
-        id: "c6",
-        action: "updated",
-        materialName: "Concrete Blocks",
-        field: "Inhouse",
-        oldValue: 5,
-        newValue: 0,
-        unit: "pieces"
-      }
-    ]
-  }
-];
 
 type SortField = 'item_name' | 'unit' | 'total_qty' | 'total_allotted_qty' | 'total_purchased_qty' | 'total_fabrication_qty' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -222,10 +205,110 @@ export default function BOMConsolidateDetails() {
   // Change history modal states
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<ChangeHistory | null>(null);
+  const [changeHistory, setChangeHistory] = useState<ChangeHistory[]>([]);
 
-  const handleViewChanges = (transaction: ChangeHistory) => {
-    setSelectedTransaction(transaction);
-    setIsChangeModalOpen(true);
+  useEffect(() => {
+    if (!bomId) return;
+    bomService.getAuditHistory(bomId).then((operations: BomAuditOperation[]) => {
+      setChangeHistory(operations.map(operation => ({
+        id: operation.auditOperationId,
+        auditOperationId: operation.auditOperationId,
+        transactionId: operation.auditOperationId,
+        updatedBy: operation.modifiedByUser || 'Unknown user',
+        updateDate: operation.auditDate,
+        changesCount: operation.changesCount,
+        changes: operation.changes?.map((change, index) => ({
+          id: `${change.itemId ?? change.itemName}:${index}`,
+          action: change.changeType.toLowerCase() === 'added'
+            ? 'added'
+            : change.changeType.toLowerCase() === 'removed'
+              ? 'deleted'
+              : 'updated',
+          materialName: change.itemName,
+          groupName: change.groupName ?? undefined,
+          oldQty: change.previousQuantity == null ? null : String(change.previousQuantity),
+          newQty: change.updatedQuantity == null ? null : String(change.updatedQuantity),
+          otherChanges: [],
+        })),
+      })));
+    }).catch(() => {
+      toast.error('Failed to load BOM change history');
+      setChangeHistory([]);
+    });
+  }, [bomId]);
+
+  const handleViewChanges = async (transaction: ChangeHistory) => {
+    if (!bomId) return;
+    if (transaction.changes) {
+      setSelectedTransaction({
+        ...transaction,
+        changes: [...transaction.changes].sort((first, second) =>
+          (first.groupName ?? '').localeCompare(second.groupName ?? '', undefined, { sensitivity: 'base' })
+          || first.materialName.localeCompare(second.materialName, undefined, { sensitivity: 'base' })
+        ),
+      });
+      setIsChangeModalOpen(true);
+      return;
+    }
+
+    try {
+      const records: BomAuditRecord[] = await bomService.getAuditOperationDetails(bomId, transaction.auditOperationId);
+      const changes: ChangeItem[] = [];
+      for (const record of records) {
+        const description = record.description || '';
+        const changeType = record.changeType.toLowerCase();
+        const oldSnapshot = parseAuditSnapshot(record.oldValue);
+        const newSnapshot = parseAuditSnapshot(record.newValue);
+        const snapshot = oldSnapshot ?? newSnapshot;
+        const context = description.match(/^(?:Added|Deleted) (.+?)(?: \(quantity|\.$)/i)?.[1]
+          ?? description.match(/^((?:item|group|component) .+?): /i)?.[1];
+        const componentContext = context?.match(/^component (.+?) in group (.+)$/i);
+        const genericContext = context?.match(/^(?:item|group) (.+)$/i);
+        const groupContext = description.match(/^component .+? in group (.+?):/i)?.[1];
+        const itemName = snapshot?.itemName
+          ?? componentContext?.[1]
+          ?? (genericContext?.[0].toLowerCase().startsWith('group ') ? `Group ${genericContext[1]}` : genericContext?.[1])
+          ?? context
+          ?? record.fieldName;
+        const groupName = snapshot?.groupName ?? componentContext?.[2] ?? groupContext;
+        const itemIdentity = record.bomItemId ?? snapshot?.id ?? `${groupName ?? ''}:${snapshot?.itemId ?? itemName}`;
+        const changeKey = `${itemIdentity}:${itemName}:${groupName ?? ''}`;
+        let itemChange = changes.find(change => change.id === changeKey);
+        if (!itemChange) {
+          itemChange = {
+            id: changeKey,
+            action: changeType === 'added' ? 'added' : changeType === 'deleted' ? 'deleted' : 'updated',
+            materialName: itemName,
+            groupName,
+            otherChanges: [],
+          };
+          changes.push(itemChange);
+        } else if (changeType === 'added' || changeType === 'deleted') {
+          itemChange.action = changeType;
+        }
+
+        if (record.fieldName.toLowerCase() === 'qty') {
+          itemChange.oldQty = record.oldValue ?? (changeType === 'deleted' ? String(oldSnapshot?.qty ?? '') : null);
+          itemChange.newQty = record.newValue ?? (changeType === 'added' ? String(newSnapshot?.qty ?? '') : null);
+        } else if (record.fieldName.toLowerCase() !== 'item' && record.fieldName.toLowerCase() !== 'group' && record.fieldName.toLowerCase() !== 'update') {
+          itemChange.otherChanges.push(`${record.fieldName}: ${record.oldValue ?? '—'} → ${record.newValue ?? '—'}`);
+        } else if (changeType === 'added' || changeType === 'deleted') {
+          const quantity = snapshot?.qty;
+          if (quantity !== undefined) {
+            itemChange.oldQty = changeType === 'deleted' ? String(quantity) : null;
+            itemChange.newQty = changeType === 'added' ? String(quantity) : null;
+          }
+        }
+      }
+      changes.sort((first, second) =>
+        (first.groupName ?? '').localeCompare(second.groupName ?? '', undefined, { sensitivity: 'base' })
+        || first.materialName.localeCompare(second.materialName, undefined, { sensitivity: 'base' })
+      );
+      setSelectedTransaction({ ...transaction, changes });
+      setIsChangeModalOpen(true);
+    } catch {
+      toast.error('Failed to load changes for this BOM update');
+    }
   };
 
   const items = bomData?.items ?? [];
@@ -637,7 +720,7 @@ export default function BOMConsolidateDetails() {
       )}
 
       {/* Change History Section */}
-      {(user?.role === 'Project Manager' || user?.role === 'Store Supervisor') && (
+      { (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -650,32 +733,29 @@ export default function BOMConsolidateDetails() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Transaction ID</TableHead>
+                  <TableHead>Update</TableHead>
                   <TableHead>Updated By</TableHead>
-                  <TableHead>Update Date</TableHead>
                   <TableHead className="text-center">Changes Count</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockChangeHistory.map((transaction) => (
+                {changeHistory.map((transaction) => (
                   <TableRow key={transaction.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{transaction.transactionId}</TableCell>
-                    <TableCell>{transaction.updatedBy}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium" title={transaction.auditOperationId}>
                       {new Date(transaction.updateDate).toLocaleString()}
+                      <span className="block text-xs font-normal text-muted-foreground">Update {transaction.auditOperationId.slice(0, 8)}</span>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="text-xs">
-                        {transaction.changesCount} items
-                      </Badge>
-                    </TableCell>
+                    <TableCell>{transaction.updatedBy}</TableCell>
+                    <TableCell>{transaction.changesCount} changes</TableCell>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewChanges(transaction)}
                         className="h-8 w-8 p-0"
+                        title="View update details"
+                        aria-label={`View details for update ${transaction.auditOperationId.slice(0, 8)}`}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -686,7 +766,7 @@ export default function BOMConsolidateDetails() {
             </Table>
           </div>
 
-          {mockChangeHistory.length === 0 && (
+          {changeHistory.length === 0 && (
             <div className="text-center py-12">
               <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No change history found</p>
@@ -701,7 +781,7 @@ export default function BOMConsolidateDetails() {
           open={isChangeModalOpen}
           onOpenChange={setIsChangeModalOpen}
           transactionId={selectedTransaction.transactionId}
-          changes={selectedTransaction.changes}
+          changes={selectedTransaction.changes ?? []}
           updatedBy={selectedTransaction.updatedBy}
           updateDate={selectedTransaction.updateDate}
         />

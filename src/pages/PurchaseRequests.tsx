@@ -30,12 +30,14 @@ import {
   ArrowUpDown,
   Package,
   X,
+  ShoppingCart,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { purchaseRequestSimpleFormSchema } from "@/lib/validations";
 import { purchaseRequestService } from "@/services/purchaseRequestService";
+import { purchaseOrderService } from "@/services/purchaseOrderService";
 import { itemService } from "@/services/itemService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -59,10 +61,22 @@ interface CatalogItem {
 /** Line in create/edit form */
 interface LineRow {
   key: string;
+  requestItemId?: number;
   itemId: string;
   itemName: string;
   unit?: string;
   quantity: number;
+}
+
+interface PurchaseOrderLine {
+  key: string;
+  requestItemId: number;
+  itemId: number;
+  itemName: string;
+  unit?: string;
+  price: number;
+  requestedQty: number;
+  allocatedQty: number;
 }
 
 /** Line item shown in View dialog (matches API line + status) */
@@ -73,13 +87,30 @@ export interface ViewLineItem {
   status: string;
 }
 
-function mapDetailItemsToViewLines(raw: any): ViewLineItem[] {
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr.map((it: any, i: number) => ({
-    name: it.name ?? `Item ${i + 1}`,
-    uom: it.uom,
-    qty: Number(it.qty ?? 0) || 0,
-    status: String(it.status ?? "Pending"),
+type ApiDetailItem = Record<string, unknown>;
+
+function isRecord(value: unknown): value is ApiDetailItem {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getDetailItems(raw: unknown): ApiDetailItem[] {
+  if (Array.isArray(raw)) return raw.filter(isRecord);
+  if (!isRecord(raw)) return [];
+  const items = raw.items ?? raw.Items ?? raw.lines;
+  return Array.isArray(items) ? items.filter(isRecord) : [];
+}
+
+function getDetailValue(item: ApiDetailItem, ...keys: string[]): unknown {
+  return keys.map((key) => item[key]).find((value) => value != null);
+}
+
+function mapDetailItemsToViewLines(raw: unknown): ViewLineItem[] {
+  const arr = getDetailItems(raw);
+  return arr.map((item, i) => ({
+    name: String(getDetailValue(item, "name", "itemName", "Name", "ItemName") ?? `Item ${i + 1}`),
+    uom: String(getDetailValue(item, "uom", "Uom", "UOM", "unit") ?? ""),
+    qty: Number(getDetailValue(item, "qty", "Qty", "quantity") ?? 0) || 0,
+    status: String(getDetailValue(item, "status", "Status") ?? "Pending"),
   }));
 }
 
@@ -131,12 +162,22 @@ export default function PurchaseRequests() {
   const [viewLineItems, setViewLineItems] = useState<ViewLineItem[]>([]);
   const [viewDetailLoading, setViewDetailLoading] = useState(false);
 
+  const [purchaseOrderOpen, setPurchaseOrderOpen] = useState(false);
+  const [purchaseOrderRequest, setPurchaseOrderRequest] = useState<PurchaseRequestRow | null>(null);
+  const [purchaseOrderLines, setPurchaseOrderLines] = useState<PurchaseOrderLine[]>([]);
+  const [purchaseOrderLoading, setPurchaseOrderLoading] = useState(false);
+  const [purchaseOrderSaving, setPurchaseOrderSaving] = useState(false);
+  const [purchaseOrderLoadError, setPurchaseOrderLoadError] = useState(false);
+
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseRequestRow | null>(null);
   const [editLineItems, setEditLineItems] = useState<LineRow[]>([]);
+  const [deletedEditLineIds, setDeletedEditLineIds] = useState<number[]>([]);
   const [editItemQuery, setEditItemQuery] = useState("");
   const [editCatalogOpen, setEditCatalogOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editDetailLoading, setEditDetailLoading] = useState(false);
+  const [editDetailError, setEditDetailError] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState<PurchaseRequestRow | null>(null);
@@ -258,7 +299,13 @@ export default function PurchaseRequests() {
     if (target === "create") {
       setLineItems((prev) => prev.filter((l) => l.key !== key));
     } else {
-      setEditLineItems((prev) => prev.filter((l) => l.key !== key));
+      const removed = editLineItems.find((line) => line.key === key);
+      setEditLineItems((prev) => prev.filter((line) => line.key !== key));
+      if (removed?.requestItemId != null) {
+        setDeletedEditLineIds((deleted) =>
+          deleted.includes(removed.requestItemId!) ? deleted : [...deleted, removed.requestItemId!]
+        );
+      }
     }
   };
 
@@ -388,12 +435,133 @@ export default function PurchaseRequests() {
     }
   };
 
+  const openPurchaseOrder = async (row: PurchaseRequestRow) => {
+    setPurchaseOrderRequest(row);
+    setPurchaseOrderOpen(true);
+    setPurchaseOrderLoading(true);
+    setPurchaseOrderLoadError(false);
+    setPurchaseOrderLines([]);
+    try {
+      const detail: any = await purchaseRequestService.getById(row.id);
+      const items = getDetailItems(detail?.data ?? detail);
+      const lines = items.map((item, index) => {
+        const requestItemId = Number(getDetailValue(item, "requestItemId", "RequestItemId"));
+        const itemId = Number(getDetailValue(item, "itemId", "ItemId"));
+        const requestedQty = Number(getDetailValue(item, "qty", "Qty", "quantity"));
+        const rawPrice = Number(getDetailValue(item, "price", "Price") ?? 0);
+        const unit = getDetailValue(item, "uom", "Uom", "UOM", "unit");
+        return {
+          key: String(requestItemId),
+          requestItemId,
+          itemId,
+          itemName: String(getDetailValue(item, "name", "itemName", "Name", "ItemName") ?? `Item ${index + 1}`),
+          unit: typeof unit === "string" ? unit : undefined,
+          price: Number.isFinite(rawPrice) ? rawPrice : 0,
+          requestedQty,
+          allocatedQty: requestedQty,
+        };
+      });
+      if (
+        lines.some(
+          (line) =>
+            !Number.isSafeInteger(line.requestItemId) ||
+            line.requestItemId <= 0 ||
+            !Number.isSafeInteger(line.itemId) ||
+            line.itemId <= 0 ||
+            !Number.isSafeInteger(line.requestedQty) ||
+            line.requestedQty < 0
+        )
+      ) {
+        throw new Error("Purchase request details are missing valid line IDs or quantities.");
+      }
+      setPurchaseOrderLines(lines);
+    } catch (err: any) {
+      setPurchaseOrderLoadError(true);
+      toast({
+        title: "Error",
+        description:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load purchase request items for order creation.",
+        variant: "destructive",
+      });
+    } finally {
+      setPurchaseOrderLoading(false);
+    }
+  };
+
+  const updatePurchaseOrderQty = (key: string, value: string) => {
+    setPurchaseOrderLines((lines) =>
+      lines.map((line) => {
+        if (line.key !== key) return line;
+        const quantity = Number.parseInt(value, 10);
+        return {
+          ...line,
+          allocatedQty: Math.min(
+            line.requestedQty,
+            Math.max(0, Number.isFinite(quantity) ? quantity : 0)
+          ),
+        };
+      })
+    );
+  };
+
+  const purchaseOrderGrossTotal = purchaseOrderLines.reduce(
+    (total, line) => total + line.price * line.allocatedQty,
+    0
+  );
+
+  const submitPurchaseOrder = async () => {
+    if (!purchaseOrderRequest || purchaseOrderLoading || purchaseOrderLoadError) return;
+    const items = purchaseOrderLines
+      .filter((line) => line.allocatedQty >= 1)
+      .map((line) => ({
+        requestItemId: line.requestItemId,
+        itemId: line.itemId,
+        allottedQty: line.allocatedQty,
+      }));
+
+    if (items.length === 0) {
+      toast({
+        title: "Validation",
+        description: "Allocate at least 1 unit to one item to create a purchase order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPurchaseOrderSaving(true);
+    try {
+      await purchaseOrderService.create({
+        purchaseRequestId: Number(purchaseOrderRequest.id),
+        name: `PO-${purchaseOrderRequest.prNo}`,
+        items,
+      });
+      toast({ title: "Success", description: "Purchase order created successfully." });
+      setPurchaseOrderOpen(false);
+      setPurchaseOrderRequest(null);
+      setPurchaseOrderLines([]);
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description:
+          err?.response?.data?.message || err?.message || "Failed to create purchase order.",
+        variant: "destructive",
+      });
+    } finally {
+      setPurchaseOrderSaving(false);
+    }
+  };
+
   const openEdit = async (row: PurchaseRequestRow) => {
     setEditing(row);
     setEditOpen(true);
     setSavingEdit(false);
+    setEditDetailLoading(true);
+    setEditDetailError(false);
     editForm.reset({ requestName: row.name, description: "" });
     setEditLineItems([]);
+    setDeletedEditLineIds([]);
     setEditItemQuery("");
     try {
       const detail: any = await purchaseRequestService.getById(row.id);
@@ -402,30 +570,73 @@ export default function PurchaseRequests() {
         requestName: raw?.name ?? raw?.requestName ?? row.name,
         description: raw?.description ?? raw?.Description ?? "",
       });
-      const items = raw?.items ?? raw?.Items ?? raw?.lines ?? [];
-      const arr = Array.isArray(items) ? items : [];
+      const arr = getDetailItems(raw);
       setEditLineItems(
-        arr.map((it: any, i: number) => ({
-          key: String(it.itemId ?? it.id ?? i),
-          itemId: String(it.itemId ?? it.id ?? i),
-          itemName:
-            it.itemName ?? it.name ?? it.ItemName ?? `Item ${it.itemId ?? i}`,
-          unit: it.unit ?? it.uom,
-          quantity: Number(it.quantity ?? it.qty ?? 0) || 0,
-        }))
+        arr.map((item, i) => {
+          const requestItemId = getDetailValue(item, "requestItemId", "RequestItemId");
+          const itemId = getDetailValue(item, "itemId", "ItemId", "id", "Id");
+          const unit = getDetailValue(item, "unit", "uom", "Uom", "UOM");
+          return {
+            key: String(requestItemId ?? `existing-${itemId ?? i}`),
+            requestItemId:
+              requestItemId == null ? undefined : Number(requestItemId),
+            itemId: String(itemId ?? ""),
+            itemName: String(
+              getDetailValue(item, "itemName", "name", "ItemName", "Name") ?? `Item ${i + 1}`
+            ),
+            unit: typeof unit === "string" ? unit : undefined,
+            quantity: Number(getDetailValue(item, "quantity", "qty", "Qty") ?? 0) || 0,
+          };
+        })
       );
-    } catch {
+      if (
+        arr.some((item) => {
+          const itemId = getDetailValue(item, "itemId", "ItemId", "id", "Id");
+          const requestItemId = getDetailValue(item, "requestItemId", "RequestItemId");
+          return (
+            itemId == null ||
+            String(itemId).trim() === "" ||
+            requestItemId == null ||
+            !Number.isSafeInteger(Number(requestItemId)) ||
+            Number(requestItemId) <= 0
+          );
+        })
+      ) {
+        throw new Error("The purchase request details did not include line item identifiers.");
+      }
+    } catch (err: unknown) {
       editForm.reset({ requestName: row.name, description: "" });
+      setEditLineItems([]);
+      setEditDetailError(true);
       toast({
-        title: "Warning",
-        description: "Could not load full details; edit name and add items.",
+        title: "Error",
+        description:
+          (isRecord(err) &&
+          isRecord(err.response) &&
+          isRecord(err.response.data) &&
+          typeof err.response.data.message === "string"
+            ? err.response.data.message
+            : err instanceof Error
+              ? err.message
+              : undefined) ||
+          "Could not load purchase request items. Please close and try again.",
         variant: "destructive",
       });
+    } finally {
+      setEditDetailLoading(false);
     }
   };
 
   const onEditSubmit = editForm.handleSubmit(async (data) => {
     if (!editing) return;
+    if (editDetailLoading || editDetailError) {
+      toast({
+        title: "Error",
+        description: "Purchase request items could not be loaded. Close and reopen the editor before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
     const validLines = editLineItems.filter((l) => l.quantity > 0);
     if (editLineItems.length === 0) {
       toast({
@@ -443,12 +654,25 @@ export default function PurchaseRequests() {
       });
       return;
     }
+    if (validLines.some((line) => !Number.isSafeInteger(Number(line.itemId)) || Number(line.itemId) <= 0)) {
+      toast({
+        title: "Validation",
+        description: "One or more items have an invalid identifier. Reload the request and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSavingEdit(true);
     try {
       await purchaseRequestService.update(editing.id, {
         name: data.requestName,
         description: data.description || undefined,
-        items: validLines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+        items: validLines.map((line) => ({
+          requestItemId: line.requestItemId,
+          itemId: Number(line.itemId),
+          quantity: line.quantity,
+        })),
+        deletedRequestItemIds: deletedEditLineIds,
       });
       toast({ title: "Success", description: "Purchase request updated." });
       setEditOpen(false);
@@ -475,9 +699,21 @@ export default function PurchaseRequests() {
       setDeleting(null);
       fetchList();
     } catch (err: any) {
+      const responseData = err?.response?.data;
+      const responseMessage =
+        typeof responseData === "string"
+          ? responseData.trim()
+          : typeof responseData?.message === "string"
+            ? responseData.message.trim()
+            : "";
+      const containsExceptionDetails =
+        /exception|stack trace|innerexception|(?:^|\n)\s*at\s+[\w.$+<>]+\(/i.test(responseMessage);
       toast({
         title: "Error",
-        description: err?.response?.data?.message || err?.message || "Failed to delete",
+        description:
+          responseMessage && !containsExceptionDetails
+            ? responseMessage
+            : "Failed to delete purchase request.",
         variant: "destructive",
       });
     } finally {
@@ -779,6 +1015,16 @@ export default function PurchaseRequests() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            onClick={() => openPurchaseOrder(row)}
+                            aria-label="Generate purchase order"
+                            title="Generate purchase order"
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={() => {
                               setDeleting(row);
                               setDeleteOpen(true);
@@ -929,14 +1175,131 @@ export default function PurchaseRequests() {
         </DialogContent>
       </Dialog>
 
+      {/* Generate purchase order */}
+      <Dialog
+        open={purchaseOrderOpen}
+        onOpenChange={(open) => {
+          if (!purchaseOrderSaving) {
+            setPurchaseOrderOpen(open);
+            if (!open) {
+              setPurchaseOrderRequest(null);
+              setPurchaseOrderLines([]);
+              setPurchaseOrderLoadError(false);
+            }
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generate Purchase Order</DialogTitle>
+          </DialogHeader>
+          {purchaseOrderRequest && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                <p><span className="text-muted-foreground">Purchase Request:</span> {purchaseOrderRequest.prNo}</p>
+                <p><span className="text-muted-foreground">Name:</span> {purchaseOrderRequest.name}</p>
+              </div>
+              {purchaseOrderLoading ? (
+                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                  <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-6 w-6" />
+                  <span className="ml-3">Loading requested items…</span>
+                </div>
+              ) : purchaseOrderLoadError ? (
+                <p className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  Request items could not be loaded. Close this dialog and try again.
+                </p>
+              ) : purchaseOrderLines.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No items are available for this purchase request.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>UOM</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Requested Qty</TableHead>
+                        <TableHead className="w-40 text-right">Allocate Qty</TableHead>
+                        <TableHead className="text-right">Total Price</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchaseOrderLines.map((line) => (
+                        <TableRow key={line.key}>
+                          <TableCell className="font-medium">{line.itemName}</TableCell>
+                          <TableCell>{line.unit ?? "—"}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.requestedQty}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={line.requestedQty}
+                              step={1}
+                              className="ml-auto w-28 text-right"
+                              value={line.allocatedQty}
+                              disabled={purchaseOrderSaving}
+                              onChange={(event) => updatePurchaseOrderQty(line.key, event.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {(line.price * line.allocatedQty).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-end gap-8 border-t bg-muted/30 px-4 py-3 text-sm font-semibold">
+                    <span>Gross Total</span>
+                    <span className="min-w-24 text-right tabular-nums">
+                      {purchaseOrderGrossTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPurchaseOrderOpen(false)}
+                  disabled={purchaseOrderSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={submitPurchaseOrder}
+                  disabled={purchaseOrderSaving || purchaseOrderLoading || purchaseOrderLoadError}
+                >
+                  {purchaseOrderSaving ? "Creating..." : "Create Purchase Order"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Edit */}
       <Dialog open={editOpen} onOpenChange={(open) => { if (!savingEdit) setEditOpen(open); }}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Purchase Request</DialogTitle>
           </DialogHeader>
+          {editDetailLoading && (
+            <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+              <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-5 w-5" />
+              <span className="ml-3">Loading request items…</span>
+            </div>
+          )}
+          {editDetailError && (
+            <p className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              Request items could not be loaded. Close this dialog and try again; changes cannot be saved.
+            </p>
+          )}
           <Form {...editForm}>
-            <form onSubmit={onEditSubmit} className="space-y-4">
+            <form onSubmit={onEditSubmit} className="space-y-4" aria-busy={editDetailLoading}>
               <FormField
                 control={editForm.control}
                 name="requestName"
@@ -944,7 +1307,7 @@ export default function PurchaseRequests() {
                   <FormItem>
                     <FormLabel>Request Name *</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} disabled={editDetailLoading || editDetailError || savingEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -957,7 +1320,7 @@ export default function PurchaseRequests() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea rows={3} {...field} />
+                      <Textarea rows={3} {...field} disabled={editDetailLoading || editDetailError || savingEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -971,6 +1334,7 @@ export default function PurchaseRequests() {
                     className="pl-9"
                     placeholder="Search items..."
                     value={editItemQuery}
+                    disabled={editDetailLoading || editDetailError || savingEdit}
                     onChange={(e) => {
                       setEditItemQuery(e.target.value);
                       setEditCatalogOpen(true);
@@ -1018,6 +1382,7 @@ export default function PurchaseRequests() {
                               min={0}
                               className="ml-auto w-24"
                               value={line.quantity}
+                              disabled={editDetailLoading || editDetailError || savingEdit}
                               onChange={(e) =>
                                 updateQty(line.key, parseFloat(e.target.value) || 0, "edit")
                               }
@@ -1028,6 +1393,7 @@ export default function PurchaseRequests() {
                               type="button"
                               variant="ghost"
                               size="icon"
+                              disabled={editDetailLoading || editDetailError || savingEdit}
                               onClick={() => removeLine(line.key, "edit")}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -1043,8 +1409,8 @@ export default function PurchaseRequests() {
                 <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={savingEdit}>
-                  {savingEdit ? "Saving..." : "Save changes"}
+                <Button type="submit" disabled={savingEdit || editDetailLoading || editDetailError}>
+                  {savingEdit ? "Saving..." : editDetailLoading ? "Loading..." : "Save changes"}
                 </Button>
               </div>
             </form>

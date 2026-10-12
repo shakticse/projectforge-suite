@@ -59,8 +59,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      {/* <BrowserRouter basename="/projectforge-suite/"> */}
-      <BrowserRouter basename="/">
+      <BrowserRouter basename="/projectforge-suite/">
+      {/* <BrowserRouter basename="/"> */}
       <NavigationRegistrar />
         <Routes>
           {/* Auth Routes */}

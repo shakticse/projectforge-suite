@@ -12,11 +12,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Check, ChevronsUpDown, Edit } from "lucide-react";
+import { Plus, Search, Trash2, ChevronLeft, ChevronRight, ArrowUpDown, Check, ChevronsUpDown, Edit, Hammer } from "lucide-react";
 import { toast } from "sonner";
 import * as yup from "yup";
 import { serviceListService } from "@/services/serviceListService";
 import { workOrderService } from "@/services/workOrderService";
+import { workOrderGenerationService } from "@/services/workOrderGenerationService";
 import { projectService } from "@/services/projectService";
 import { formatDateTime } from "@/lib/utils";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -51,6 +52,17 @@ interface ServiceOption {
   uom?: string;
 }
 
+interface WorkOrderGenerationLine {
+  key: string;
+  workOrderItemId: number;
+  itemId: number;
+  itemName: string;
+  category?: string;
+  uom?: string;
+  requestedQty: number;
+  allottedQty: number;
+}
+
 const workOrderRequestSchema = yup.object({
   project: yup.string().required("Project is required"),
   description: yup.string().nullable(),
@@ -82,6 +94,12 @@ export default function WorkOrderRequests() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [popupMessage, setPopupMessage] = useState<{ type: 'success' | 'error' | null; text: string }>({ type: null, text: '' });
   const [deletePopupMessage, setDeletePopupMessage] = useState<{ type: 'error' | null; text: string }>({ type: null, text: '' });
+  const [generationOpen, setGenerationOpen] = useState(false);
+  const [generationRequest, setGenerationRequest] = useState<WorkOrderRequest | null>(null);
+  const [generationLines, setGenerationLines] = useState<WorkOrderGenerationLine[]>([]);
+  const [generationLoading, setGenerationLoading] = useState(false);
+  const [generationSaving, setGenerationSaving] = useState(false);
+  const [generationError, setGenerationError] = useState(false);
 
   const form = useForm({
     resolver: yupResolver(workOrderRequestSchema),
@@ -298,6 +316,111 @@ export default function WorkOrderRequests() {
     setIsDeleteOpen(true);
   };
 
+  const handleGenerateWorkOrder = async (request: WorkOrderRequest) => {
+    setGenerationRequest(request);
+    setGenerationOpen(true);
+    setGenerationLoading(true);
+    setGenerationError(false);
+    setGenerationLines([]);
+    try {
+      const details: any = await workOrderService.getById(request.id);
+      const rawItems = Array.isArray(details?.items) ? details.items : [];
+      const lines = rawItems.map((item: any, index: number) => {
+        const workOrderItemId = Number(item.id ?? item.Id);
+        const itemId = Number(item.itemId ?? item.ItemId);
+        const requestedQty = Number(item.qty ?? item.Qty);
+        const service = servicesOptions.find(
+          (option) => String(option.id) === String(itemId)
+        );
+        return {
+          key: String(workOrderItemId || index),
+          workOrderItemId,
+          itemId,
+          itemName: item.itemName ?? item.ItemName ?? service?.name ?? `Item ${itemId}`,
+          category: item.category ?? item.Category ?? service?.category ?? "",
+          uom: item.uom ?? item.Uom ?? item.UOM ?? service?.uom ?? "",
+          requestedQty,
+          allottedQty: requestedQty,
+        };
+      });
+      if (
+        lines.some(
+          (line) =>
+            !Number.isSafeInteger(line.workOrderItemId) ||
+            line.workOrderItemId <= 0 ||
+            !Number.isSafeInteger(line.itemId) ||
+            line.itemId <= 0 ||
+            !Number.isSafeInteger(line.requestedQty) ||
+            line.requestedQty < 0
+        )
+      ) {
+        throw new Error("Work request items are missing valid row IDs or requested quantities.");
+      }
+      setGenerationLines(lines);
+    } catch (error: any) {
+      setGenerationError(true);
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to load work request items."
+      );
+    } finally {
+      setGenerationLoading(false);
+    }
+  };
+
+  const updateGenerationQty = (key: string, value: string) => {
+    setGenerationLines((lines) =>
+      lines.map((line) => {
+        if (line.key !== key) return line;
+        const qty = Number.parseInt(value, 10);
+        return {
+          ...line,
+          allottedQty: Math.min(
+            line.requestedQty,
+            Math.max(0, Number.isFinite(qty) ? qty : 0)
+          ),
+        };
+      })
+    );
+  };
+
+  const submitGeneration = async () => {
+    if (!generationRequest || generationLoading || generationError) return;
+    const items = generationLines
+      .filter((line) => line.allottedQty >= 1)
+      .map((line) => ({
+        workOrderItemId: line.workOrderItemId,
+        itemId: line.itemId,
+        allottedQty: line.allottedQty,
+      }));
+
+    if (items.length === 0) {
+      toast.error("Allocate at least 1 unit to one item to generate a work order.");
+      return;
+    }
+
+    setGenerationSaving(true);
+    try {
+      await workOrderGenerationService.create({
+        workOrderId: Number(generationRequest.id),
+        items,
+      });
+      toast.success("Work order generated successfully.");
+      setGenerationOpen(false);
+      setGenerationRequest(null);
+      setGenerationLines([]);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to generate work order."
+      );
+    } finally {
+      setGenerationSaving(false);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deletingRequest) return;
     setIsDeleting(true);
@@ -452,7 +575,7 @@ export default function WorkOrderRequests() {
                             <TableRow>
                               <TableHead className="w-16">Row #</TableHead>
                               <TableHead>Item</TableHead>
-                              <TableHead className="hidden md:table-cell">Category</TableHead>
+                              <TableHead>Category</TableHead>
                               <TableHead className="hidden md:table-cell">UOM</TableHead>
                               <TableHead className="w-32">Quantity</TableHead>
                               <TableHead className="w-16">Action</TableHead>
@@ -606,6 +729,100 @@ export default function WorkOrderRequests() {
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={generationOpen}
+          onOpenChange={(nextOpen) => {
+            if (generationSaving) return;
+            setGenerationOpen(nextOpen);
+            if (!nextOpen) {
+              setGenerationRequest(null);
+              setGenerationLines([]);
+              setGenerationError(false);
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Generate Work Order</DialogTitle>
+            </DialogHeader>
+            {generationRequest && (
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                  <p><span className="text-muted-foreground">Work Request:</span> {generationRequest.requestNumber || generationRequest.id}</p>
+                  <p><span className="text-muted-foreground">Project:</span> {generationRequest.projectName || "—"}</p>
+                </div>
+                {generationLoading ? (
+                  <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                    <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-6 w-6" />
+                    <span className="ml-3">Loading requested items…</span>
+                  </div>
+                ) : generationError ? (
+                  <p className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                    Work request items could not be loaded. Close this dialog and try again.
+                  </p>
+                ) : generationLines.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No items are available for this work request.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item</TableHead>
+                          <TableHead className="hidden md:table-cell">Category</TableHead>
+                          <TableHead>UOM</TableHead>
+                          <TableHead className="text-right">Requested Qty</TableHead>
+                          <TableHead className="w-40 text-right">Allocate Qty</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {generationLines.map((line) => (
+                          <TableRow key={line.key}>
+                            <TableCell className="font-medium">{line.itemName}</TableCell>
+                            <TableCell>{line.category ?? "—"}</TableCell>
+                            <TableCell>{line.uom ?? "—"}</TableCell>
+                            <TableCell className="text-right tabular-nums">{line.requestedQty}</TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={line.requestedQty}
+                                step={1}
+                                className="ml-auto w-28 text-right"
+                                value={line.allottedQty}
+                                disabled={generationSaving}
+                                onChange={(event) => updateGenerationQty(line.key, event.target.value)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setGenerationOpen(false)}
+                    disabled={generationSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={submitGeneration}
+                    disabled={generationSaving || generationLoading || generationError}
+                  >
+                    {generationSaving ? "Generating..." : "Generate Work Order"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
@@ -774,6 +991,15 @@ export default function WorkOrderRequests() {
                           title="Edit Work Request"
                         >
                           <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleGenerateWorkOrder(request)}
+                          title="Generate Work Order"
+                          aria-label="Generate Work Order"
+                        >
+                          <Hammer className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"

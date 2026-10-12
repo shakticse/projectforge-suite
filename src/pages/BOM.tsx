@@ -343,7 +343,9 @@ export default function BOM() {
               availableStock: m.availableStock,
               itemType: m.itemType,
               ...(m.itemType === 'miscellaneous' && { customName: m.customName }),
-              ...(m.itemType === 'child' && { parentId: m.parentId }),
+              ...(m.itemType === 'child' && {
+                parentId: materials.find(parent => parent.id == m.parentId)?.materialId,
+              }),
               ...(m.expression && { expression: m.expression }),
               ...(m.min_qty !== undefined && { min_qty: m.min_qty }),
               ...(m.perunit_qty !== undefined && { perunit_qty: m.perunit_qty })
