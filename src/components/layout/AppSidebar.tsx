@@ -63,7 +63,7 @@ const getMenuItems = (userRole: string) => {
     { title: "Users", url: "/users", icon: Users },
     { title: "Role Management", url: "/role-management", icon: Shield },
     { title: "Change Request", url: "/", icon: PencilLineIcon },
-    { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+    { title: "Project Status Report", url: "/project-report", icon: ChartBarStackedIcon },
     { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
     { title: "Query/Issue Log", url: "/query-issue-log", icon: FileQuestionIcon },
     { title: "Reports", url: "/reports", icon: BarChart3 },
@@ -96,7 +96,7 @@ const getMenuItems = (userRole: string) => {
     const arr = [
       { title: "Projects", url: "/projects", icon: Activity },
       { title: "Users", url: "/users", icon: Activity },
-      { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+      { title: "Project Status Report", url: "/project-report", icon: ChartBarStackedIcon },
       { title: "Measurment Report", url: "/", icon: PencilRulerIcon },
       { title: "Vendors", url: "/vendors", icon: Building2 },
       { title: "Change Request", url: "/", icon: PencilLineIcon },
@@ -128,7 +128,7 @@ const getMenuItems = (userRole: string) => {
         { title: "Vehicle Request", url: "/vehicle-request", icon: Truck },
         { title: "Users", url: "/users", icon: Users },
         { title: "Role Management", url: "/role-management", icon: Shield },
-        { title: "Project Status Report", url: "/", icon: ChartBarStackedIcon },
+        { title: "Project Status Report", url: "/project-report", icon: ChartBarStackedIcon },
     ];
     arr.forEach(item => {
       const index = baseItems.findIndex(i => i.title === item.title);

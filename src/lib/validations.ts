@@ -1,4 +1,5 @@
 import * as yup from 'yup';
+import { z } from 'zod';
 
 // Auth validation schemas
 export const loginSchema = yup.object({
@@ -51,14 +52,18 @@ export const userSchema = yup.object({
 });
 
 // Vendor validation schema
-export const vendorSchema = yup.object({
-  name: yup.string().required('Vendor name is required'),
-  email: yup.string().email('Invalid email').required('Email is required'),
-  phone: yup.string().required('Phone is required'),
-  address: yup.string().required('Address is required'),
-  contactPerson: yup.string().required('Contact person is required'),
-  status: yup.string().oneOf(['Active', 'Inactive']).required('Status is required'),
-  isPreferred: yup.boolean().default(false),
+export const vendorSchema = z.object({
+  name: z.string().trim().min(1, 'Vendor name is required'),
+  email: z.string().trim().email('Invalid email'),
+  phone: z.string().trim().regex(/^[0-9+\-()\s]{7,20}$/, 'Enter a valid phone number'),
+  address: z.string().trim().min(1, 'Address is required'),
+  city: z.string().trim().min(1, 'City is required'),
+  state: z.string().trim().min(1, 'State is required'),
+  zip: z.string().trim().min(1, 'ZIP / postal code is required'),
+  gstNumber: z.string().optional(),
+  contactPerson: z.string().trim().min(1, 'Contact person is required'),
+  status: z.enum(['Active', 'Inactive'], { required_error: 'Status is required' }),
+  isPreferred: z.boolean(),
 });
 
 // BOM validation schema

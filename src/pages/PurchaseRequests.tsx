@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -39,6 +41,9 @@ import { purchaseRequestSimpleFormSchema } from "@/lib/validations";
 import { purchaseRequestService } from "@/services/purchaseRequestService";
 import { purchaseOrderService } from "@/services/purchaseOrderService";
 import { itemService } from "@/services/itemService";
+import { projectService } from "@/services/projectService";
+import { storeService } from "@/services/storeService";
+import { vendorService, type Vendor } from "@/services/vendorService";
 import { useToast } from "@/hooks/use-toast";
 
 /** Normalized row for the list table */
@@ -74,9 +79,23 @@ interface PurchaseOrderLine {
   itemId: number;
   itemName: string;
   unit?: string;
-  price: number;
+  referencePrice: number;
+  vendorPrice: number;
   requestedQty: number;
+  pendingQty: number;
   allocatedQty: number;
+}
+
+interface ProjectOption {
+  id: number;
+  name: string;
+  address: string;
+}
+
+interface StoreOption {
+  id: number;
+  name: string;
+  address: string;
 }
 
 /** Line item shown in View dialog (matches API line + status) */
@@ -168,6 +187,15 @@ export default function PurchaseRequests() {
   const [purchaseOrderLoading, setPurchaseOrderLoading] = useState(false);
   const [purchaseOrderSaving, setPurchaseOrderSaving] = useState(false);
   const [purchaseOrderLoadError, setPurchaseOrderLoadError] = useState(false);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [deliveryLocationType, setDeliveryLocationType] = useState<"Project" | "Store">("Project");
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [purchaseOrderDueDate, setPurchaseOrderDueDate] = useState("");
+  const [purchaseOrderTerms, setPurchaseOrderTerms] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseRequestRow | null>(null);
@@ -435,20 +463,70 @@ export default function PurchaseRequests() {
     }
   };
 
-  const openPurchaseOrder = async (row: PurchaseRequestRow) => {
+  const openPurchaseOrder = async (row: PurchaseRequestRow, preserveSelections = false) => {
     setPurchaseOrderRequest(row);
     setPurchaseOrderOpen(true);
     setPurchaseOrderLoading(true);
     setPurchaseOrderLoadError(false);
     setPurchaseOrderLines([]);
+    if (!preserveSelections) {
+      setSelectedVendorId("");
+      setSelectedProjectId("");
+      setDeliveryLocationType("Project");
+      setSelectedStoreId("");
+      setPurchaseOrderDueDate("");
+      setPurchaseOrderTerms("");
+    }
     try {
-      const detail: any = await purchaseRequestService.getById(row.id);
+      const [detail, vendorData, projectData, storeData] = await Promise.all([
+        purchaseRequestService.getById(row.id),
+        vendorService.getAll(),
+        projectService.getAllProjects(),
+        storeService.getAllStores(),
+      ]);
+      const vendorList = Array.isArray(vendorData) ? vendorData : [];
+      setVendors(vendorList);
+
+      const projectRows: unknown[] = Array.isArray(projectData)
+        ? projectData
+        : isRecord(projectData) && Array.isArray(projectData.data) ? projectData.data : [];
+      setProjects(projectRows.filter(isRecord).flatMap((project) => {
+        const id = Number(getDetailValue(project, "id", "Id", "projectId", "ProjectId"));
+        const name = getDetailValue(project, "projectName", "ProjectName", "name", "Name");
+        const address = [
+          getDetailValue(project, "address", "Address"),
+          getDetailValue(project, "state", "State"),
+          getDetailValue(project, "pincode", "Pincode", "zip", "Zip"),
+        ].filter((part) => part != null && String(part).trim()).map(String).join(", ");
+        return Number.isSafeInteger(id) && id > 0
+          ? [{ id, name: String(name ?? `Project ${id}`), address: String(address ?? "") }]
+          : [];
+      }));
+
+      const storeRows: unknown[] = Array.isArray(storeData)
+        ? storeData
+        : isRecord(storeData) && Array.isArray(storeData.data) ? storeData.data : [];
+      setStores(storeRows.filter(isRecord).flatMap((store) => {
+        const id = Number(getDetailValue(store, "id", "Id", "storeId", "StoreId"));
+        const name = getDetailValue(store, "storeName", "StoreName", "store_name", "name", "Name");
+        const address = [
+          getDetailValue(store, "storeAddress", "StoreAddress", "store_address"),
+          getDetailValue(store, "storeCity", "StoreCity", "store_city"),
+          getDetailValue(store, "storeState", "StoreState", "store_state"),
+          getDetailValue(store, "pincode", "Pincode", "zip", "Zip"),
+        ].filter((part) => part != null && String(part).trim()).map(String).join(", ");
+        return Number.isSafeInteger(id) && id > 0
+          ? [{ id, name: String(name ?? `Store ${id}`), address }]
+          : [];
+      }));
+
       const items = getDetailItems(detail?.data ?? detail);
       const lines = items.map((item, index) => {
         const requestItemId = Number(getDetailValue(item, "requestItemId", "RequestItemId"));
         const itemId = Number(getDetailValue(item, "itemId", "ItemId"));
         const requestedQty = Number(getDetailValue(item, "qty", "Qty", "quantity"));
-        const rawPrice = Number(getDetailValue(item, "price", "Price") ?? 0);
+        const pendingQty = Number(getDetailValue(item, "pendingQty", "PendingQty") ?? requestedQty);
+        const referencePrice = Number(getDetailValue(item, "price", "Price") ?? 0);
         const unit = getDetailValue(item, "uom", "Uom", "UOM", "unit");
         return {
           key: String(requestItemId),
@@ -456,9 +534,11 @@ export default function PurchaseRequests() {
           itemId,
           itemName: String(getDetailValue(item, "name", "itemName", "Name", "ItemName") ?? `Item ${index + 1}`),
           unit: typeof unit === "string" ? unit : undefined,
-          price: Number.isFinite(rawPrice) ? rawPrice : 0,
+          referencePrice: Number.isFinite(referencePrice) ? referencePrice : 0,
+          vendorPrice: 0,
           requestedQty,
-          allocatedQty: requestedQty,
+          pendingQty,
+          allocatedQty: pendingQty,
         };
       });
       if (
@@ -469,12 +549,15 @@ export default function PurchaseRequests() {
             !Number.isSafeInteger(line.itemId) ||
             line.itemId <= 0 ||
             !Number.isSafeInteger(line.requestedQty) ||
-            line.requestedQty < 0
+            line.requestedQty < 0 ||
+            !Number.isSafeInteger(line.pendingQty) ||
+            line.pendingQty < 0 ||
+            line.pendingQty > line.requestedQty
         )
       ) {
         throw new Error("Purchase request details are missing valid line IDs or quantities.");
       }
-      setPurchaseOrderLines(lines);
+      setPurchaseOrderLines(lines.filter((line) => line.pendingQty > 0));
     } catch (err: any) {
       setPurchaseOrderLoadError(true);
       toast({
@@ -498,7 +581,7 @@ export default function PurchaseRequests() {
         return {
           ...line,
           allocatedQty: Math.min(
-            line.requestedQty,
+            line.pendingQty,
             Math.max(0, Number.isFinite(quantity) ? quantity : 0)
           ),
         };
@@ -506,19 +589,47 @@ export default function PurchaseRequests() {
     );
   };
 
+  const updatePurchaseOrderPrice = (key: string, value: string) => {
+    const price = value === "" ? 0 : Number(value);
+    setPurchaseOrderLines((lines) =>
+      lines.map((line) => line.key === key
+        ? { ...line, vendorPrice: Number.isFinite(price) && price >= 0 ? price : 0 }
+        : line)
+    );
+  };
+
   const purchaseOrderGrossTotal = purchaseOrderLines.reduce(
-    (total, line) => total + line.price * line.allocatedQty,
+    (total, line) => total + line.vendorPrice * line.allocatedQty,
     0
   );
 
   const submitPurchaseOrder = async () => {
     if (!purchaseOrderRequest || purchaseOrderLoading || purchaseOrderLoadError) return;
+    if (!selectedVendorId || !selectedProjectId || (deliveryLocationType === "Store" && !selectedStoreId)) {
+      toast({
+        title: "Validation",
+        description: "Select a vendor, project, and delivery location before creating the purchase order.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!purchaseOrderDueDate) {
+      toast({
+        title: "Validation",
+        description: "Select a purchase order due date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const items = purchaseOrderLines
       .filter((line) => line.allocatedQty >= 1)
       .map((line) => ({
         requestItemId: line.requestItemId,
         itemId: line.itemId,
         allottedQty: line.allocatedQty,
+        vendorPrice: line.vendorPrice,
       }));
 
     if (items.length === 0) {
@@ -530,22 +641,38 @@ export default function PurchaseRequests() {
       return;
     }
 
+    if (items.some((item) => !Number.isFinite(item.vendorPrice) || item.vendorPrice <= 0)) {
+      toast({
+        title: "Validation",
+        description: "Enter a vendor price greater than zero for each item being ordered.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPurchaseOrderSaving(true);
     try {
       await purchaseOrderService.create({
         purchaseRequestId: Number(purchaseOrderRequest.id),
-        name: `PO-${purchaseOrderRequest.prNo}`,
+        vendorId: Number(selectedVendorId),
+        projectId: Number(selectedProjectId),
+        deliveryLocationType,
+        storeId: deliveryLocationType === "Store" ? Number(selectedStoreId) : undefined,
+        dueDate: purchaseOrderDueDate,
+        description: purchaseOrderTerms.trim() || undefined,
+        name: `PO-${purchaseOrderRequest.prNo}-${Date.now()}`,
         items,
       });
       toast({ title: "Success", description: "Purchase order created successfully." });
-      setPurchaseOrderOpen(false);
-      setPurchaseOrderRequest(null);
-      setPurchaseOrderLines([]);
+      await fetchList();
+      await openPurchaseOrder(purchaseOrderRequest, true);
     } catch (err: any) {
       toast({
         title: "Error",
         description:
-          err?.response?.data?.message || err?.message || "Failed to create purchase order.",
+          (typeof err?.response?.data === "string" ? err.response.data : err?.response?.data?.message) ||
+          err?.message ||
+          "Failed to create purchase order.",
         variant: "destructive",
       });
     } finally {
@@ -1017,7 +1144,8 @@ export default function PurchaseRequests() {
                             className="h-8 w-8"
                             onClick={() => openPurchaseOrder(row)}
                             aria-label="Generate purchase order"
-                            title="Generate purchase order"
+                            title={row.status.toLowerCase() === "completed" ? "All requested quantities are ordered" : "Generate purchase order"}
+                            disabled={row.status.toLowerCase() === "completed"}
                           >
                             <ShoppingCart className="h-4 w-4" />
                           </Button>
@@ -1199,6 +1327,96 @@ export default function PurchaseRequests() {
                 <p><span className="text-muted-foreground">Purchase Request:</span> {purchaseOrderRequest.prNo}</p>
                 <p><span className="text-muted-foreground">Name:</span> {purchaseOrderRequest.name}</p>
               </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Vendor *</Label>
+                  <Select value={selectedVendorId} onValueChange={setSelectedVendorId} disabled={purchaseOrderSaving || purchaseOrderLoading}>
+                    <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                    <SelectContent>
+                      {vendors.map((vendor) => (
+                        <SelectItem key={vendor.id} value={String(vendor.id)}>{vendor.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Project *</Label>
+                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId} disabled={purchaseOrderSaving || purchaseOrderLoading}>
+                    <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={String(project.id)}>{project.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="purchase-order-due-date">Due Date *</Label>
+                  <Input
+                    id="purchase-order-due-date"
+                    type="date"
+                    value={purchaseOrderDueDate}
+                    disabled={purchaseOrderSaving || purchaseOrderLoading}
+                    onChange={(event) => setPurchaseOrderDueDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery Location *</Label>
+                  <Select
+                    value={deliveryLocationType}
+                    onValueChange={(value: "Project" | "Store") => {
+                      setDeliveryLocationType(value);
+                      setSelectedStoreId("");
+                    }}
+                    disabled={purchaseOrderSaving || purchaseOrderLoading}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Choose delivery location" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Project">Selected project address</SelectItem>
+                      <SelectItem value="Store">Store</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {deliveryLocationType === "Store" ? (
+                  <div className="space-y-2">
+                    <Label>Store *</Label>
+                    <Select value={selectedStoreId} onValueChange={setSelectedStoreId} disabled={purchaseOrderSaving || purchaseOrderLoading}>
+                      <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                      <SelectContent>
+                        {stores.map((store) => (
+                          <SelectItem key={store.id} value={String(store.id)}>{store.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Delivery Address</Label>
+                    <div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                      {projects.find((project) => String(project.id) === selectedProjectId)?.address || "Select a project to view its address"}
+                    </div>
+                  </div>
+                )}
+                {deliveryLocationType === "Store" && selectedStoreId && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Delivery Address</Label>
+                    <div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                      {stores.find((store) => String(store.id) === selectedStoreId)?.address || "Address unavailable"}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="purchase-order-terms">Terms and Conditions</Label>
+                  <Textarea
+                    id="purchase-order-terms"
+                    rows={3}
+                    value={purchaseOrderTerms}
+                    disabled={purchaseOrderSaving || purchaseOrderLoading}
+                    onChange={(event) => setPurchaseOrderTerms(event.target.value)}
+                    placeholder="Enter terms and conditions for this purchase order"
+                  />
+                </div>
+              </div>
               {purchaseOrderLoading ? (
                 <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
                   <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-6 w-6" />
@@ -1210,7 +1428,7 @@ export default function PurchaseRequests() {
                 </p>
               ) : purchaseOrderLines.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  No items are available for this purchase request.
+                  All requested quantities have already been allocated to purchase orders.
                 </p>
               ) : (
                 <div className="overflow-x-auto rounded-md border">
@@ -1219,10 +1437,12 @@ export default function PurchaseRequests() {
                       <TableRow>
                         <TableHead>Item</TableHead>
                         <TableHead>UOM</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Item Price</TableHead>
                         <TableHead className="text-right">Requested Qty</TableHead>
+                        <TableHead className="text-right">Pending Qty</TableHead>
                         <TableHead className="w-40 text-right">Allocate Qty</TableHead>
-                        <TableHead className="text-right">Total Price</TableHead>
+                        <TableHead className="w-36 text-right">Vendor Price</TableHead>
+                        <TableHead className="text-right">Row Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1230,13 +1450,14 @@ export default function PurchaseRequests() {
                         <TableRow key={line.key}>
                           <TableCell className="font-medium">{line.itemName}</TableCell>
                           <TableCell>{line.unit ?? "—"}</TableCell>
-                          <TableCell className="text-right tabular-nums">{line.price.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.referencePrice.toFixed(2)}</TableCell>
                           <TableCell className="text-right tabular-nums">{line.requestedQty}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.pendingQty}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
                               min={0}
-                              max={line.requestedQty}
+                              max={line.pendingQty}
                               step={1}
                               className="ml-auto w-28 text-right"
                               value={line.allocatedQty}
@@ -1244,8 +1465,20 @@ export default function PurchaseRequests() {
                               onChange={(event) => updatePurchaseOrderQty(line.key, event.target.value)}
                             />
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0.01}
+                              step="0.01"
+                              className="ml-auto w-28 text-right"
+                              value={line.vendorPrice || ""}
+                              placeholder="0.00"
+                              disabled={purchaseOrderSaving}
+                              onChange={(event) => updatePurchaseOrderPrice(line.key, event.target.value)}
+                            />
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {(line.price * line.allocatedQty).toFixed(2)}
+                            {(line.vendorPrice * line.allocatedQty).toFixed(2)}
                           </TableCell>
                         </TableRow>
                       ))}

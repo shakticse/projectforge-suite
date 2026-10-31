@@ -743,7 +743,7 @@ export default function BOM() {
                     <div className="border rounded-lg overflow-hidden bg-card">
                       <Table className="text-xs">
                         <TableHeader>
-                          <TableRow className="border-b border-border/60 hover:bg-transparent">
+                          <TableRow className="border-b border-border/60">
                             <TableHead className="h-8 w-10 min-w-[2.5rem] px-2 py-1.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
                               #
                             </TableHead>
@@ -1006,23 +1006,23 @@ export default function BOM() {
           ) : (
           <div className="overflow-x-auto">
             <Table className="min-w-[1120px]">
-              <TableHeader className="bg-muted/45">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">BOM ID</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Project Name</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Description</TableHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">BOM ID</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Project Name</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Description</TableHead>
                   {/* <TableHead>BOM For</TableHead>
                   <TableHead>Supervisor In-Charge</TableHead> */}
                   {/* <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Total Quantity</TableHead> */}
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Due Date</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Created By</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Created Date</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Updated By</TableHead>
-                  <TableHead className="h-11 px-5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Last Updated</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Due Date</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Created By</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Created Date</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Updated By</TableHead>
+                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Last Updated</TableHead>
                   {/* <TableHead>Status</TableHead> */}
-                  <TableHead className="h-11 px-5 text-center text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Details</TableHead>
+                  <TableHead className="text-center font-semibold uppercase tracking-[0.08em]">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border/60">

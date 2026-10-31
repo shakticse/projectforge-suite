@@ -29,6 +29,7 @@ import GatePass from "./pages/GatePass";
 import VehicleRequest from "./pages/VehicleRequest";
 import BOMAction from "./pages/BOMAction";
 import Reports from "./pages/Reports";
+import ProjectReport from "./pages/ProjectReport";
 import MaterialRequest from "./pages/MaterialRequest";
 import QueryIssueLog from "./pages/QueryIssueLog";
 import Settings from "./pages/Settings";
@@ -59,8 +60,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/projectforge-suite/">
-      {/* <BrowserRouter basename="/"> */}
+      {/* <BrowserRouter basename="/projectforge-suite/"> */}
+      <BrowserRouter basename="/">
       <NavigationRegistrar />
         <Routes>
           {/* Auth Routes */}
@@ -90,6 +91,7 @@ const App = () => (
           <Route path="/vehicle-request" element={<ProtectedRoute><AppLayout><VehicleRequest /></AppLayout></ProtectedRoute>} />
           <Route path="/bom-action" element={<ProtectedRoute><AppLayout><BOMAction /></AppLayout></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
+          <Route path="/project-report" element={<ProtectedRoute><AppLayout><ProjectReport /></AppLayout></ProtectedRoute>} />
           <Route path="/material-request" element={<ProtectedRoute><AppLayout><MaterialRequest /></AppLayout></ProtectedRoute>} />
           <Route path="/mrn-list" element={<ProtectedRoute><AppLayout><MRNList /></AppLayout></ProtectedRoute>} />
           <Route path="/query-issue-log" element={<ProtectedRoute><AppLayout><QueryIssueLog /></AppLayout></ProtectedRoute>} />

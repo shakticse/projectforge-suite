@@ -486,7 +486,7 @@ const Inventory = () => {
                           Price {getSortIcon('unitPrice')}
                         </Button>
                       </TableHead>
-                      <TableHead className="w-[80px] min-w-[80px] sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">Actions</TableHead>
+                      <TableHead className="w-[80px] min-w-[80px] sticky right-0 bg-transparent z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
