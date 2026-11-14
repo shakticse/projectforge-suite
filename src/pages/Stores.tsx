@@ -714,8 +714,7 @@ const Stores = () => {
               </TableHeader>
               <TableBody>
                 
-                {console.log(paginatedStores)}
-                {paginatedStores.map((store) => (
+                {sortedStores.map((store) => (
                   <TableRow key={store.id}>
                     <TableCell className="font-medium">{store.store_name}</TableCell>
                     <TableCell className="hidden md:table-cell max-w-xs truncate">
@@ -767,7 +766,7 @@ const Stores = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6 flex justify-center">
+            <div className="!hidden mt-6 flex justify-center">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>

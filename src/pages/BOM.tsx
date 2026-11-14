@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, ChevronLeft, ChevronRight, Eye, Check, ChevronsUpDown, List, Activity, Edit, X } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, Eye, Check, ChevronsUpDown, List, Activity, Edit, X } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
@@ -121,8 +121,6 @@ export default function BOM() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingBOM, setEditingBOM] = useState<BOMItem | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
   const form = useForm({
     resolver: yupResolver(bomSchema),
@@ -548,10 +546,6 @@ export default function BOM() {
     bom.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredBOMs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBOMs = filteredBOMs.slice(startIndex, startIndex + itemsPerPage);
-
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'Approved': return 'default';
@@ -744,16 +738,16 @@ export default function BOM() {
                       <Table className="text-xs">
                         <TableHeader>
                           <TableRow className="border-b border-border/60">
-                            <TableHead className="h-8 w-10 min-w-[2.5rem] px-2 py-1.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                            <TableHead className="h-8 w-10 min-w-[2.5rem] px-2 py-1.5 text-left align-middle text-[11px] font-semibold text-muted-foreground leading-none">
                               #
                             </TableHead>
-                            <TableHead className="h-8 px-2 py-1.5 text-left align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                            <TableHead className="h-8 px-2 py-1.5 text-left align-middle text-[11px] font-semibold text-muted-foreground leading-none">
                               Material
                             </TableHead>
-                            <TableHead className="h-8 w-28 px-2 py-1.5 text-right align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                            <TableHead className="h-8 w-28 px-2 py-1.5 text-right align-middle text-[11px] font-semibold text-muted-foreground leading-none">
                               Req. qty
                             </TableHead>
-                            <TableHead className="h-8 w-12 px-1 py-1.5 text-center align-middle text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-none">
+                            <TableHead className="h-8 w-12 px-1 py-1.5 text-center align-middle text-[11px] font-semibold text-muted-foreground leading-none">
                               <span className="sr-only">Actions</span>
                             </TableHead>
                           </TableRow>
@@ -982,7 +976,7 @@ export default function BOM() {
           </Button>
         </div>
         <div className="rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-sm font-medium text-muted-foreground">
-          Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredBOMs.length)} of {filteredBOMs.length} results
+          {filteredBOMs.length} results
         </div>
       </div>
 
@@ -1008,25 +1002,25 @@ export default function BOM() {
             <Table className="min-w-[1120px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">BOM ID</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Project Name</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Description</TableHead>
+                  <TableHead className="font-semibold">BOM ID</TableHead>
+                  <TableHead className="font-semibold">Project Name</TableHead>
+                  <TableHead className="font-semibold">Description</TableHead>
                   {/* <TableHead>BOM For</TableHead>
                   <TableHead>Supervisor In-Charge</TableHead> */}
                   {/* <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Total Quantity</TableHead> */}
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Due Date</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Created By</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Created Date</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Updated By</TableHead>
-                  <TableHead className="font-semibold uppercase tracking-[0.08em]">Last Updated</TableHead>
+                  <TableHead className="font-semibold">Due Date</TableHead>
+                  <TableHead className="font-semibold">Created By</TableHead>
+                  <TableHead className="font-semibold">Created Date</TableHead>
+                  <TableHead className="font-semibold">Updated By</TableHead>
+                  <TableHead className="font-semibold">Last Updated</TableHead>
                   {/* <TableHead>Status</TableHead> */}
-                  <TableHead className="text-center font-semibold uppercase tracking-[0.08em]">Details</TableHead>
+                  <TableHead className="text-center font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border/60">
-                {paginatedBOMs.map((bom) => (
+                {filteredBOMs.map((bom) => (
                   <TableRow key={bom.id} className={`${
                     user?.role === 'Project Manager' ? 'group hover:bg-primary/5' : 'hover:bg-muted/30'
                   }`}>
@@ -1118,43 +1112,6 @@ export default function BOM() {
           </div>
           )}
 
-          {!loadingBOMs && boms.length > 0 && totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-5 py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Previous
-              </Button>
-              <div className="flex items-center space-x-2">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    className="h-8 min-w-8 rounded-xl px-3"
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

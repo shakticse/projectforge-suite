@@ -372,7 +372,7 @@ export default function VehicleRequest() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedRequests.map((request) => (
+            {filteredRequests.map((request) => (
               <TableRow key={request.id}>
                 <TableCell className="font-medium">{request.id}</TableCell>
                 <TableCell>{request.projectName}</TableCell>
@@ -414,7 +414,7 @@ export default function VehicleRequest() {
       </div>
 
       {totalPages > 1 && (
-        <Pagination>
+        <Pagination className="!hidden">
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious 

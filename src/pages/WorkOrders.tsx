@@ -617,7 +617,7 @@ export default function WorkOrders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedWorkOrders.map((workOrder) => (
+              {filteredAndSortedWorkOrders.map((workOrder) => (
                 <TableRow key={workOrder.id}>
                   <TableCell className="font-medium">{workOrder.title}</TableCell>
                   <TableCell>{workOrder.projectName}</TableCell>
@@ -657,7 +657,7 @@ export default function WorkOrders() {
           </Table>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
+          <div className="!hidden flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
               Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAndSortedWorkOrders.length)} of {filteredAndSortedWorkOrders.length} results
             </div>

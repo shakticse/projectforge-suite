@@ -490,7 +490,7 @@ const Inventory = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedItems.map((item) => (
+                    {sortedItems.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-mono text-sm truncate max-w-[180px]" title={item.name}>{item.name}</TableCell>
                         <TableCell className="font-mono text-sm truncate max-w-[120px]" title={item.sku}>{item.sku}</TableCell>
@@ -549,7 +549,7 @@ onClick={() => openDeleteDialog(item)}
       </Card>
 
       {totalPages > 1 && (
-        <Pagination className="mt-4 sm:mt-6 w-full min-w-0 overflow-hidden">
+        <Pagination className="!hidden mt-4 sm:mt-6 w-full min-w-0 overflow-hidden">
           <PaginationContent className="flex-wrap justify-center sm:justify-start gap-y-2 max-w-full">
             <PaginationItem>
               <PaginationLink

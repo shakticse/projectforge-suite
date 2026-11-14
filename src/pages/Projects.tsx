@@ -355,7 +355,7 @@ const Projects = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedProjects.map((project) => (
+                  {sortedProjects.map((project) => (
                     <TableRow key={project.id} className="border-b border-border/50 hover:bg-muted/50">
                       <TableCell className="py-4">
                         <div>
@@ -427,7 +427,7 @@ const Projects = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/50">
+            <div className="!hidden flex items-center justify-between px-6 py-4 border-t border-border/50">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedProjects.length)} of {sortedProjects.length} projects
               </div>

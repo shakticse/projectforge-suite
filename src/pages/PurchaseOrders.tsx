@@ -262,8 +262,8 @@ export default function PurchaseOrders() {
               <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Loading purchase orders...</TableCell></TableRow>
             ) : loadError ? (
               <TableRow><TableCell colSpan={10} className="py-8 text-center text-destructive">{loadError}</TableCell></TableRow>
-            ) : paginatedPOs.length ? (
-              paginatedPOs.map((purchaseOrder) => (
+            ) : filteredAndSortedPOs.length ? (
+            filteredAndSortedPOs.map((purchaseOrder) => (
                 <TableRow key={purchaseOrder.id}>
                   <TableCell className="font-medium">{purchaseOrder.name || `PO-${purchaseOrder.id}`}</TableCell>
                   <TableCell>{purchaseOrder.projectName || "-"}</TableCell>
@@ -311,7 +311,7 @@ export default function PurchaseOrders() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="!hidden flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           Showing {filteredAndSortedPOs.length ? startIndex + 1 : 0} to{" "}
           {Math.min(startIndex + itemsPerPage, filteredAndSortedPOs.length)} of {filteredAndSortedPOs.length} results

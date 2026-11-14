@@ -635,30 +635,27 @@ export default function RoleManagement() {
                 <TableRow>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('name')}
                   >
-                    Role Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    Role Name
                   </TableHead>
                   <TableHead className="hidden md:table-cell">Description</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('userCount')}
                   >
-                    Users {sortBy === 'userCount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    Users
                   </TableHead>
                   <TableHead className="hidden lg:table-cell">Permissions</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
-                    onClick={() => handleSort('updatedAt')}
                   >
-                    Last Updated {sortBy === 'updatedAt' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    Last Updated
                   </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedRoles.map((role) => (
+                {sortedRoles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell className="font-medium">{role.name}</TableCell>
                     <TableCell className="hidden md:table-cell max-w-xs truncate">
@@ -719,7 +716,7 @@ export default function RoleManagement() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6 flex justify-center">
+            <div className="!hidden mt-6 flex justify-center">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>

@@ -951,7 +951,7 @@ export default function WorkOrderRequests() {
                  </TableRow>
                </TableHeader>
                           <TableBody>
-                {paginatedRequests.map((request) => (
+                {filteredAndSortedRequests.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell className="font-medium">{request.id}</TableCell>
                     <TableCell>
@@ -1018,7 +1018,7 @@ export default function WorkOrderRequests() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
+          <div className="!hidden flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
               Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAndSortedRequests.length)} of {filteredAndSortedRequests.length} results
             </div>

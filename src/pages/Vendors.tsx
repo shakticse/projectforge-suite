@@ -402,9 +402,9 @@ export default function Vendors() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading vendors...</TableCell></TableRow>
-            ) : paginatedVendors.length === 0 ? (
+            ) : sortedVendors.length === 0 ? (
               <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">No vendors found.</TableCell></TableRow>
-            ) : paginatedVendors.map((vendor) => (
+            ) : sortedVendors.map((vendor) => (
               <TableRow key={vendor.id}>
                 <TableCell className="font-medium">{vendor.name}</TableCell>
                 <TableCell>{vendor.email}</TableCell>
@@ -434,7 +434,7 @@ export default function Vendors() {
       </div>
 
       {totalPages > 1 && (
-        <Pagination>
+        <Pagination className="!hidden">
           <PaginationContent>
             <PaginationItem><PaginationPrevious onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
             {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (

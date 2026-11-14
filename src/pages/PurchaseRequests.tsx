@@ -1126,7 +1126,7 @@ export default function PurchaseRequests() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedRows.map((row) => (
+                  {sortedRows.map((row) => (
                     <TableRow key={row.id} className="border-b border-border/50 hover:bg-muted/50">
                       <TableCell className="font-medium">{row.prNo}</TableCell>
                       <TableCell>{row.name}</TableCell>
@@ -1193,7 +1193,7 @@ export default function PurchaseRequests() {
           )}
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border/50 px-6 py-4">
+            <div className="!hidden flex items-center justify-between border-t border-border/50 px-6 py-4">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedRows.length)} of{" "}
                 {sortedRows.length}

@@ -409,7 +409,7 @@ const MaterialRequest = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedRequests.map((mr) => (
+                {filteredRequests.map((mr) => (
                   <TableRow key={mr.id}>
                     <TableCell className="font-medium">{mr.mrNo}</TableCell>
                     <TableCell>{mr.bomId}</TableCell>
@@ -430,7 +430,7 @@ const MaterialRequest = () => {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
+          <div className="!hidden flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
               Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
             </div>

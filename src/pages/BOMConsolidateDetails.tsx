@@ -429,7 +429,7 @@ export default function BOMConsolidateDetails() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="!hidden flex items-center space-x-4">
           <Button 
             variant="ghost" 
             size="sm"
@@ -626,7 +626,7 @@ export default function BOMConsolidateDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentItems.map((item) => {
+                {sortedItems.map((item) => {
                   const status = getItemStatus(item);
                   return (
                     <TableRow key={item.id} className="hover:bg-muted/50">
@@ -664,7 +664,7 @@ export default function BOMConsolidateDetails() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="!hidden flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </div>

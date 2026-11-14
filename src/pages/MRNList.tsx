@@ -482,8 +482,8 @@ export default function MRNList() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading MRNs...</TableCell></TableRow>
-                ) : pageReceipts.length > 0 ? (
-                  pageReceipts.map((receipt) => (
+                  ) : filteredReceipts.length > 0 ? (
+                  filteredReceipts.map((receipt) => (
                     <TableRow key={receipt.id}>
                       <TableCell className="font-medium">{receipt.mrnNumber}</TableCell>
                       <TableCell>{receipt.projectName || "-"}</TableCell>
@@ -518,7 +518,7 @@ export default function MRNList() {
             </Table>
           </div>
           {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-4 py-4">
+            <div className="!hidden flex items-center justify-between gap-4 py-4">
               <span className="text-sm text-muted-foreground">
                 Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredReceipts.length)} of {filteredReceipts.length}
               </span>
