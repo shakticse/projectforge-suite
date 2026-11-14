@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Camera, X, Upload, Eye, Download, Trash2, Pencil } from "lucide-react";
+import { Plus, Camera, X, Upload, Eye, Download, Trash2, Pencil, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { bomService } from "@/services/bomService";
 import { projectService } from "@/services/projectService";
 import { gatePassService, type GatePassApiPhoto, type GatePassApiRecord } from "@/services/gatePassService";
@@ -337,6 +338,7 @@ const createGatePassPdf = (gatePass: GatePassApiRecord): Blob => {
 
 export default function GatePass() {
   const [gatePasses, setGatePasses] = useState<GatePassApiRecord[]>([]);
+  const [gatePassSearch, setGatePassSearch] = useState("");
   const [isLoadingGatePasses, setIsLoadingGatePasses] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -516,7 +518,7 @@ export default function GatePass() {
           ? raw.items
           : typeof raw === "object" && raw !== null && "Items" in raw && Array.isArray(raw.Items)
             ? raw.Items
-          : [];
+            : [];
       const existingGatePasses = await gatePassService.getAll();
       if (requestId !== consolidatedBomRequestId.current) return;
       const allocatedByItem = new Map<number, number>();
@@ -864,6 +866,18 @@ export default function GatePass() {
 
   const pendingBomItems = bomItems.filter((item) => item.qty > 0);
   const completedBomItems = bomItems.filter((item) => item.qty <= 0);
+  const filteredGatePasses = gatePasses.filter((gatePass) =>
+    [
+      gatePass.id,
+      gatePass.passType,
+      gatePass.projectName,
+      gatePass.projectId,
+      gatePass.vehicleNumber,
+      gatePass.driverName,
+      gatePass.eWayBillNumber,
+      gatePass.dcNumber,
+    ].some((value) => String(value ?? "").toLowerCase().includes(gatePassSearch.toLowerCase()))
+  );
 
   const renderBomItemsTable = (items: GatePassBomItem[], completed = false) => (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -1191,103 +1205,116 @@ export default function GatePass() {
           </form>
         </section>
       )}
-
-      <div className="overflow-hidden rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Gate Pass ID</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Vehicle Number</TableHead>
-              <TableHead>Driver Name</TableHead>
-              <TableHead>EWay Bill No</TableHead>
-              <TableHead>DC No.</TableHead>
-              <TableHead>DC Date</TableHead>
-              <TableHead>Created Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoadingGatePasses ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                  Loading gate passes...
-                </TableCell>
-              </TableRow>
-            ) : gatePasses.length > 0 ? gatePasses.map((gatePass) => (
-              <TableRow key={gatePass.id}>
-                <TableCell className="font-medium">GP-{gatePass.id}</TableCell>
-                <TableCell>{gatePass.passType}</TableCell>
-                <TableCell>{gatePass.projectName || `Project ${gatePass.projectId}`}</TableCell>
-                <TableCell>{gatePass.vehicleNumber}</TableCell>
-                <TableCell>{gatePass.driverName}</TableCell>
-                <TableCell>{gatePass.eWayBillNumber}</TableCell>
-                <TableCell>{gatePass.dcNumber}</TableCell>
-                <TableCell>{gatePass.dcDate ? new Date(gatePass.dcDate).toLocaleDateString() : "—"}</TableCell>
-                <TableCell>{new Date(gatePass.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-1 whitespace-nowrap">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`View gate pass GP-${gatePass.id}`}
-                      title="View gate pass"
-                      onClick={() => {
-                        setViewingGatePass(gatePass);
-                        setEditingAllocations(false);
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Update allocations for gate pass GP-${gatePass.id}`}
-                      title="Update allocations"
-                      onClick={() => {
-                        setViewingGatePass(gatePass);
-                        setEditingAllocations(false);
-                        void beginAllocationEdit(gatePass);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Download PDF for gate pass GP-${gatePass.id}`}
-                      title="Download PDF"
-                      onClick={() => downloadGatePassPdf(gatePass)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Delete gate pass GP-${gatePass.id}`}
-                      title="Delete gate pass"
-                      onClick={() => void deleteGatePass(gatePass)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+              <CardTitle>Gate Pass List</CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input placeholder="Search gate passes..." value={gatePassSearch} onChange={(event) => setGatePassSearch(event.target.value)} className="h-9 pl-9" />
                   </div>
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                  No gate passes to display.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                </div>
+              </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-hidden rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Gate Pass ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Vehicle Number</TableHead>
+                  <TableHead>Driver Name</TableHead>
+                  <TableHead>EWay Bill No</TableHead>
+                  <TableHead>DC No.</TableHead>
+                  <TableHead>DC Date</TableHead>
+                  <TableHead>Created Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingGatePasses ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                      Loading gate passes...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredGatePasses.length > 0 ? filteredGatePasses.map((gatePass) => (
+                  <TableRow key={gatePass.id}>
+                    <TableCell className="font-medium">GP-{gatePass.id}</TableCell>
+                    <TableCell>{gatePass.passType}</TableCell>
+                    <TableCell>{gatePass.projectName || `Project ${gatePass.projectId}`}</TableCell>
+                    <TableCell>{gatePass.vehicleNumber}</TableCell>
+                    <TableCell>{gatePass.driverName}</TableCell>
+                    <TableCell>{gatePass.eWayBillNumber}</TableCell>
+                    <TableCell>{gatePass.dcNumber}</TableCell>
+                    <TableCell>{gatePass.dcDate ? new Date(gatePass.dcDate).toLocaleDateString() : "—"}</TableCell>
+                    <TableCell>{new Date(gatePass.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1 whitespace-nowrap">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`View gate pass GP-${gatePass.id}`}
+                          title="View gate pass"
+                          onClick={() => {
+                            setViewingGatePass(gatePass);
+                            setEditingAllocations(false);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Update allocations for gate pass GP-${gatePass.id}`}
+                          title="Update allocations"
+                          onClick={() => {
+                            setViewingGatePass(gatePass);
+                            setEditingAllocations(false);
+                            void beginAllocationEdit(gatePass);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Download PDF for gate pass GP-${gatePass.id}`}
+                          title="Download PDF"
+                          onClick={() => downloadGatePassPdf(gatePass)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Delete gate pass GP-${gatePass.id}`}
+                          title="Delete gate pass"
+                          onClick={() => void deleteGatePass(gatePass)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                      No gate passes to display.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent> </Card>
       <Dialog
         open={viewingGatePass !== null}
         onOpenChange={(open) => {

@@ -585,29 +585,16 @@ export default function RoleManagement() {
         </Dialog>
       </div>
 
-      {/* Filters and Search */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
           <CardTitle className="flex items-center">
             <Shield className="mr-2 h-5 w-5" />
             Roles List
           </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingRoles ? (
-            <div className="mb-4 text-sm text-muted-foreground">Loading roles...</div>
-          ) : roles.length === 0 ? (
-            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No roles found.</div>
-          ) : null}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search roles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search roles..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
             </div>
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-full sm:w-[180px]">
@@ -620,15 +607,17 @@ export default function RoleManagement() {
                 <SelectItem value="updatedAt">Updated Date</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
-              onClick={() => handleSort(sortBy)}
-              className="w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={() => handleSort(sortBy)} className="w-full sm:w-auto">
               {sortOrder === "asc" ? "↑" : "↓"} Sort
             </Button>
           </div>
-
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingRoles ? (
+            <div className="mb-4 text-sm text-muted-foreground">Loading roles...</div>
+          ) : roles.length === 0 ? (
+            <div className="mb-4 py-6 text-center text-sm text-muted-foreground">No roles found.</div>
+          ) : null}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

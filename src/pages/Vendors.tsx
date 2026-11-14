@@ -373,77 +373,85 @@ export default function Vendors() {
         </Card>
       )}
 
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search vendors..." value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1); }} className="pl-10" />
-        </div>
-        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filter by status" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Active">Active</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent>
-        </Select>
-      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+          <CardTitle>Vendor List</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search vendors..." value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1); }} className="h-9 pl-9" />
+              </div>
+              <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="Active">Active</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto rounded-xl border border-border/70 shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{sortButton("name", "Vendor Name")}</TableHead>
+                  <TableHead>{sortButton("email", "Email")}</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>{sortButton("contactPerson", "Contact Person")}</TableHead>
+                  <TableHead>{sortButton("city", "City")}</TableHead>
+                  <TableHead>{sortButton("state", "State")}</TableHead>
+                  <TableHead>{sortButton("status", "Status")}</TableHead>
+                  <TableHead>{sortButton("createdAt", "Join Date")}</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading vendors...</TableCell></TableRow>
+                ) : sortedVendors.length === 0 ? (
+                  <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">No vendors found.</TableCell></TableRow>
+                ) : sortedVendors.map((vendor) => (
+                  <TableRow key={vendor.id}>
+                    <TableCell className="font-medium">{vendor.name}</TableCell>
+                    <TableCell>{vendor.email}</TableCell>
+                    <TableCell>{vendor.phone}</TableCell>
+                    <TableCell>{vendor.contactPerson}</TableCell>
+                    <TableCell>{vendor.city}</TableCell>
+                    <TableCell>{vendor.state}</TableCell>
+                    <TableCell><Badge variant={vendor.status === "Active" ? "default" : "secondary"}>{vendor.status}</Badge></TableCell>
+                    <TableCell>{vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`View ${vendor.name}`} title="View vendor" onClick={() => setViewingVendor(vendor)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Edit ${vendor.name}`} title="Edit vendor" onClick={() => startEdit(vendor)}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" aria-label={`Delete ${vendor.name}`} title="Delete vendor" onClick={() => setDeletingVendor(vendor)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/70 shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{sortButton("name", "Vendor Name")}</TableHead>
-              <TableHead>{sortButton("email", "Email")}</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>{sortButton("contactPerson", "Contact Person")}</TableHead>
-              <TableHead>{sortButton("city", "City")}</TableHead>
-              <TableHead>{sortButton("state", "State")}</TableHead>
-              <TableHead>{sortButton("status", "Status")}</TableHead>
-              <TableHead>{sortButton("createdAt", "Join Date")}</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Loading vendors...</TableCell></TableRow>
-            ) : sortedVendors.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">No vendors found.</TableCell></TableRow>
-            ) : sortedVendors.map((vendor) => (
-              <TableRow key={vendor.id}>
-                <TableCell className="font-medium">{vendor.name}</TableCell>
-                <TableCell>{vendor.email}</TableCell>
-                <TableCell>{vendor.phone}</TableCell>
-                <TableCell>{vendor.contactPerson}</TableCell>
-                <TableCell>{vendor.city}</TableCell>
-                <TableCell>{vendor.state}</TableCell>
-                <TableCell><Badge variant={vendor.status === "Active" ? "default" : "secondary"}>{vendor.status}</Badge></TableCell>
-                <TableCell>{vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—"}</TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`View ${vendor.name}`} title="View vendor" onClick={() => setViewingVendor(vendor)}>
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Edit ${vendor.name}`} title="Edit vendor" onClick={() => startEdit(vendor)}>
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" aria-label={`Delete ${vendor.name}`} title="Delete vendor" onClick={() => setDeletingVendor(vendor)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {totalPages > 1 && (
-        <Pagination className="!hidden">
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-              <PaginationItem key={page}><PaginationLink onClick={() => setCurrentPage(page)} isActive={currentPage === page} className="cursor-pointer">{page}</PaginationLink></PaginationItem>
-            ))}
-            <PaginationItem><PaginationNext onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+          {totalPages > 1 && (
+            <Pagination className="!hidden">
+              <PaginationContent>
+                <PaginationItem><PaginationPrevious onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  <PaginationItem key={page}><PaginationLink onClick={() => setCurrentPage(page)} isActive={currentPage === page} className="cursor-pointer">{page}</PaginationLink></PaginationItem>
+                ))}
+                <PaginationItem><PaginationNext onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} /></PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={viewingVendor !== null} onOpenChange={(open) => { if (!open) setViewingVendor(null); }}>
         <DialogContent>

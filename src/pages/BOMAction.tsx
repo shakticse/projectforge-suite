@@ -1672,26 +1672,18 @@ export default function BOMAction() {
         </p>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search BOMs or projects…"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+      <div className="flex flex-col gap-6">
+        {/* BOM List */}
+        <Card ref={bomListRef} className="order-last scroll-mt-6">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+          <CardTitle className="text-base">BOM List</CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search BOMs or projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by Status" />
-              </SelectTrigger>
+              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filter by Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
@@ -1701,16 +1693,8 @@ export default function BOMAction() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-col gap-6">
-        {/* BOM List */}
-        <Card ref={bomListRef} className="order-last scroll-mt-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">BOMs</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loadingBOMs ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-5 w-5" />

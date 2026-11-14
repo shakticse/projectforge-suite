@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Search,
   Plus,
-  Filter,
+  FileText,
   Calendar,
   Users,
   Clock,
@@ -18,7 +18,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Download,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight
@@ -223,15 +222,17 @@ const Projects = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold">Projects</h1>
-          <p className="text-muted-foreground mt-1">Manage and track all your projects in one place</p>
+          <p className="text-muted-foreground mt-1">Manage and track all your projects</p>
         </div>
-        <Button size="lg" className="gap-2" onClick={() => setShowCreateModal(true)}>
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button size="lg" className="gap-2" onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            New Project
+          </Button>
+        </div>
       </div>
 
       {showCreateModal && (
@@ -242,35 +243,25 @@ const Projects = () => {
         />
       )}
 
-      {/* Filters and Search */}
-      <Card className="glass-card">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search projects..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filter
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Projects Table */}
-      <Card className="glass-card">
+      <Card className="glass-card w-full min-w-0 overflow-hidden flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span>Projects</span>
+                </CardTitle>
+                <CardDescription className="pl-[3.25rem]">
+                  Track ongoing projects and status.
+                </CardDescription>
+              </div>
+              <div className="relative w-full max-w-xs shrink-0">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+              </div>
+            </CardHeader>
         <CardContent className="p-0">
           {loadingProjects ? (
             <div className="p-6">

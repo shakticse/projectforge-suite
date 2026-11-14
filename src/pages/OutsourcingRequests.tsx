@@ -666,20 +666,13 @@ export default function OutsourcingRequests() {
       )}
 
       <Card className="glass-card">
-        <CardContent className="p-6">
-          <div className="relative flex-1 max-w-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+          <CardTitle>Outsourcing Requests</CardTitle>
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by OS no, name, creator, status..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Search by OS no, name, creator, status..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass-card">
+        </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="p-12 text-center text-sm text-muted-foreground">Loading outsourcing requests...</div>

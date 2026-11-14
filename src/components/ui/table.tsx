@@ -221,7 +221,7 @@ const Table = React.forwardRef<
         ref={ref}
         className={cn(
           className,
-          "!w-max min-w-full caption-bottom text-[13px] [&_th]:!h-10 [&_th]:!px-4 [&_th]:!py-0 [&_th]:!text-xs [&_td]:!px-3 [&_td]:!py-2"
+          "!w-full min-w-max caption-bottom text-[13px] [&_th]:!h-10 [&_th]:!px-4 [&_th]:!py-0 [&_th]:!text-xs [&_td]:!px-3 [&_td]:!py-2"
         )}
         {...props}
       >

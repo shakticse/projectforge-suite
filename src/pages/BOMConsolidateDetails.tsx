@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Search, Package, FileText, Calendar, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, History, Eye } from "lucide-react";
+import { ArrowLeft, Search, Package, FileText, Calendar, ChevronUp, ChevronDown, History, Eye } from "lucide-react";
 import ChangeHistoryModal from "@/components/bom/ChangeHistoryModal";
 import { bomService } from "@/services/bomService";
 import { toast } from "sonner";
@@ -168,10 +168,6 @@ export default function BOMConsolidateDetails() {
   const [bomData, setBomData] = useState<BOMConsolidateDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
   
   // Sorting states
   const [sortField, setSortField] = useState<SortField>('item_name');
@@ -342,18 +338,6 @@ export default function BOMConsolidateDetails() {
     return 0;
   });
 
-  // Pagination logic
-  const totalItems = sortedItems.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentItems = sortedItems.slice(startIndex, endIndex);
-
-  // Reset to first page when search term changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -361,16 +345,6 @@ export default function BOMConsolidateDetails() {
       setSortField(field);
       setSortDirection('asc');
     }
-    setCurrentPage(1);
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handleItemsPerPageChange = (items: number) => {
-    setItemsPerPage(items);
-    setCurrentPage(1);
   };
 
   const getSortIcon = (field: SortField) => {
@@ -511,44 +485,17 @@ export default function BOMConsolidateDetails() {
         </CardContent>
       </Card> */}
 
-      {/* Search */}
-      <div className="flex items-center justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search materials..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">Show:</span>
-            <select 
-              value={itemsPerPage} 
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="border rounded px-2 py-1 text-sm bg-background"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {loading ? 'Loading...' : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems} materials`}
-          </div>
-        </div>
-      </div>
-
       {/* Materials Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
           <CardTitle className="flex items-center">
             <Package className="h-5 w-5 mr-2" />
             Material Allocation Details
           </CardTitle>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search materials..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -653,7 +600,7 @@ export default function BOMConsolidateDetails() {
             )}
           </div>
 
-          {!loading && currentItems.length === 0 && filteredItems.length === 0 && (
+          {!loading && filteredItems.length === 0 && (
             <div className="text-center py-12">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No materials found</p>
@@ -661,63 +608,6 @@ export default function BOMConsolidateDetails() {
           )}
         </CardContent>
       </Card>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="!hidden flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            
-            <div className="flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(pageNum)}
-                    className="w-8 h-8 p-0"
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Change History Section */}
       { (

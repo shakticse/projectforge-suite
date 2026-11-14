@@ -326,67 +326,6 @@ const Inventory = () => {
           )}          </Button>
       </div>
 
-      {/* Filters and Search */}
-      <Card className="glass-card w-full min-w-0 overflow-hidden">
-        <CardContent className="p-4 sm:p-6 w-full min-w-0">
-          <div className="flex flex-col gap-4 w-full min-w-0">
-            <div className="flex flex-col md:flex-row gap-4 w-full min-w-0">
-              <div className="flex-1 relative w-full min-w-0">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search inventory items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full"
-                />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-2 w-full md:w-auto shrink-0">
-                <Button variant="outline" size="sm" className="gap-2 w-full h-10">
-                  <Filter className="h-4 w-4" />
-                  Filter
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2 w-full h-10" onClick={handleExport}>
-                  <Download className="h-4 w-4" />
-                  Export
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
-              <div className="w-full">
-                <Select value={storeFilter} onValueChange={setStoreFilter}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Filter by store" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Stores</SelectItem>
-                    {stores.map((store: any) => {
-                      return (
-                        <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="w-full">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map(category => (
-                      <SelectItem key={String(category)} value={String(category)}>{String(category)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="max-w-md">
@@ -409,10 +348,34 @@ const Inventory = () => {
 
       {/* Inventory Table */}
       <Card className="glass-card w-full min-w-0 overflow-hidden flex flex-col">
-        <CardHeader className="px-4 sm:px-6">
+        <CardHeader className="space-y-1.5 p-6 flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
           <CardTitle className="truncate">Inventory Items ({sortedItems.length} items)</CardTitle>
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2 lg:grid-cols-4">
+            <div className="relative sm:col-span-2 lg:col-span-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search inventory items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+            </div>
+            <Select value={storeFilter} onValueChange={setStoreFilter}>
+              <SelectTrigger><SelectValue placeholder="Filter by store" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stores</SelectItem>
+                {stores.map((store: any) => <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger><SelectValue placeholder="Filter by category" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map(category => <SelectItem key={String(category)} value={String(category)}>{String(category)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" className="h-9 gap-2" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0 w-full min-w-0">
+        <CardContent className="p-0 sm:pt-0 w-full min-w-0">
           {loading ? (
             <div className="mb-4 py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" /><path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg>

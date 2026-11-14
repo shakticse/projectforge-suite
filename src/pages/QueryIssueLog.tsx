@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Eye, Plus, MessageCircle, Calendar, User, FileText, Upload, Camera, X, Image as ImageIcon, Edit, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Eye, Plus, MessageCircle, Calendar, User, FileText, Upload, Camera, X, Image as ImageIcon, Edit, ChevronUp, ChevronDown, Filter, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -161,6 +161,7 @@ export default function QueryIssueLog() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [editingQuery, setEditingQuery] = useState<any>(null);
   const [newComment, setNewComment] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [filters, setFilters] = useState({
@@ -266,7 +267,18 @@ export default function QueryIssueLog() {
 
   const filteredAndSortedQueries = queries
     .filter(query => {
+      const searchValue = searchTerm.toLowerCase();
+      const matchesSearch = [
+        query.id,
+        query.itemType,
+        query.itemId,
+        query.title,
+        query.status,
+        query.priority,
+        query.assignedTo,
+      ].some((value) => String(value ?? "").toLowerCase().includes(searchValue));
       return (
+        matchesSearch &&
         (!filters.status || query.status === filters.status) &&
         (!filters.priority || query.priority === filters.priority) &&
         (!filters.itemType || query.itemType === filters.itemType) &&
@@ -489,14 +501,22 @@ export default function QueryIssueLog() {
 
       {/* Queries List */}
       <Card>
-        <CardHeader>
-          <CardTitle>Existing Queries</CardTitle>
-          <CardDescription>
-            View and manage all submitted queries and issues
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Queries/Issues</CardTitle>
+              <CardDescription>
+                Manage submitted Queries & Issues
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search queries..." value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="h-9 pl-9" />
+            </div>
+          </div>
           
           {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Select onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === "all" ? "" : value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Status" />
@@ -546,7 +566,7 @@ export default function QueryIssueLog() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isMobile ? (
             /* Mobile View - Cards */
             <div className="space-y-4">

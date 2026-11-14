@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Plus, Search, FileText, Package, Calculator, Trash2, Filter, Eye, Check, ChevronsUpDown, List, Activity, Edit, X } from "lucide-react";
+import { Plus, Search, FileText, Package, Calculator, Trash2, Eye, Check, ChevronsUpDown, List, Activity, Edit, X } from "lucide-react";
 import { toast } from "sonner";
 import { bomSchema } from "@/lib/validations";
 import { evaluate } from "mathjs";
@@ -959,38 +959,29 @@ export default function BOM() {
           </div>
         )} */}
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/70 p-3 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
+      <Card className="overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-card">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                <FileText className="h-5 w-5" />
+              </span>
+              <span>BOM Records</span>
+            </CardTitle>
+            <CardDescription className="pl-[3.25rem]">
+              Track project BOMs, ownership, and recent update activity.
+            </CardDescription>
+          </div>
+          <div className="relative w-full max-w-xs shrink-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search BOMs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10 rounded-xl border-border/70 bg-background/80 pl-10 shadow-none transition-smooth focus:bg-background"
+              className="h-9 rounded-md bg-background pl-9"
+              aria-label="Search BOM records"
             />
           </div>
-          <Button variant="outline" size="sm" className="h-10 rounded-xl border-border/70 bg-background/80 px-4 shadow-none">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-        </div>
-        <div className="rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-sm font-medium text-muted-foreground">
-          {filteredBOMs.length} results
-        </div>
-      </div>
-
-      <Card className="overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-card">
-        <CardHeader className="border-b border-border bg-muted/40 px-5 py-4">
-          <CardTitle className="flex items-center gap-3 text-xl">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
-              <FileText className="h-5 w-5" />
-            </span>
-            <span>BOM Records</span>
-          </CardTitle>
-          <CardDescription className="pl-[3.25rem]">
-            Track project BOMs, ownership, and recent update activity.
-          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loadingBOMs ? (

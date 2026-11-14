@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Search, Filter, Calendar, User, Eye } from "lucide-react";
+import { ArrowLeft, Search, Calendar, User, Eye } from "lucide-react";
 import bomService from "@/services/bomService";
 import { formatDateTime } from "@/lib/utils";
 
@@ -232,33 +232,19 @@ export default function BOMDetails() {
         </TabsList> */}
 
         <TabsContent value="material-requests" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Filter
-              </Button>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {filteredItems.length} items found
-            </div>
-          </div>
-
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
               <CardTitle className="flex items-center">
                 <Calendar className="h-5 w-5 mr-2" />
                 BOM Items Details
               </CardTitle>
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Search items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+                </div>
+                <span className="whitespace-nowrap text-sm text-muted-foreground">{filteredItems.length} items found</span>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

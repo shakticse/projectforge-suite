@@ -105,19 +105,14 @@ export default function BOMStatus() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <CardTitle>BOM Items Status</CardTitle>
           <CardDescription>
             View all BOM items with their current status and details
           </CardDescription>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search items or requested by..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
+          <div className="relative w-full sm:ml-auto sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search items or requested by..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
           </div>
         </CardHeader>
         <CardContent>
