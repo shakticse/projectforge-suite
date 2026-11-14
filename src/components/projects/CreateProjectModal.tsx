@@ -3,13 +3,6 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Form,
   FormControl,
   FormField,
@@ -85,7 +78,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
         const res: any = await userService.getAllManagers();
         const mapped = (res || []).map((u: any) => ({
           id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
-          name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
+          name: `${u.firstName ?? ''}${(u.lastName) ? ' ' + (u.lastName) : ''} ( ${u.role ?? ''} )`.trim() || u.name || u.email || ''
         }));
         if (mounted) setProjectManagers(mapped);
       } catch (err) {
@@ -100,7 +93,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
         const res: any = await userService.getAllUsers();
         const mapped = (res || []).map((u: any) => ({
           id: String(u.id ?? u.userId ?? u.UserId ?? u.id),
-          name: `${u.firstName ?? u.first_name ?? ''}${(u.lastName ?? u.last_name) ? ' ' + (u.lastName ?? u.last_name) : ''}`.trim() || u.name || u.email || ''
+          name: `${u.firstName ?? ''}${(u.lastName) ? ' ' + (u.lastName) : ''} ( ${u.role ?? ''} )`.trim() || u.name || u.email || ''
         }));
         if (mounted) setUsersList(mapped);
       } catch (err) {
@@ -109,6 +102,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
     };
 
     loadUsers();
+
     return () => { mounted = false; };
   }, []);
 
@@ -194,7 +188,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
       // Create FormData for file uploads and map form field projectName -> name for backend
       const payload = { ...data };
       // include selected team as array (teamIds)
-      if (selectedTeam.length > 0) payload.teamIds = selectedTeam;
+      payload.teamIds = selectedTeam;
 
       // If there are files, send FormData with JSON under 'projectData', otherwise send JSON
       const hasFiles = files.some(f => f.status === 'completed' && f.file.size > 0);
@@ -230,15 +224,16 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Fill in the project details to create a new project
-          </DialogDescription>
-        </DialogHeader>
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold">Create New Project</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Fill in the project details to create a new project
+        </p>
+      </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -331,7 +326,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
                         return (
                           <Badge key={userId} variant="secondary" className="flex items-center gap-2">
                             <span className="text-sm">{name}</span>
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSelectedTeam(prev => prev.filter(id => id !== userId))}>
+                            <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSelectedTeam(prev => prev.filter(id => id !== userId))}>
                               <X className="h-3 w-3" />
                             </Button>
                           </Badge>
@@ -445,37 +440,6 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
               />
             </div>
 
-            {/* Site Possession Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="sitePossessionStartDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Site Possession Start Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="sitePossessionEndDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Site Clearing End Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -506,6 +470,36 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
               />
             </div>
 
+            {/* Site Possession Dates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="sitePossessionStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Possession Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sitePossessionEndDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site Clearing End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -630,8 +624,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, onOpenCha
             </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 };
 

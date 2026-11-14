@@ -164,7 +164,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="border-t border-border/60 bg-gradient-to-br from-primary/5 via-background to-accent/5 p-6 lg:border-l lg:border-t-0">
+              <div className="border-t border-border bg-muted/30 p-6 lg:border-l lg:border-t-0">
                 <div className="rounded-2xl border border-primary/15 bg-background/80 p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-4">
                     <div>

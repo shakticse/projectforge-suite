@@ -610,7 +610,7 @@ export default function BOMConsolidateDetails() {
                     onClick={() => handleSort('total_fabrication_qty')}
                   >
                     <div className="flex items-center justify-end space-x-1">
-                      <span>Fabrication Qty</span>
+                      <span>Outsourcing Qty</span>
                       {getSortIcon('total_fabrication_qty')}
                     </div>
                   </TableHead>

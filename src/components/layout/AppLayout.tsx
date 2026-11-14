@@ -17,7 +17,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden px-0 pb-3 md:px-3">
           <Header />
-          <main className="app-content mt-3 flex-1 overflow-x-hidden overflow-y-auto border border-border/60 shadow-card">
+          <main className="app-content mt-3 flex-1 overflow-x-hidden overflow-y-auto">
             <div className="p-4 sm:p-6 lg:p-7">
               <div className="w-full max-w-7xl mx-auto">{children}</div>
             </div>

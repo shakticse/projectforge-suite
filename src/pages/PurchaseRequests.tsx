@@ -53,6 +53,7 @@ export interface PurchaseRequestRow {
   name: string;
   createdBy: string;
   createdDate: string;
+  dueDate: string;
   status: string;
 }
 
@@ -141,8 +142,18 @@ function mapListResponse(data: any): PurchaseRequestRow[] {
     name: r.name ?? "",
     createdBy: r.createdByUser ?? "",
     createdDate: r.createdDate ?? "",
+    dueDate: r.dueDate ?? "",
     status: r.status ?? "Pending",
   }));
+}
+
+function formatDate(value: string): string {
+  if (!value) return "—";
+  const datePart = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const date = datePart
+    ? new Date(Number(datePart[1]), Number(datePart[2]) - 1, Number(datePart[3]))
+    : new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
 }
 
 function mapCatalogItem(raw: any): CatalogItem | null {
@@ -375,7 +386,7 @@ export default function PurchaseRequests() {
     copy.sort((a, b) => {
       let av: any = a[sortColumn];
       let bv: any = b[sortColumn];
-      if (sortColumn === "createdDate") {
+      if (sortColumn === "createdDate" || sortColumn === "dueDate") {
         av = new Date(av).getTime() || 0;
         bv = new Date(bv).getTime() || 0;
       } else {
@@ -1095,6 +1106,16 @@ export default function PurchaseRequests() {
                       <Button
                         variant="ghost"
                         className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort("dueDate")}
+                      >
+                        Due Date
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="h-12">
+                      <Button
+                        variant="ghost"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
                         onClick={() => handleSort("status")}
                       >
                         Status
@@ -1115,6 +1136,7 @@ export default function PurchaseRequests() {
                           ? new Date(row.createdDate).toLocaleDateString()
                           : "—"}
                       </TableCell>
+                      <TableCell>{formatDate(row.dueDate)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusVariant(row.status)}>{row.status}</Badge>
                       </TableCell>

@@ -25,8 +25,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { vendorSchema } from "@/lib/validations";
 import { vendorService, type Vendor, type VendorPayload } from "@/services/vendorService";
+import { categoryService, type ItemCategory } from "@/services/categoryService";
 
-const vendorCategories = [
+const defaultVendorCategories = [
   "Raw Materials",
   "Equipment",
   "Services",
@@ -85,6 +86,7 @@ const errorMessage = (error: unknown, fallback: string) => {
 
 export default function Vendors() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [vendorCategories, setVendorCategories] = useState<string[]>(defaultVendorCategories);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<SortField>("name");
@@ -118,6 +120,28 @@ export default function Vendors() {
 
   useEffect(() => {
     void loadVendors();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadCategories = async () => {
+      try {
+        const categories = await categoryService.getAllCategories();
+        const names = categories
+          .map((category: ItemCategory) =>
+            String(category.categoryName ?? category.CategoryName ?? category.name ?? category.Name ?? "").trim()
+          )
+          .filter(Boolean);
+        if (mounted) {
+          setVendorCategories((current) => [...new Set([...current, ...names])]);
+        }
+      } catch (error) {
+        toast.error(errorMessage(error, "Failed to load categories"));
+      }
+    };
+
+    void loadCategories();
+    return () => { mounted = false; };
   }, []);
 
   const startCreate = () => {

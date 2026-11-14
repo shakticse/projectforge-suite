@@ -17,6 +17,7 @@ import {
   Package,
   Eye,
   ArrowDownToLine,
+  ListFilter,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +64,7 @@ import { itemStoreService } from "@/services/itemStoreService";
 import { itemService } from "@/services/itemService";
 import { formatDateTime } from "@/lib/utils";
 import { authService } from "@/services/authService";
+import { categoryService } from "@/services/categoryService";
 import { NumberSchema } from "yup";
 import { useNavigate } from "react-router-dom";
 
@@ -73,7 +81,95 @@ interface BOMItem {
   status: "pending" | "partial" | "complete";
   priority?: "low" | "medium" | "high";
   category?: string;
+  categoryName?: string;
   supplier?: string;
+}
+
+interface ItemCategory {
+  id: string;
+  name: string;
+}
+
+function getCategoryKey(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+function matchesSelectedCategories(item: BOMItem, selectedCategories: string[]): boolean {
+  if (selectedCategories.length === 0) return true;
+  const category = item.categoryName ?? item.category ?? "";
+  return selectedCategories.includes(getCategoryKey(category));
+}
+
+function ItemCategoryFilter({
+  categories,
+  selectedCategories,
+  onChange,
+}: {
+  categories: ItemCategory[];
+  selectedCategories: string[];
+  onChange: (categories: string[]) => void;
+}) {
+  const selectedLabel =
+    selectedCategories.length === 0
+      ? "All categories"
+      : selectedCategories.length === 1
+        ? categories.find((category) => getCategoryKey(category.name) === selectedCategories[0])?.name ??
+          "1 category selected"
+        : `${selectedCategories.length} categories selected`;
+
+  const toggleCategory = (categoryName: string, checked: boolean) => {
+    const key = getCategoryKey(categoryName);
+    onChange(
+      checked
+        ? [...selectedCategories, key]
+        : selectedCategories.filter((selected) => selected !== key),
+    );
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="gap-2">
+          <ListFilter className="h-4 w-4" />
+          {selectedLabel}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-medium">Filter by category</p>
+          {selectedCategories.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => onChange([])}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        {categories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No categories available.</p>
+        ) : (
+          <div className="max-h-60 space-y-2 overflow-y-auto">
+            {categories.map((category) => {
+              const key = getCategoryKey(category.name);
+              return (
+                <label key={category.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={selectedCategories.includes(key)}
+                    onCheckedChange={(checked) => toggleCategory(category.name, checked === true)}
+                  />
+                  <span>{category.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 interface BOM {
@@ -101,6 +197,7 @@ interface StoreItem {
   itemId?: string | number;
   itemName?: string;
   name?: string;
+  availableQty?: number;
   availableQuantity?: number;
   quantity?: number;
   [key: string]: any;
@@ -310,12 +407,25 @@ function SummaryPanel({
 function Step1(props: {
   bom: BOM;
   stores: Store[];
+  categories: ItemCategory[];
+  selectedCategories: string[];
+  onSelectedCategoriesChange: (categories: string[]) => void;
   allocations: AllocationMap;
   onChange: (alloc: AllocationMap) => void;
   onApply: (storeId: string, changedItems: BomAllocationItem[]) => void | Promise<void>;
   onSkip: () => void;
 }) {
-  const { bom, stores, allocations, onChange, onApply, onSkip } = props;
+  const {
+    bom,
+    stores,
+    categories,
+    selectedCategories,
+    onSelectedCategoriesChange,
+    allocations,
+    onChange,
+    onApply,
+    onSkip,
+  } = props;
 
   const [selectedStore, setSelectedStore] = useState<string>("");
   const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
@@ -376,7 +486,7 @@ function Step1(props: {
   const rowsWithPending = bom.items.map((item) => ({
     item,
     pending: pendingForItem(item),
-  }));
+  })).filter((row) => matchesSelectedCategories(row.item, selectedCategories));
   const pendingRows = rowsWithPending.filter((r) => r.pending > 0);
   const doneRows = rowsWithPending.filter((r) => r.pending === 0);
   const displayRows = showFullyAllocated ? [...pendingRows, ...doneRows] : pendingRows;
@@ -384,7 +494,7 @@ function Step1(props: {
   return (
     <div className="space-y-4">
       {/* Store selector */}
-      <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
         <Warehouse className="h-5 w-5 text-blue-600 shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
@@ -407,6 +517,11 @@ function Step1(props: {
             {showFullyAllocated ? "Hide" : "Show"} allocated
           </Button>
         )}
+        <ItemCategoryFilter
+          categories={categories}
+          selectedCategories={selectedCategories}
+          onChange={onSelectedCategoriesChange}
+        />
         <Select value={selectedStore} onValueChange={handleStoreChange}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Choose store…" />
@@ -445,6 +560,13 @@ function Step1(props: {
                 >
                   All items are fully allocated for this step. Use &quot;Show allocated&quot; to
                   see them in the table.
+                </TableCell>
+              </TableRow>
+            )}
+            {displayRows.length === 0 && rowsWithPending.length === 0 && selectedCategories.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                  No items match the selected categories.
                 </TableCell>
               </TableRow>
             )}
@@ -633,6 +755,9 @@ function Step1(props: {
 function Step2(props: {
   bom: BOM;
   projects: Project[];
+  categories: ItemCategory[];
+  selectedCategories: string[];
+  onSelectedCategoriesChange: (categories: string[]) => void;
   step1Alloc: AllocationMap;
   allocations: AllocationMap;
   onChange: (alloc: AllocationMap) => void;
@@ -640,8 +765,19 @@ function Step2(props: {
   onBack: () => void;
   onSkip: () => void;
 }) {
-  const { bom, projects, step1Alloc, allocations, onChange, onApply, onBack, onSkip } =
-    props;
+  const {
+    bom,
+    projects,
+    categories,
+    selectedCategories,
+    onSelectedCategoriesChange,
+    step1Alloc,
+    allocations,
+    onChange,
+    onApply,
+    onBack,
+    onSkip,
+  } = props;
 
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
 
@@ -657,10 +793,13 @@ function Step2(props: {
 
   const toggleProject = (id: string) =>
     setExpandedProject((prev) => (prev === id ? null : id));
+  const categoryFilteredItems = bom.items.filter((item) =>
+    matchesSelectedCategories(item, selectedCategories)
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-100 dark:border-purple-900">
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-100 dark:border-purple-900">
         <Clock className="h-5 w-5 text-purple-600 shrink-0" />
         <div>
           <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
@@ -670,6 +809,11 @@ function Step2(props: {
             Plan to use materials expected to be returned from finishing projects
           </p>
         </div>
+        <ItemCategoryFilter
+          categories={categories}
+          selectedCategories={selectedCategories}
+          onChange={onSelectedCategoriesChange}
+        />
       </div>
 
       {relevantProjects.length === 0 ? (
@@ -736,7 +880,13 @@ function Step2(props: {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {bom.items.map((item) => {
+                        {categoryFilteredItems.length === 0 ? (
+                          <TableRow key="empty-filtered-items">
+                            <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                              No items match the selected categories.
+                            </TableCell>
+                          </TableRow>
+                        ) : categoryFilteredItems.map((item) => {
                           const pending = pendingQtyForItem(item);
                           const key = `${projId}_${item.id}`;
                           return (
@@ -806,6 +956,9 @@ function Step2(props: {
 
 function Step3(props: {
   bom: BOM;
+  categories: ItemCategory[];
+  selectedCategories: string[];
+  onSelectedCategoriesChange: (categories: string[]) => void;
   step1Alloc: AllocationMap;
   step2Alloc: AllocationMap;
   poItems: AllocationMap;
@@ -818,6 +971,9 @@ function Step3(props: {
 }) {
   const {
     bom,
+    categories,
+    selectedCategories,
+    onSelectedCategoriesChange,
     step1Alloc,
     step2Alloc,
     poItems,
@@ -831,7 +987,9 @@ function Step3(props: {
 
   const [showFullyAllocated, setShowFullyAllocated] = useState(false);
 
-  const rows = bom.items.map((item) => {
+  const rows = bom.items.filter((item) =>
+    matchesSelectedCategories(item, selectedCategories)
+  ).map((item) => {
     const existing = item.allottedQty;
     const s1 = step1Alloc[item.id] ?? 0;
     const s2 = step2Alloc[item.id] ?? 0;
@@ -873,6 +1031,11 @@ function Step3(props: {
             className="h-8 w-[150px] text-sm bg-background"
           />
         </div>
+        <ItemCategoryFilter
+          categories={categories}
+          selectedCategories={selectedCategories}
+          onChange={onSelectedCategoriesChange}
+        />
         {doneRows.length > 0 && (
           <Button
             variant="ghost"
@@ -887,11 +1050,17 @@ function Step3(props: {
 
       {pendingRows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-10">
-          <CheckCircle2 className="h-12 w-12 text-green-500" />
-          <p className="font-medium">All items are fully allocated!</p>
-          <p className="text-sm text-muted-foreground">
-            No purchase request needed.
-          </p>
+          {rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No items match the selected categories.</p>
+          ) : (
+            <>
+              <CheckCircle2 className="h-12 w-12 text-green-500" />
+              <p className="font-medium">All items are fully allocated!</p>
+              <p className="text-sm text-muted-foreground">
+                No purchase request needed.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
@@ -977,6 +1146,9 @@ function Step3(props: {
 
 function Step4(props: {
   bom: BOM;
+  categories: ItemCategory[];
+  selectedCategories: string[];
+  onSelectedCategoriesChange: (categories: string[]) => void;
   step1Alloc: AllocationMap;
   step2Alloc: AllocationMap;
   step3Alloc: AllocationMap;
@@ -990,6 +1162,9 @@ function Step4(props: {
 }) {
   const {
     bom,
+    categories,
+    selectedCategories,
+    onSelectedCategoriesChange,
     step1Alloc,
     step2Alloc,
     step3Alloc,
@@ -1004,7 +1179,9 @@ function Step4(props: {
 
   const [showFullyAllocated, setShowFullyAllocated] = useState(false);
 
-  const rows = bom.items.map((item) => {
+  const rows = bom.items.filter((item) =>
+    matchesSelectedCategories(item, selectedCategories)
+  ).map((item) => {
     const existing = item.allottedQty;
     const s1 = step1Alloc[item.id] ?? 0;
     const s2 = step2Alloc[item.id] ?? 0;
@@ -1047,6 +1224,11 @@ function Step4(props: {
             className="h-8 w-[150px] text-sm bg-background"
           />
         </div>
+        <ItemCategoryFilter
+          categories={categories}
+          selectedCategories={selectedCategories}
+          onChange={onSelectedCategoriesChange}
+        />
         {doneRows.length > 0 && (
           <Button
             variant="ghost"
@@ -1061,9 +1243,15 @@ function Step4(props: {
 
       {pendingRows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-10">
-          <CheckCircle2 className="h-12 w-12 text-green-500" />
-          <p className="font-medium">All items are fully allocated!</p>
-          <p className="text-sm text-muted-foreground">No outsourcing needed.</p>
+          {rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No items match the selected categories.</p>
+          ) : (
+            <>
+              <CheckCircle2 className="h-12 w-12 text-green-500" />
+              <p className="font-medium">All items are fully allocated!</p>
+              <p className="text-sm text-muted-foreground">No outsourcing needed.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
@@ -1150,6 +1338,8 @@ export default function BOMAction() {
   const [boms, setBOMs] = useState<BOM[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [categories, setCategories] = useState<ItemCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loadingBOMs, setLoadingBOMs] = useState(true);
   const [loadingStores, setLoadingStores] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -1189,6 +1379,52 @@ export default function BOMAction() {
       .then((data) => setProjects(Array.isArray(data) ? data : data?.data ?? []))
       .catch(() => toast.error("Failed to load projects"))
       .finally(() => setLoadingProjects(false));
+
+    categoryService
+      .getAllCategories()
+      .then((data) => {
+        const responseData: unknown = data;
+        let categoryList: unknown[] = [];
+        if (Array.isArray(responseData)) {
+          categoryList = responseData;
+        } else if (
+          typeof responseData === "object" &&
+          responseData !== null &&
+          "data" in responseData &&
+          Array.isArray(responseData.data)
+        ) {
+          categoryList = responseData.data;
+        }
+        setCategories(
+          categoryList
+            .map((value): ItemCategory | null => {
+              if (typeof value !== "object" || value === null || Array.isArray(value)) {
+                return null;
+              }
+              const category = value as Record<string, unknown>;
+              const id =
+                category.id ??
+                category.Id ??
+                category.categoryId ??
+                category.CategoryId;
+              const name =
+                category.categoryName ??
+                category.CategoryName ??
+                category.name ??
+                category.Name;
+              if (id == null || name == null) return null;
+              return { id: String(id), name: String(name).trim() };
+            })
+            .filter(
+              (category): category is ItemCategory =>
+                category !== null && category.id.length > 0 && category.name.length > 0,
+            ),
+        );
+      })
+      .catch(() => {
+        toast.error("Failed to load item categories");
+        setCategories([]);
+      });
   }, []);
 
   const filteredBOMs = boms.filter((bom) => {
@@ -1209,6 +1445,7 @@ export default function BOMAction() {
     setCurrentStep(1);
     setStep1Alloc({});
     setStep2Alloc({});
+    setSelectedCategories([]);
     const defaultPO: AllocationMap = {};
     bom.items.forEach((item) => {
       defaultPO[item.id] = item.pendingQuantity;
@@ -1223,6 +1460,7 @@ export default function BOMAction() {
     setCurrentStep(1);
     setStep1Alloc({});
     setStep2Alloc({});
+    setSelectedCategories([]);
     setPoQty({});
     setPurchaseRequestDueDate("");
     setOutsourceRequestDueDate("");
@@ -1257,9 +1495,41 @@ export default function BOMAction() {
       });
       toast.success("Store allocation saved");
       setCurrentStep(2);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Step 1 allocation failed", e);
-      toast.error(e?.message ?? "Failed to save store allocation");
+      const response = typeof e === "object" && e !== null && "response" in e
+        ? (e as {
+            response?: {
+              data?: {
+                message?: string;
+                unavailableItems?: {
+                  itemId: number;
+                  requestedQty: number;
+                  availableQty: number;
+                }[];
+              };
+            };
+          }).response?.data
+        : undefined;
+      const shortages = response?.unavailableItems;
+      if (Array.isArray(shortages) && shortages.length > 0) {
+        const description = shortages.map((shortage: {
+          itemId: number;
+          requestedQty: number;
+          availableQty: number;
+        }) => {
+          const item = selectedBOM.items.find(
+            (bomItem) => String(bomItem.id) === String(shortage.itemId)
+          );
+          return `${item?.itemName ?? `Item ${shortage.itemId}`}: requested ${shortage.requestedQty}, available ${shortage.availableQty}`;
+        }).join("; ");
+        toast.error(response?.message ?? "Insufficient store stock", { description });
+      } else {
+        toast.error(
+          response?.message ?? (e instanceof Error ? e.message : undefined) ??
+            "Failed to save store allocation"
+        );
+      }
     }
   };
   const skipStep1 = () => { setStep1Alloc({}); setCurrentStep(2); };
@@ -1538,6 +1808,9 @@ export default function BOMAction() {
                 <Step1
                   bom={selectedBOM}
                   stores={loadingStores ? [] : stores}
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectedCategoriesChange={setSelectedCategories}
                   allocations={step1Alloc}
                   onChange={setStep1Alloc}
                   onApply={applyStep1}
@@ -1548,6 +1821,9 @@ export default function BOMAction() {
                 <Step2
                   bom={selectedBOM}
                   projects={loadingProjects ? [] : projects}
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectedCategoriesChange={setSelectedCategories}
                   step1Alloc={step1Alloc}
                   allocations={step2Alloc}
                   onChange={setStep2Alloc}
@@ -1559,6 +1835,9 @@ export default function BOMAction() {
               {currentStep === 3 && (
                 <Step3
                   bom={selectedBOM}
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectedCategoriesChange={setSelectedCategories}
                   step1Alloc={step1Alloc}
                   step2Alloc={step2Alloc}
                   poItems={poQty}
@@ -1573,6 +1852,9 @@ export default function BOMAction() {
               {currentStep === 4 && (
                 <Step4
                   bom={selectedBOM}
+                  categories={categories}
+                  selectedCategories={selectedCategories}
+                  onSelectedCategoriesChange={setSelectedCategories}
                   step1Alloc={step1Alloc}
                   step2Alloc={step2Alloc}
                   step3Alloc={poQty}

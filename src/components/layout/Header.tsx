@@ -49,10 +49,10 @@ export function Header() {
   };
 
   return (
-    <header className="header-surface mx-3 mt-3 flex min-h-[84px] items-center justify-between rounded-[26px] px-4 sm:px-6">
+    <header className="header-surface mx-3 mt-3 flex min-h-16 items-center justify-between rounded-xl px-4 sm:px-5">
 
       <div className="flex min-w-0 flex-1 items-center gap-4">
-        <SidebarTrigger className="h-10 w-10 rounded-xl border border-primary/15 bg-primary/5 text-primary shadow-sm hover:bg-primary/10" />
+        <SidebarTrigger className="h-10 w-10 rounded-lg border border-border bg-background text-foreground shadow-none hover:bg-muted" />
 
         {/* <div className="hidden min-w-0 lg:block">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
@@ -74,14 +74,14 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
           <Input 
             placeholder="Search projects, inventory, users..."
-            className="h-11 rounded-2xl border-primary/15 bg-background/80 pl-10 shadow-sm focus:bg-background transition-smooth"
+            className="h-10 rounded-lg border-border bg-background pl-10 shadow-none focus:bg-card transition-smooth"
           />
         </div>
 
         <div className="sm:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open search" className="h-10 w-10 rounded-xl border border-primary/15 bg-primary/5 shadow-sm">
+              <Button variant="ghost" size="icon" aria-label="Open search" className="h-10 w-10 rounded-lg border border-border bg-background shadow-none">
                 <Search className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -121,7 +121,7 @@ export function Header() {
           </div>
         </div> */}
 
-        <Button variant="ghost" size="sm" className="relative h-10 rounded-xl border border-primary/15 bg-primary/5 px-3 shadow-sm hover:bg-primary/10">
+        <Button variant="ghost" size="sm" className="relative h-10 rounded-lg border border-border bg-background px-3 shadow-none hover:bg-muted">
           <Bell className="h-5 w-5" />
           {notifications > 0 && (
             <Badge 
@@ -135,8 +135,8 @@ export function Header() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex h-12 items-center gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-3 shadow-sm hover:bg-primary/10">
-              <div className="gradient-primary flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium text-primary-foreground shadow-sm">
+            <Button variant="ghost" className="flex h-11 items-center gap-3 rounded-lg border border-border bg-background px-3 shadow-none hover:bg-muted">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground">
                 {displayAvatar}
               </div>
               <div className="hidden md:block text-left">

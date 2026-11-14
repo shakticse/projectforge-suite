@@ -122,7 +122,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ open, onOpenChange,
     loadManagers();
 
     return () => { mounted = false; };
-  }, []);
+  }, [toast]);
 
   // Reset form when project or managers change — fetch full project details when editing
   useEffect(() => {
@@ -206,7 +206,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ open, onOpenChange,
           eventEndDate: normalizeDate(project.eventEndDate),
         });
 
-        const teamCsv = project.team ?? project.teamMembers ?? project.teamIds ?? project.team_list ?? project.teamList ?? '';
+        const teamCsv = project.teamIds ?? '';
         const teamArr = Array.isArray(teamCsv) ? teamCsv.map(String) : (String(teamCsv || '').split(',').map((s: string) => s.trim()).filter(Boolean));
         if (mounted) setSelectedTeam(teamArr.filter(Boolean));
 
@@ -300,7 +300,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ open, onOpenChange,
       const payloadData = { ...data };
 
       // include selected team as array (teamIds)
-      if (selectedTeam.length > 0) payloadData.teamIds = selectedTeam;
+      payloadData.teamIds = selectedTeam;
 
       let payload: any = payloadData;
 
@@ -459,7 +459,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ open, onOpenChange,
                           return (
                             <Badge key={userId} variant="secondary" className="flex items-center gap-2">
                               <span className="text-sm">{name}</span>
-                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSelectedTeam(prev => prev.filter(id => id !== userId))}>
+                              <Button type="button" variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setSelectedTeam(prev => prev.filter(id => id !== userId))}>
                                 <X className="h-3 w-3" />
                               </Button>
                             </Badge>

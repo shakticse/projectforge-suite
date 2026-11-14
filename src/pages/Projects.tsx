@@ -234,6 +234,14 @@ const Projects = () => {
         </Button>
       </div>
 
+      {showCreateModal && (
+        <CreateProjectModal
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
+          onCreated={() => fetchProjects()}
+        />
+      )}
+
       {/* Filters and Search */}
       <Card className="glass-card">
         <CardContent className="p-6">
@@ -474,13 +482,6 @@ const Projects = () => {
           </CardContent>
         </Card>
       )}
-
-      {/* Create Project Modal */}
-      <CreateProjectModal 
-        open={showCreateModal}
-        onOpenChange={setShowCreateModal}
-        onCreated={() => fetchProjects()}
-      />
 
       {/* View Project Modal */}
       <ViewProjectModal 

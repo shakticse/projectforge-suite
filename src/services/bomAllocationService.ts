@@ -25,6 +25,11 @@ export const bomAllocationService = {
     return response.data;
   },
 
+  async deallocate(data: BomAllocationRequest) {
+    const response = await api.post('/api/BomAllocation/deallocate', data);
+    return response.data;
+  },
+
   async createPurchaseOrder(data: BomPurchaseOrderRequest) {
     const response = await api.post('/api/PurchaseRequest', data);
     return response.data;

@@ -987,7 +987,7 @@ export default function BOM() {
       </div>
 
       <Card className="overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-card">
-        <CardHeader className="border-b border-border/60 bg-gradient-to-r from-background/95 to-primary/5 px-5 py-4">
+        <CardHeader className="border-b border-border bg-muted/40 px-5 py-4">
           <CardTitle className="flex items-center gap-3 text-xl">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
