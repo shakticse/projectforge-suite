@@ -1,18 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Building2 } from "lucide-react";
+import { storeSettingsService } from "@/services/storeSettingsService";
 
 const settingsSchema = z.object({
   storeName: z.string().min(1, "Store name is required"),
+  contactPersonName: z.string().min(1, "Contact person name is required"),
   contactAddress: z.string().min(1, "Contact address is required"),
   gstNumber: z.string().min(15, "GST number must be 15 characters").max(15, "GST number must be 15 characters"),
   emailAddress: z.string().email("Please enter a valid email address"),
@@ -30,11 +31,13 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 export default function Settings() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       storeName: "",
+      contactPersonName: "",
       contactAddress: "",
       gstNumber: "",
       emailAddress: "",
@@ -48,11 +51,46 @@ export default function Settings() {
     },
   });
 
+  useEffect(() => {
+    let active = true;
+    void storeSettingsService
+      .get()
+      .then((settings) => {
+        if (!active || !settings) return;
+        form.reset({
+          storeName: settings.storeName ?? "",
+          contactPersonName: settings.contactPersonName ?? "",
+          contactAddress: settings.contactAddress ?? "",
+          gstNumber: settings.gstNumber ?? "",
+          emailAddress: settings.emailAddress ?? "",
+          phoneNumber1: settings.phoneNumber1 ?? "",
+          phoneNumber2: settings.phoneNumber2 ?? "",
+          logoUrl: settings.logoUrl ?? "",
+          bankName: settings.bankName ?? "",
+          accountNumber: settings.accountNumber ?? "",
+          ifscCode: settings.ifscCode ?? "",
+          panNumber: settings.panNumber ?? "",
+        });
+      })
+      .catch(() => {
+        toast({
+          title: "Error",
+          description: "Failed to load store settings.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (active) setIsLoadingSettings(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [form, toast]);
+
   const onSubmit = async (data: SettingsFormData) => {
     setIsLoading(true);
     try {
-      // TODO: Save settings to backend
-      console.log("Settings data:", data);
+      await storeSettingsService.upsert(data);
       
       toast({
         title: "Settings saved",
@@ -99,6 +137,20 @@ export default function Settings() {
                       <FormLabel>Store Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter store name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="contactPersonName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter contact person name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -284,7 +336,7 @@ export default function Settings() {
           </Card>
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={isLoading} className="min-w-[120px]">
+            <Button type="submit" disabled={isLoading || isLoadingSettings} className="min-w-[120px]">
               <Save className="h-4 w-4 mr-2" />
               {isLoading ? "Saving..." : "Save Settings"}
             </Button>

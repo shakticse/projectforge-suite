@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +38,97 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'allocatedQty' | 'availableQuantity' | 'unitPrice';
+type SortField = 'name' | 'sku' | 'category' | 'totalQuantity' | 'allocatedQty' | 'availableQuantity' | 'dispatchedQty' | 'onOrderQty' | 'unitPrice';
 type SortDirection = 'asc' | 'desc';
+
+type InventoryApiValue = string | number | boolean | null | undefined;
+
+interface InventoryApiRow {
+  [key: string]: InventoryApiValue;
+  Id?: string | number | null;
+  id?: string | number | null;
+  ItemId?: string | number | null;
+  ItemName?: InventoryApiValue;
+  itemName?: InventoryApiValue;
+  name?: InventoryApiValue;
+  SKU?: InventoryApiValue;
+  sku?: InventoryApiValue;
+  CategoryName?: InventoryApiValue;
+  categoryName?: InventoryApiValue;
+  ItemPrice?: InventoryApiValue;
+  itemPrice?: InventoryApiValue;
+  unitPrice?: InventoryApiValue;
+  Qty?: InventoryApiValue;
+  qty?: InventoryApiValue;
+  quantity?: InventoryApiValue;
+  AllocatedQty?: InventoryApiValue;
+  allocatedQty?: InventoryApiValue;
+  AllocattedQty?: InventoryApiValue;
+  allocattedQty?: InventoryApiValue;
+  AvailableQty?: InventoryApiValue;
+  availableQty?: InventoryApiValue;
+  AvailableQuantity?: InventoryApiValue;
+  availableQuantity?: InventoryApiValue;
+  DispatchedQty?: InventoryApiValue;
+  dispatchedQty?: InventoryApiValue;
+  ReturnInTransitQty?: InventoryApiValue;
+  returnInTransitQty?: InventoryApiValue;
+  OnOrderQty?: InventoryApiValue;
+  onOrderQty?: InventoryApiValue;
+  StoreId?: InventoryApiValue;
+  storeId?: InventoryApiValue;
+  StoreName?: InventoryApiValue;
+  storeName?: InventoryApiValue;
+  minStock?: InventoryApiValue;
+  maxStock?: InventoryApiValue;
+  updatedByUser?: InventoryApiValue;
+  updatedBy?: InventoryApiValue;
+  UpdatedBy?: InventoryApiValue;
+  UpdatedAt?: InventoryApiValue;
+  updatedAt?: InventoryApiValue;
+  updatedDate?: InventoryApiValue;
+  CreatedAt?: InventoryApiValue;
+  Status?: InventoryApiValue;
+  status?: InventoryApiValue;
+}
+
+interface InventoryStoreBreakdown {
+  id: number;
+  storeId: number;
+  location: string;
+  quantity: number;
+  allocatedQty: number;
+  availableQty: number;
+  dispatchedQty: number;
+  returnInTransitQty: number;
+  onOrderQty: number;
+  status: string;
+  minStock: number;
+  maxStock: number;
+}
+
+interface ConsolidatedInventoryItem {
+  id: number | string;
+  name: string;
+  sku: string;
+  category: string;
+  unitPrice: number;
+  totalQuantity: number;
+  allocatedQty: number;
+  availableQuantity: number;
+  dispatchedQty: number;
+  returnInTransitQty: number;
+  onOrderQty: number;
+  totalValue: number;
+  minStock: number;
+  maxStock: number;
+  updatedBy: string;
+  updatedDate: string | number;
+  stores: InventoryStoreBreakdown[];
+}
+
+const isInventoryApiRow = (value: unknown): value is InventoryApiRow =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,50 +137,62 @@ const Inventory = () => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [selectedItem, setSelectedItem] = useState<ConsolidatedInventoryItem | null>(null);
   const [showStoreBreakdown, setShowStoreBreakdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<ConsolidatedInventoryItem | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: ConsolidatedInventoryItem) => {
     setEditItem(item);
     setShowEditModal(true);
   };
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ConsolidatedInventoryItem | null>(null);
 
 
 
 
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryApiRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchStoreItems = async (storeName?: string) => {
+  const fetchStoreItems = useCallback(async (storeName?: string) => {
     setLoading(true);
     try {
       const data = await itemStoreService.getAll(storeName);
-      const items = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
-      setInventoryItems(items || []);
+      const items = Array.isArray(data)
+        ? data
+        : typeof data === 'object' && data !== null
+          ? ('data' in data && Array.isArray(data.data)
+            ? data.data
+            : 'items' in data && Array.isArray(data.items)
+              ? data.items
+              : [])
+          : [];
+      setInventoryItems(items.filter(isInventoryApiRow));
     } catch (err) {
       console.error('Failed to fetch store items', err);
       toast({ title: 'Error', description: 'Failed to load inventory items', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     const s = storeFilter === 'all' ? undefined : storeFilter;
     setCurrentPage(1);
     fetchStoreItems(s);
-  }, [storeFilter]);
+  }, [storeFilter, fetchStoreItems]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter]);
 
   // Helper to refresh current view respecting selected store
   const refreshStoreItems = () => {
@@ -101,42 +202,57 @@ const Inventory = () => {
 
   const [storesList, setStoresList] = useState<string[]>([]);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
     try {
       const data = await storeService.getAllStores();
-      const list = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
-      const names = (list || []).map((s: any) => s.store_name ?? s.StoreName ?? s.name ?? s.storeName ?? s);
+      const list = Array.isArray(data)
+        ? data
+        : typeof data === 'object' && data !== null
+          ? ('data' in data && Array.isArray(data.data)
+            ? data.data
+            : 'items' in data && Array.isArray(data.items)
+              ? data.items
+              : [])
+          : [];
+      const names = list.map((store) => {
+        if (typeof store !== 'object' || store === null) return '';
+        const row = store as Record<string, unknown>;
+        return String(row.store_name ?? row.StoreName ?? row.name ?? row.storeName ?? '');
+      });
       setStoresList(names.filter(Boolean));
     } catch (err) {
       console.error('Failed to fetch stores', err);
       toast({ title: 'Error', description: 'Failed to load stores', variant: 'destructive' });
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchStores();
-  }, []);
+  }, [fetchStores]);
 
   // Consolidate inventory items by ItemName/SKU (tolerant to API field naming)
-  const consolidatedItems = inventoryItems.reduce((acc, item) => {
-    const name = item.ItemName ?? item.itemName ?? item.name ?? '';
-    const sku = (item.SKU ?? item.sku ?? '') || '';
+  const consolidatedItems = inventoryItems.reduce<Record<string, ConsolidatedInventoryItem>>((acc, item) => {
+    const name = String(item.ItemName ?? item.itemName ?? item.name ?? '');
+    const sku = String(item.SKU ?? item.sku ?? '');
     const key = `${name}-${sku}`;
     if (!acc[key]) {
       acc[key] = {
-        id: item.ItemId ?? item.id ?? item.Id,
+        id: item.Id ?? item.id ?? '',
         name,
         sku,
-        category: item.CategoryName ?? item.categoryName ?? '',
+        category: String(item.CategoryName ?? item.categoryName ?? ''),
         unitPrice: Number(item.ItemPrice ?? item.itemPrice ?? item.unitPrice ?? 0),
         totalQuantity: 0,
         allocatedQty: 0,
         availableQuantity: 0,
+        dispatchedQty: 0,
+        returnInTransitQty: 0,
+        onOrderQty: 0,
         totalValue: 0,
         minStock: Number(item.minStock ?? 0),
         maxStock: Number(item.maxStock ?? 0),
-        updatedBy: item.updatedByUser ?? item.updatedBy ?? '',
-        updatedDate: item.UpdatedAt ?? item.updatedAt ?? item.updatedDate ?? item.CreatedAt ?? '',
+        updatedBy: String(item.updatedByUser ?? item.updatedBy ?? ''),
+        updatedDate: String(item.UpdatedAt ?? item.updatedAt ?? item.updatedDate ?? item.CreatedAt ?? ''),
         stores: []
       };
     }
@@ -157,10 +273,16 @@ const Inventory = () => {
         item.AvailableQuantity ??
         0
     );
+    const dispatchedQty = Number(item.dispatchedQty ?? item.DispatchedQty ?? 0);
+    const returnInTransitQty = Number(item.returnInTransitQty ?? item.ReturnInTransitQty ?? 0);
+    const onOrderQty = Number(item.onOrderQty ?? item.OnOrderQty ?? 0);
 
     acc[key].totalQuantity += qty;
     acc[key].allocatedQty += allocated;
     acc[key].availableQuantity += availableQty;
+    acc[key].dispatchedQty += dispatchedQty;
+    acc[key].returnInTransitQty += returnInTransitQty;
+    acc[key].onOrderQty += onOrderQty;
     acc[key].totalValue += qty * price;
     acc[key].minStock += Number(item.minStock ?? 0);
     acc[key].maxStock += Number(item.maxStock ?? 0);
@@ -174,20 +296,26 @@ const Inventory = () => {
     }
 
     acc[key].stores.push({
-      id: item.Id ?? item.id,
-      location: item.StoreName ?? item.storeName ?? '',
+      id: Number(item.Id ?? item.id ?? 0),
+      storeId: Number(item.StoreId ?? item.storeId ?? 0),
+      location: String(item.StoreName ?? item.storeName ?? ''),
       quantity: qty,
-      status: item.Status ?? item.status ?? '',
+      allocatedQty: allocated,
+      availableQty,
+      dispatchedQty,
+      returnInTransitQty,
+      onOrderQty,
+      status: String(item.Status ?? item.status ?? ''),
       minStock: Number(item.minStock ?? 0),
       maxStock: Number(item.maxStock ?? 0)
     });
 
     return acc;
-  }, {} as Record<string, any>);
+  }, {});
 
-  const consolidatedInventory = Object.values(consolidatedItems) as any[];
+  const consolidatedInventory = Object.values(consolidatedItems);
 
-  const getConsolidatedStatusBadge = (item: any) => {
+  const getConsolidatedStatusBadge = (item: ConsolidatedInventoryItem) => {
     if (item.totalQuantity <= item.minStock * 0.5) {
       return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />Critical</Badge>;
     } else if (item.totalQuantity <= item.minStock) {
@@ -197,7 +325,7 @@ const Inventory = () => {
     }
   };
 
-  const handleViewStoreBreakdown = (item: any) => {
+  const handleViewStoreBreakdown = (item: ConsolidatedInventoryItem) => {
     setSelectedItem(item);
     setShowStoreBreakdown(true);
   };
@@ -217,9 +345,8 @@ const Inventory = () => {
     return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
 
-  const categories = [...new Set(consolidatedInventory.map((it: any) => it.category).filter(Boolean))];
+  const categories = [...new Set(consolidatedInventory.map((item) => item.category).filter(Boolean))];
   const stores = storesList;
-  const statuses = [...new Set(inventoryItems.map((it: any) => it.Status ?? it.status).filter(Boolean))];
 
   const filteredItems = consolidatedInventory.filter(item => {
     const q = searchTerm.toLowerCase();
@@ -227,24 +354,24 @@ const Inventory = () => {
       (item.sku ?? '').toString().toLowerCase().includes(q) ||
       (item.category ?? '').toString().toLowerCase().includes(q);
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    const matchesStore = storeFilter === "all" || item.stores.some((store: any) => (store.location ?? '').toString() === storeFilter);
+    const matchesStore = storeFilter === "all" || item.stores.some((store) => store.location === storeFilter);
     return matchesSearch && matchesCategory && matchesStore;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
-    let aValue: any = a[sortField];
-    let bValue: any = b[sortField];
-
+    let aValue: string | number = a[sortField];
+    let bValue: string | number = b[sortField];
     if (
       sortField === 'totalQuantity' ||
       sortField === 'allocatedQty' ||
       sortField === 'availableQuantity' ||
+      sortField === 'dispatchedQty' ||
+      sortField === 'onOrderQty' ||
       sortField === 'unitPrice'
     ) {
       aValue = Number(aValue);
       bValue = Number(bValue);
     }
-
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
@@ -266,6 +393,8 @@ const Inventory = () => {
       { header: 'Total Quantity', key: 'totalQuantity' },
       { header: 'Allocated Qty', key: 'allocatedQty' },
       { header: 'Available Qty', key: 'availableQuantity' },
+      { header: 'Dispatched Qty', key: 'dispatchedQty' },
+      { header: 'On Order Qty', key: 'onOrderQty' },
       { header: 'Unit Price', key: 'unitPrice' },
       { header: 'Total Value', key: 'totalValue' },
       { header: 'Min Stock Level', key: 'minStock' },
@@ -281,7 +410,7 @@ const Inventory = () => {
     ]);
   };
 
-  const openDeleteDialog = (item: any) => {
+  const openDeleteDialog = (item: ConsolidatedInventoryItem) => {
     setDeleteTarget(item);
     setDeleteDialogOpen(true);
   };
@@ -359,7 +488,7 @@ const Inventory = () => {
               <SelectTrigger><SelectValue placeholder="Filter by store" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Stores</SelectItem>
-                {stores.map((store: any) => <SelectItem key={String(store)} value={String(store)}>{String(store)}</SelectItem>)}
+                {stores.map((store) => <SelectItem key={store} value={store}>{store}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -383,7 +512,7 @@ const Inventory = () => {
             </div>
           ) : (
             <div className="w-full overflow-x-auto rounded-none sm:rounded-md border border-x-0 sm:border-x">
-              <Table className="w-full border-separate border-spacing-0" style={{ minWidth: '880px' }}>
+              <Table className="w-full border-separate border-spacing-0" style={{ minWidth: '1160px' }}>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[180px] min-w-[180px]">
@@ -413,22 +542,13 @@ const Inventory = () => {
                           Category {getSortIcon('category')}
                         </Button>
                       </TableHead>
-                      <TableHead className="w-[100px] min-w-[100px]">
+                      {/* <TableHead className="w-[100px] min-w-[100px]">
                         <Button
                           variant="ghost"
                           onClick={() => handleSort('totalQuantity')}
                           className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
                         >
                           Qty {getSortIcon('totalQuantity')}
-                        </Button>
-                      </TableHead>
-                      {/* <TableHead className="w-[100px] min-w-[100px]">
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleSort('allocatedQty')}
-                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
-                        >
-                          Allocated {getSortIcon('allocatedQty')}
                         </Button>
                       </TableHead> */}
                       <TableHead className="w-[120px] min-w-[120px]">
@@ -438,6 +558,33 @@ const Inventory = () => {
                           className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
                         >
                           Available {getSortIcon('availableQuantity')}
+                        </Button>
+                      </TableHead>
+                      <TableHead className="w-[100px] min-w-[100px]">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('allocatedQty')}
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
+                        >
+                          Allocated {getSortIcon('allocatedQty')}
+                        </Button>
+                      </TableHead>
+                      <TableHead className="w-[120px] min-w-[120px]">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('dispatchedQty')}
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
+                        >
+                          Dispatched {getSortIcon('dispatchedQty')}
+                        </Button>
+                      </TableHead>
+                      <TableHead className="w-[120px] min-w-[120px]">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort('onOrderQty')}
+                          className="h-auto p-0 font-semibold text-left justify-start whitespace-nowrap"
+                        >
+                          On Order {getSortIcon('onOrderQty')}
                         </Button>
                       </TableHead>
                       <TableHead className="w-[100px] min-w-[100px]">
@@ -460,9 +607,11 @@ const Inventory = () => {
                         <TableCell className="max-w-[130px]">
                           <Badge variant="outline" className="text-xs truncate max-w-full">{item.category}</Badge>
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell>
-                        {/* <TableCell className="font-mono text-sm">{item.allocatedQty ?? 0}</TableCell> */}
                         <TableCell className="font-mono text-sm">{item.availableQuantity ?? 0}</TableCell>
+                        {/* <TableCell className="font-mono text-sm">{item.totalQuantity}</TableCell> */}
+                        <TableCell className="font-mono text-sm">{item.allocatedQty ?? 0}</TableCell>
+                        <TableCell className="font-mono text-sm">{item.dispatchedQty ?? 0}</TableCell>
+                        <TableCell className="font-mono text-sm">{item.onOrderQty ?? 0}</TableCell>
                         <TableCell className="font-mono text-sm whitespace-nowrap">₹{item.unitPrice.toFixed(2)}</TableCell>
                         <TableCell className="sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_hsl(var(--muted))] border-l">
                           <div className="flex items-center gap-1">
@@ -488,17 +637,18 @@ const Inventory = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 p-0"
-onClick={() => openDeleteDialog(item)}
-
-                              disabled={loading || isProcessing}
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {storeFilter !== "all" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 p-0"
+                                onClick={() => openDeleteDialog(item)}
+                                disabled={loading || isProcessing}
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -511,8 +661,33 @@ onClick={() => openDeleteDialog(item)}
         </CardContent>
       </Card>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Showing {sortedItems.length === 0 ? 0 : startIndex + 1}–{Math.min(startIndex + itemsPerPage, sortedItems.length)} of {sortedItems.length}
+        </p>
+        <div className="flex items-center gap-2">
+          <label htmlFor="inventory-page-size" className="text-sm text-muted-foreground">Rows per page</label>
+          <Select
+            value={String(itemsPerPage)}
+            onValueChange={(value) => {
+              setItemsPerPage(Number(value));
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger id="inventory-page-size" className="w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[20, 50, 100].map((size) => (
+                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {totalPages > 1 && (
-        <Pagination className="!hidden mt-4 sm:mt-6 w-full min-w-0 overflow-hidden">
+        <Pagination className="mt-4 sm:mt-6 w-full min-w-0 overflow-hidden">
           <PaginationContent className="flex-wrap justify-center sm:justify-start gap-y-2 max-w-full">
             <PaginationItem>
               <PaginationLink
@@ -630,20 +805,30 @@ onClick={() => openDeleteDialog(item)}
             <div className="space-y-3">
               <h3 className="font-semibold">Stock by Store</h3>
               <div className="border rounded-lg overflow-hidden overflow-x-auto w-full">
-                <Table className="min-w-[600px]">
+                <Table className="min-w-[1050px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Store Location</TableHead>
-                      <TableHead>Quantity</TableHead>
+                      <TableHead>On Hand</TableHead>
+                      <TableHead>Available</TableHead>
+                      <TableHead>Allocated</TableHead>
+                      <TableHead>Dispatched</TableHead>
+                      <TableHead>Return in Transit</TableHead>
+                      <TableHead>On Order</TableHead>
                       <TableHead>Updated By</TableHead>
                       <TableHead>Update Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedItem?.stores?.map((store: any, index: number) => (
+                    {selectedItem?.stores?.map((store, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{store.location}</TableCell>
                         <TableCell className="font-mono">{store.quantity}</TableCell>
+                        <TableCell className="font-mono">{store.availableQty}</TableCell>
+                        <TableCell className="font-mono">{store.allocatedQty}</TableCell>
+                        <TableCell className="font-mono">{store.dispatchedQty}</TableCell>
+                        <TableCell className="font-mono">{store.returnInTransitQty}</TableCell>
+                        <TableCell className="font-mono">{store.onOrderQty}</TableCell>
                         <TableCell>{selectedItem?.updatedBy}</TableCell>
                         <TableCell className="text-muted-foreground">{formatDateTime(selectedItem?.updatedDate)}</TableCell>
                       </TableRow>
@@ -657,6 +842,13 @@ onClick={() => openDeleteDialog(item)}
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Total Quantity:</span>
                 <span className="text-lg font-mono">{selectedItem?.totalQuantity}</span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-5">
+                <p>Allocated: <span className="font-mono">{selectedItem?.allocatedQty}</span></p>
+                <p>Available: <span className="font-mono">{selectedItem?.availableQuantity}</span></p>
+                <p>Dispatched: <span className="font-mono">{selectedItem?.dispatchedQty}</span></p>
+                <p>Return in transit: <span className="font-mono">{selectedItem?.returnInTransitQty}</span></p>
+                <p>On order: <span className="font-mono">{selectedItem?.onOrderQty}</span></p>
               </div>
             </div>
           </div>

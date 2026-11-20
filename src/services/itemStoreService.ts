@@ -1,5 +1,28 @@
 import api from '@/lib/api';
 
+export interface InventoryMovement {
+  id: number;
+  transactionType: string;
+  quantity: number;
+  referenceType: string;
+  referenceId?: number | null;
+  performedBy?: string | null;
+  transactionDate: string;
+}
+
+export interface StoreItemPayload {
+  StoreId?: number;
+  ItemId?: number | null;
+  ItemName?: string | null;
+  IsCustom?: boolean;
+  Qty?: number;
+  ItemPrice?: number | null;
+  Source?: string;
+  CreatedBy?: string | null;
+  CreatedAt?: string;
+  UpdatedBy?: string | null;
+}
+
 export const itemStoreService = {
   async getAll(storeName?: string) {
     // If no storeName provided, fall back to GET list endpoint
@@ -10,6 +33,11 @@ export const itemStoreService = {
 
     // When filtering by store, send storeName in the request body
     const response = await api.get(`/api/StoreItems/${storeName}`);
+    return response.data;
+  },
+
+  async getByStoreId(storeId: string | number) {
+    const response = await api.get('/api/StoreItems', { params: { storeId } });
     return response.data;
   },
 
@@ -24,29 +52,26 @@ export const itemStoreService = {
     return response.data;
   },
 
-  async create(data: any) {
+  async getMovements(id: string | number): Promise<InventoryMovement[]> {
+    const response = await api.get(`/api/StoreItems/${id}/movements`);
+    return response.data;
+  },
+
+  async create(data: StoreItemPayload) {
     // data should include CreatedBy (Guid) and other DTO fields
     const response = await api.post('/api/StoreItems', data);
     return response.data;
   },
 
-  async createBulk(data: any[]) {
-    // try bulk endpoint first; fallback to creating one-by-one
-    try {
-      const response = await api.post('/api/StoreItems/bulk', data);
-      return response.data;
-    } catch (err) {
-      // fallback: create individually
-      const results: any[] = [];
-      for (const item of data) {
-        const res = await api.post('/api/StoreItems', item);
-        results.push(res.data);
-      }
-      return results;
+  async createBulk(data: StoreItemPayload[]) {
+    const results: unknown[] = [];
+    for (const item of data) {
+      results.push(await this.create(item));
     }
+    return results;
   },
 
-  async update(id: string | number, data: any) {
+  async update(id: string | number, data: StoreItemPayload) {
     // data should include UpdatedBy (Guid) and other updatable fields
     const response = await api.put(`/api/StoreItems/${id}`, data);
     return response.data;

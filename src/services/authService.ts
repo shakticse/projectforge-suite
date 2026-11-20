@@ -20,6 +20,7 @@ export interface User {
   email: string;
   role: string;
   department?: string;
+  storeId?: number;
   avatar?: string;
 }
 
@@ -98,13 +99,14 @@ export const authService = {
       return { mfaRequired: true, mfaToken: data.mfaToken, email: credentials.email };
     }
 
-    const { token, name, email, role, department, avatar, message, permissions } = data;
+    const { token, name, email, role, department, avatar, message, permissions, storeId } = data;
     if (token) {
       const user = {
         name: name,
         email: email,
         role: role,
         department: department,
+        storeId: storeId,
         avatar: avatar,
         permissions: permissions
       };

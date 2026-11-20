@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { itemStoreService } from '@/services/itemStoreService';
 import { itemService } from '@/services/itemService';
+import { storeService } from '@/services/storeService';
 
 interface InventoryRow {
   id: string;
@@ -22,6 +23,41 @@ interface InventoryRow {
   source: string;
   price: number | null;
 }
+
+interface ItemOption {
+  id?: string | number;
+  Id?: string | number;
+  ItemId?: string | number;
+  name?: string;
+  Name?: string;
+  ItemName?: string;
+  sku?: string;
+  itemPrice?: number;
+  ItemPrice?: number;
+  UnitPrice?: number;
+}
+
+type StoreRecord = Record<string, unknown>;
+
+const isStoreRecord = (value: unknown): value is StoreRecord =>
+  typeof value === 'object' && value !== null;
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response !== null &&
+    'data' in error.response &&
+    typeof error.response.data === 'object' &&
+    error.response.data !== null &&
+    'message' in error.response.data
+  ) {
+    return String(error.response.data.message);
+  }
+  return error instanceof Error ? error.message : fallback;
+};
 
 interface AddInventoryModalProps {
   open: boolean;
@@ -41,7 +77,9 @@ const sources = [
 
 export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOpenChange, onSaved, onStart, onFinish }) => {
   const [rows, setRows] = useState<InventoryRow[]>([]);
-  const [availableItems, setAvailableItems] = useState<Array<any>>([]);
+  const [availableItems, setAvailableItems] = useState<ItemOption[]>([]);
+  const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [storeId, setStoreId] = useState('');
   const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { user } = useAuth();
@@ -78,19 +116,66 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
     };
 
     fetchItems();
-  }, []);
+  }, [toast]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const fetchStores = async () => {
+      try {
+        const response = await storeService.getAllStores();
+        const nestedData =
+          typeof response === 'object' && response !== null && 'data' in response
+            ? response.data
+            : undefined;
+        const storeList = Array.isArray(response)
+          ? response
+          : Array.isArray(nestedData)
+            ? nestedData
+            : [];
+        if (isCurrent) {
+          setStores(
+            storeList
+              .filter((store): store is StoreRecord =>
+                isStoreRecord(store) && (store.id ?? store.Id) != null,
+              )
+              .map((store) => ({
+                id: String(store.id ?? store.Id),
+                name: String(store.storeName ?? store.StoreName ?? store.name ?? `Store ${store.id ?? store.Id}`),
+              })),
+          );
+        }
+      } catch (error) {
+        console.error('Failed to load stores for inventory entry', error);
+        if (isCurrent) {
+          toast({ title: 'Error', description: 'Failed to load stores', variant: 'destructive' });
+        }
+      }
+    };
+    void fetchStores();
+    return () => {
+      isCurrent = false;
+    };
+  }, [toast]);
 
   const toggleCombobox = (key: string) => {
     setOpenComboboxes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const addTemplateRow = () => {
+    if (template.isCustom) {
+      toast({ title: 'Invalid', description: 'Custom items must first be added to the item catalog.', variant: 'destructive' });
+      return;
+    }
     const valid = template.isCustom
-      ? (template.itemName?.trim() && template.quantity > 0 && template.source)
-      : (template.itemId && template.quantity > 0 && template.source);
+      ? (template.itemName?.trim() && Number.isInteger(template.quantity) && template.quantity > 0 && template.source)
+      : (template.itemId && Number.isInteger(template.quantity) && template.quantity > 0 && template.source);
 
     if (!valid) {
       toast({ title: 'Invalid', description: 'Please select an item (or enter a custom name), quantity and source.', variant: 'destructive' });
+      return;
+    }
+    if (!storeId) {
+      toast({ title: 'Invalid', description: 'Select the store receiving this inventory.', variant: 'destructive' });
       return;
     }
 
@@ -119,25 +204,34 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
   };
 
   const handleSubmit = async () => {
+    if (!storeId) {
+      toast({ title: 'Invalid Data', description: 'Select the store receiving this inventory.', variant: 'destructive' });
+      return;
+    }
     const validRows = rows.filter(r => (r.isCustom ? r.itemName?.trim() : r.itemId) && r.quantity > 0 && r.source);
     if (validRows.length === 0) {
       toast({ title: 'Invalid Data', description: 'Please add at least one valid row before submitting.', variant: 'destructive' });
       return;
     }
+    if (validRows.some((row) => row.isCustom)) {
+      toast({ title: 'Invalid Data', description: 'Custom items must first be added to the item catalog.', variant: 'destructive' });
+      return;
+    }
 
     const payload = validRows.map(r => ({
-      ItemId: r.isCustom ? null : r.itemId,
+      ItemId: r.isCustom ? null : Number(r.itemId),
+      StoreId: Number(storeId),
       ItemName: r.itemName ?? null,
       IsCustom: r.isCustom,
       Qty: r.quantity,
       ItemPrice: r.price ?? null,
       Source: r.source,
-      CreatedBy: (user as any)?.id ?? null,
+      CreatedBy: user?.id ?? null,
       CreatedAt: new Date().toISOString()
     }));
 
     try {
-      onStart && onStart();
+      onStart?.();
       setIsSubmitting(true);
       await itemStoreService.createBulk(payload);
 
@@ -145,15 +239,16 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
 
       // reset
       setRows([]);
+      setStoreId('');
       setTemplate({ isCustom: false, itemId: undefined, itemName: undefined, quantity: 1, source: '', price: null });
       onOpenChange(false);
-      onSaved && onSaved();
+      onSaved?.();
     } catch (err) {
       console.error('Create store items failed', err);
-      toast({ title: 'Error', description: 'Failed to add items to inventory.', variant: 'destructive' });
+      toast({ title: 'Error', description: getErrorMessage(err, 'Failed to add items to inventory.'), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
-      onFinish && onFinish();
+      onFinish?.();
     }
   };
 
@@ -169,9 +264,22 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
 
         <div className="flex-1 overflow-auto">
           <div className="space-y-4">
+            <div className="max-w-sm space-y-2">
+              <label htmlFor="inventory-store" className="text-sm font-medium">Store receiving stock</label>
+              <Select value={storeId} onValueChange={setStoreId}>
+                <SelectTrigger id="inventory-store">
+                  <SelectValue placeholder="Select store" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-medium">Items</h3>
-              <Button onClick={addTemplateRow} size="sm" variant="outline">
+              <Button onClick={addTemplateRow} size="sm" variant="outline" disabled={!storeId}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Row
               </Button>
@@ -200,7 +308,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
                           <CommandEmpty>No item found.</CommandEmpty>
                           <CommandList>
                             <CommandGroup>
-                              {availableItems.map((item: any) => (
+                              {availableItems.map((item) => (
                                 <CommandItem key={item.id ?? item.Id ?? item.ItemId} value={item.name ?? item.ItemName ?? item.Item} onSelect={() => {
                                   const name = item.name ?? item.ItemName ?? item.Name ?? '';
                                   const id = item.id ?? item.ItemId ?? null;
@@ -227,7 +335,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
                 </div>
 
                 <div className="col-span-1">
-                  <Input type="number" min={1} value={template.quantity} onChange={(e) => setTemplate(prev => ({ ...prev, quantity: Number(e.target.value) }))} />
+                  <Input type="number" min={1} step={1} value={template.quantity} onChange={(e) => setTemplate(prev => ({ ...prev, quantity: Number(e.target.value) }))} />
                 </div>
 
                 <div className="col-span-2">
@@ -267,7 +375,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ open, onOp
                         <Input type="number" min={0} value={row.price ?? ''} onChange={(e) => updateRow(row.id, { price: Number(e.target.value) })} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" min={0} value={row.quantity} onChange={(e) => updateRow(row.id, { quantity: Number(e.target.value) })} />
+                        <Input type="number" min={1} step={1} value={row.quantity} onChange={(e) => updateRow(row.id, { quantity: Number(e.target.value) })} />
                       </TableCell>
                       <TableCell>
                         <Select value={row.source} onValueChange={(value) => updateRow(row.id, { source: value })}>

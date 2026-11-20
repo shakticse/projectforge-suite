@@ -1,173 +1,245 @@
-import type { PurchaseOrderRecord } from "@/services/purchaseOrderService";
+import type { PurchaseOrderRecord, PurchaseOrderItemRecord } from "@/services/purchaseOrderService";
+import type { StoreSettingsRecord } from "@/services/storeSettingsService";
 
-export const createPurchaseOrderPdf = (purchaseOrder: PurchaseOrderRecord): Blob => {
-  const escapePdfText = (value: string) =>
-    value.replace(/[^\x20-\x7E]/g, "?").replace(/[\\()]/g, "\\$&");
-  const wrap = (value: string, width: number) => {
-    const words = value.split(/\s+/);
-    const lines: string[] = [];
-    let line = "";
-    words.forEach((word) => {
-      if (line && `${line} ${word}`.length > width) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = line ? `${line} ${word}` : word;
-      }
-    });
-    if (line) lines.push(line);
-    return lines.length ? lines : ["-"];
-  };
+type PdfItem = PurchaseOrderItemRecord & {
+  hsnCode?: string | null;
+  gstRate?: number | null;
+  discountPercent?: number | null;
+  name?: string | null;
+  description?: string | null;
+  uom?: string | null;
+  UOM?: string | null;
+};
+
+const escapePdfText = (value: string) =>
+  value.replace(/[^\x20-\x7E]/g, "?").replace(/[\\()]/g, "\\$&");
+
+const wrap = (value: string, width: number) => {
+  const words = String(value || "-").trim().split(/\s+/);
+  const lines: string[] = [];
+  let line = "";
+  words.forEach((word) => {
+    if (line && `${line} ${word}`.length > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  });
+  return lines.length ? lines : ["-"];
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "XX/XX/XXX";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}/${date.getFullYear()}`;
+};
+
+const formatAmount = (value: number) =>
+  Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const amountInWords = (value: number) => {
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const twoDigits = (number: number) =>
+    number < 20 ? ones[number] : `${tens[Math.floor(number / 10)]}${number % 10 ? ` ${ones[number % 10]}` : ""}`;
+  const threeDigits = (number: number) =>
+    number >= 100 ? `${twoDigits(Math.floor(number / 100))} Hundred${number % 100 ? ` ${twoDigits(number % 100)}` : ""}` : twoDigits(number);
+
+  const rounded = Math.round(Number(value || 0));
+  if (rounded === 0) return "Zero Rupees Only";
+  let remainder = rounded;
+  const parts: string[] = [];
+  const sections = [
+    [10000000, "Crore"],
+    [100000, "Lakh"],
+    [1000, "Thousand"],
+  ];
+  sections.forEach(([base, label]) => {
+    const count = Math.floor(remainder / Number(base));
+    if (count) parts.push(`${threeDigits(count)} ${label}`);
+    remainder %= Number(base);
+  });
+  if (remainder) parts.push(threeDigits(remainder));
+  return `Indian Rupees ${parts.join(" ")} Only`;
+};
+
+export const createPurchaseOrderPdf = (
+  purchaseOrder: PurchaseOrderRecord,
+  storeSettings?: StoreSettingsRecord | null,
+): Blob => {
   const pages: string[][] = [];
   let commands: string[] = [];
-  let cursorY = 748;
-  const margin = 44;
-  const pageBottom = 54;
-  const contentWidth = 524;
+
   const beginPage = () => {
     commands = [];
-    cursorY = 748;
     pages.push(commands);
   };
+
   const addText = (
     value: string,
     x: number,
     y: number,
-    options: { size?: number; font?: "F1" | "F2"; color?: string } = {},
+    options: { size?: number; font?: "F1" | "F2"; align?: "left" | "right" } = {},
   ) => {
-    const { size = 9, font = "F1", color = "0.12 0.16 0.22" } = options;
-    commands.push(`${color} rg BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escapePdfText(value)}) Tj ET`);
-  };
-  const addLine = (x1: number, y1: number, x2: number, y2: number) => {
-    commands.push(`0.84 0.87 0.9 RG 0.6 w ${x1} ${y1} m ${x2} ${y2} l S`);
-  };
-  const addFillRect = (x: number, y: number, width: number, height: number, color: string) => {
-    commands.push(`${color} rg ${x} ${y} ${width} ${height} re f`);
-  };
-  const ensureSpace = (height: number) => {
-    if (cursorY - height < pageBottom) {
-      beginPage();
-      addText(`PURCHASE ORDER ${purchaseOrder.name || `PO-${purchaseOrder.id}`} - CONTINUED`, margin, cursorY, {
-        size: 11,
-        font: "F2",
-        color: "0.08 0.2 0.34",
-      });
-      cursorY -= 28;
+    const size = options.size ?? 8;
+    const font = options.font ?? "F1";
+    const text = escapePdfText(value);
+    if (options.align === "right") {
+      const alignedX = Math.max(left, x - text.length * size * 0.52);
+      commands.push(`0.1 0.1 0.1 rg BT /${font} ${size} Tf 1 0 0 1 ${alignedX} ${y} Tm (${text}) Tj ET`);
+    } else {
+      commands.push(`0.1 0.1 0.1 rg BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${text}) Tj ET`);
     }
   };
-  const addSectionTitle = (title: string) => {
-    ensureSpace(34);
-    addFillRect(margin, cursorY - 21, contentWidth, 21, "0.92 0.95 0.97");
-    addText(title, margin + 9, cursorY - 14, { size: 9, font: "F2", color: "0.12 0.22 0.35" });
-    cursorY -= 32;
+
+  const rect = (x: number, y: number, width: number, height: number, fill = false) => {
+    commands.push(`0.1 0.1 0.1 RG ${fill ? "0.98 0.98 0.98 rg" : "1 1 1 rg"} ${x} ${y} ${width} ${height} re ${fill ? "B" : "S"}`);
   };
-  const addFields = (fields: Array<{ label: string; value?: string | null }>) => {
-    fields.forEach(({ label, value }) => {
-      const lines = wrap(value?.trim() || "-", 86);
-      const rowHeight = 14 + lines.length * 11;
-      ensureSpace(rowHeight);
-      addText(label, margin + 4, cursorY, { size: 8, font: "F2", color: "0.39 0.44 0.5" });
-      lines.forEach((line, index) => addText(line, margin + 146, cursorY - index * 11));
-      cursorY -= rowHeight;
-      addLine(margin, cursorY + 4, margin + contentWidth, cursorY + 4);
-    });
-    cursorY -= 8;
+
+  const line = (x1: number, y1: number, x2: number, y2: number) => {
+    commands.push(`0.1 0.1 0.1 RG 0.55 w ${x1} ${y1} m ${x2} ${y2} l S`);
   };
-  const dateText = (value?: string | null) => {
-    if (!value) return "-";
-    const parsedDate = new Date(value);
-    return Number.isNaN(parsedDate.getTime()) ? value : parsedDate.toLocaleDateString();
-  };
-  const money = (value: number) => `INR ${Number(value || 0).toFixed(2)}`;
-  const addItemsHeader = () => {
-    addFillRect(margin, cursorY - 21, contentWidth, 21, "0.12 0.25 0.38");
-    addText("Item", margin + 7, cursorY - 14, { size: 8, font: "F2", color: "1 1 1" });
-    addText("Qty", margin + 326, cursorY - 14, { size: 8, font: "F2", color: "1 1 1" });
-    addText("Unit price", margin + 370, cursorY - 14, { size: 8, font: "F2", color: "1 1 1" });
-    addText("Total", margin + 462, cursorY - 14, { size: 8, font: "F2", color: "1 1 1" });
-    cursorY -= 21;
-  };
+
+  const poNumber = purchaseOrder.name || `PO-${purchaseOrder.id}`;
+  const vendorAddress = [
+    purchaseOrder.vendorAddress,
+    purchaseOrder.vendorCity,
+    purchaseOrder.vendorState,
+    purchaseOrder.vendorZip,
+  ].filter(Boolean).join(", ");
+  const items = purchaseOrder.items as PdfItem[];
 
   beginPage();
-  addText(`PURCHASE ORDER ${purchaseOrder.name || `PO-${purchaseOrder.id}`}`, margin, cursorY, {
-    size: 18,
-    font: "F2",
-    color: "0.08 0.2 0.34",
-  });
-  cursorY -= 30;
+  const left = 28;
+  const right = 584;
+  const width = right - left;
 
-  addSectionTitle("Purchase order details");
-  addFields([
-    { label: "PO number", value: purchaseOrder.name || `PO-${purchaseOrder.id}` },
-    { label: "Purchase request", value: `PR-${purchaseOrder.purchaseRequestId}` },
-    { label: "Project", value: purchaseOrder.projectName },
-    { label: "BOM", value: purchaseOrder.bomName },
-    { label: "Status", value: purchaseOrder.status },
-    { label: "Order date", value: dateText(purchaseOrder.orderDate) },
-    { label: "Due date", value: dateText(purchaseOrder.dueDate) },
-    { label: "Delivery address", value: purchaseOrder.deliveryAddress },
-  ]);
+  const companyName = storeSettings?.storeName || "Pavilions and Interiors (India) Pvt. Ltd.";
+  const companyAddress = storeSettings?.contactAddress || "XL-1641, Press Club Road, Kochi-682 011, Kerala";
+  const companyGst = storeSettings?.gstNumber || "32AACCP5781C1ZO";
+  wrap(companyName, 42).slice(0, 2).forEach((text, index) =>
+    addText(text, left, 754 - index * 14, { size: 11, font: "F2" }),
+  );
+  wrap(companyAddress, 46).slice(0, 2).forEach((text, index) =>
+    addText(text, left, 726 - index * 12, { size: 8 }),
+  );
+  addText(`GST No: ${companyGst}`, left, 702, { size: 8 });
 
-  addSectionTitle("Vendor details");
-  addFields([
-    { label: "Vendor", value: purchaseOrder.vendorName },
-    { label: "Contact person", value: purchaseOrder.vendorContactPerson },
-    {
-      label: "Address",
-      value: [
-        purchaseOrder.vendorAddress,
-        purchaseOrder.vendorCity,
-        purchaseOrder.vendorState,
-        purchaseOrder.vendorZip,
-      ].filter(Boolean).join(", "),
-    },
-    { label: "Phone", value: purchaseOrder.vendorPhone },
-    { label: "Email", value: purchaseOrder.vendorEmail },
-    { label: "GST number", value: purchaseOrder.vendorGstNumber },
-  ]);
+  rect(348, 690, 236, 76);
+  addText("Purchase Order", 360, 752, { size: 10, font: "F2" });
+  addText(`Purchase Order No.: ${poNumber}`, 360, 734, { size: 8, font: "F2" });
+  addText(`Dated: ${formatDate(purchaseOrder.orderDate)}`, 360, 722, { size: 8 });
+  line(348, 714, 584, 714);
+  addText(`Requisition/Quotation No.: PR-${purchaseOrder.purchaseRequestId}`, 360, 704, { size: 8, font: "F2" });
+  addText(`Dated: ${formatDate(purchaseOrder.dueDate)}`, 360, 692, { size: 8 });
 
-  addSectionTitle(`Items (${purchaseOrder.itemCount})`);
-  addItemsHeader();
-  purchaseOrder.items.forEach((item, index) => {
-    const itemLines = wrap(item.itemName || `Item ${item.itemId}`, 48);
-    const rowHeight = Math.max(26, itemLines.length * 11 + 12);
-    if (cursorY - rowHeight < pageBottom) {
-      beginPage();
-      addText(`PURCHASE ORDER ${purchaseOrder.name || `PO-${purchaseOrder.id}`} - CONTINUED`, margin, cursorY, {
-        size: 11,
-        font: "F2",
-        color: "0.08 0.2 0.34",
-      });
-      cursorY -= 26;
-      addItemsHeader();
-    }
-    if (index % 2 === 1) addFillRect(margin, cursorY - rowHeight + 3, contentWidth, rowHeight, "0.97 0.98 0.99");
-    itemLines.forEach((line, lineIndex) => addText(line, margin + 7, cursorY - 15 - lineIndex * 11));
-    addText(String(item.quantity), margin + 326, cursorY - 15);
-    addText(money(item.vendorPrice), margin + 370, cursorY - 15);
-    addText(money(item.totalPrice), margin + 462, cursorY - 15);
-    cursorY -= rowHeight;
-    addLine(margin, cursorY + 3, margin + contentWidth, cursorY + 3);
-  });
-  ensureSpace(30);
-  addText("Total amount", margin + 340, cursorY - 13, { size: 10, font: "F2" });
-  addText(money(purchaseOrder.totalAmount), margin + 462, cursorY - 13, { size: 10, font: "F2" });
-  cursorY -= 30;
+  rect(left, 612, width, 86);
+  line(348, 612, 348, 698);
+  addText(`Vendor's Name & Address: ${purchaseOrder.vendorName ? `Ms. ${purchaseOrder.vendorName}` : "Ms. -"}`, left + 8, 684, { size: 8, font: "F2" });
+  const vendorLines = wrap(vendorAddress || "-", 58);
+  vendorLines.slice(0, 3).forEach((text, index) => addText(text, left + 8, 670 - index * 12, { size: 8 }));
+  if (purchaseOrder.vendorGstNumber) addText(`GST: ${purchaseOrder.vendorGstNumber}`, left + 8, 620, { size: 8 });
 
-  addSectionTitle("Terms and Conditions");
-  const termsLines = wrap(purchaseOrder.termsAndConditions?.trim() || "No terms and conditions recorded.", 96);
-  termsLines.forEach((line) => {
-    ensureSpace(14);
-    addText(line, margin + 4, cursorY);
-    cursorY -= 13;
-  });
+  addText(`Delivery At: ${purchaseOrder.deliveryAddress || purchaseOrder.projectName || "-"}`, 360, 684, { size: 8, font: "F2" });
+  addText(`Payment Terms: ${(purchaseOrder as PurchaseOrderRecord & { paymentTerms?: string }).paymentTerms || "-"}`, 360, 650, { size: 8, font: "F2" });
+  addText(`Project Name: ${purchaseOrder.projectName || "-"}`, 360, 618, { size: 8, font: "F2" });
 
-  pages.forEach((page, index) => {
-    page.push(
-      `0.45 0.49 0.54 rg BT /F1 8 Tf 1 0 0 1 ${margin} 28 Tm (PO-${purchaseOrder.id}) Tj ET`,
-      `0.45 0.49 0.54 rg BT /F1 8 Tf 1 0 0 1 520 28 Tm (Page ${index + 1} of ${pages.length}) Tj ET`,
+  const columns = [
+    { x: left, w: 28, label: "Sl.No." },
+    { x: left + 28, w: 178, label: "Description of Goods" },
+    { x: left + 206, w: 48, label: "HSN Code" },
+    { x: left + 254, w: 42, label: "Gst Rate" },
+    { x: left + 296, w: 38, label: "Qty" },
+    { x: left + 334, w: 42, label: "UOM" },
+    { x: left + 376, w: 72, label: "Rate Per Unit" },
+    { x: left + 448, w: 42, label: "Disc %" },
+    { x: left + 490, w: 66, label: "Amount" },
+  ];
+  const tableTop = 594;
+  const headerHeight = 28;
+  columns.forEach((column) => rect(column.x, tableTop - headerHeight, column.w, headerHeight));
+  const headerLabels: Record<string, string[]> = {
+    "Sl.No.": ["Sl.", "No."],
+    "Description of Goods": ["Description", "of Goods"],
+    "HSN Code": ["HSN", "Code"],
+    "Gst Rate": ["GST", "Rate"],
+    "Qty": ["Qty"],
+    "UOM": ["UOM"],
+    "Rate Per Unit": ["Rate Per", "Unit"],
+    "Disc %": ["Disc", "%"],
+    "Amount": ["Amount"],
+  };
+  columns.forEach((column) => {
+    const labelLines = headerLabels[column.label] ?? [column.label];
+    const startY = labelLines.length > 1 ? tableTop - 10 : tableTop - 14;
+    labelLines.forEach((text, index) =>
+      addText(text, column.x + column.w / 2 - text.length * 2.1, startY - index * 9, { size: 7, font: "F2" }),
     );
   });
+
+  const itemRowCount = 16;
+  const rowHeight = 18;
+  for (let row = 0; row < itemRowCount; row += 1) {
+    const y = tableTop - headerHeight - (row + 1) * rowHeight;
+    columns.forEach((column) => rect(column.x, y, column.w, rowHeight));
+  }
+
+  items.slice(0, itemRowCount).forEach((item, index) => {
+    const y = tableTop - headerHeight - (index + 1) * rowHeight + 6;
+    const discount = item.discountPercent ?? 0;
+    const gstRate = item.gstRate ?? 0;
+    addText(String(index + 1), left + 7, y, { size: 8 });
+    const itemName = item.itemName || item.name || item.description || `Item ${item.itemId}`;
+    const uom = item.unit || item.uom || item.UOM || "-";
+    const description = `${itemName} | Qty: ${item.quantity} | UOM: ${uom}`;
+    const nameLines = wrap(description, 38);
+    nameLines.slice(0, 1).forEach((text) => addText(text, left + 32, y, { size: 7 }));
+    addText(item.hsnCode || "-", left + 210, y, { size: 7 });
+    addText(gstRate ? `${gstRate}%` : "-", left + 258, y, { size: 7 });
+    addText(String(item.quantity), left + 300, y, { size: 7 });
+    addText(uom, left + 338, y, { size: 7 });
+    addText(formatAmount(item.vendorPrice), left + 448, y, { size: 7, align: "right" });
+    addText(discount ? `${discount}%` : "-", left + 452, y, { size: 7 });
+    addText(formatAmount(item.totalPrice), 580, y, { size: 7, align: "right" });
+  });
+
+  let summaryTop = tableTop - headerHeight - itemRowCount * rowHeight;
+  rect(left, summaryTop - 18, width, 18);
+  addText("Total", left + 8, summaryTop - 12, { size: 8, font: "F2" });
+  const goodsTotal = items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
+  addText(formatAmount(goodsTotal), 580, summaryTop - 12, { size: 8, font: "F2", align: "right" });
+
+  rect(left, summaryTop - 90, width, 72);
+  line(348, summaryTop - 90, 348, summaryTop - 18);
+  addText(`Delivery At: ${purchaseOrder.deliveryAddress || purchaseOrder.projectName || "-"}`, left + 8, summaryTop - 30, { size: 8, font: "F2" });
+  addText(`Freight Charges: -`, 360, summaryTop - 30, { size: 8, font: "F2" });
+  addText(`CGST: -`, 360, summaryTop - 48, { size: 8, font: "F2" });
+  addText(`SGST: -`, 360, summaryTop - 66, { size: 8, font: "F2" });
+  addText(`Net Amount: ${formatAmount(purchaseOrder.totalAmount)}`, 360, summaryTop - 84, { size: 8, font: "F2" });
+
+  const bottomTop = summaryTop - 96;
+  rect(left, bottomTop - 38, width, 38);
+  const amountWords = amountInWords(purchaseOrder.totalAmount);
+  const amountWordLines = wrap(`Amount Chargeable (In Words): ${amountWords}`, 82);
+  amountWordLines.slice(0, 2).forEach((text, index) =>
+    addText(text, left + 8, bottomTop - 12 - index * 10, { size: 7, font: "F2" }),
+  );
+
+  rect(left, bottomTop - 92, width, 54);
+  const terms = wrap(purchaseOrder.termsAndConditions || "-", 118);
+  addText(`Special Remarks: (Terms & Conditions): ${terms.slice(0, 3).join(" ")}`, left + 8, bottomTop - 50, { size: 7, font: "F2" });
+
+  rect(left, 30, width, 46);
+  addText("Entered By", left + 8, 58, { size: 8, font: "F2" });
+  addText(`For ${companyName}`, 348, 58, { size: 8, font: "F2" });
+  addText("Authorized Signatory", 348, 38, { size: 8, font: "F2" });
 
   const objects: string[] = [];
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";

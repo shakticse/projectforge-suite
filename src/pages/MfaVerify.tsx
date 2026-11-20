@@ -48,13 +48,14 @@ const MfaVerify = () => {
     setIsLoading(true);
     try {
       const res = await mfaService.verifyCode(mfaUser, code);
-        const { token, name, email, role, department, avatar, message } = res;
+        const { token, name, email, role, department, avatar, storeId } = res;
         if (token) {
             const user = {
             name: name,
             email: email,
             role: role,
             department: department,
+            storeId: storeId,
             avatar: avatar
             };
             // Fetch role permissions and menus to build allowed paths (best-effort)

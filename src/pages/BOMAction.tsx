@@ -18,6 +18,7 @@ import {
   Eye,
   ArrowDownToLine,
   ListFilter,
+  WandSparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,9 @@ import { useNavigate } from "react-router-dom";
 
 interface BOMItem {
   id: string;
+  itemId?: string | number;
+  ItemId?: string | number;
+  item_id?: string | number;
   itemName: string;
   specification?: string;
   unit: string;
@@ -114,7 +118,7 @@ function ItemCategoryFilter({
       ? "All categories"
       : selectedCategories.length === 1
         ? categories.find((category) => getCategoryKey(category.name) === selectedCategories[0])?.name ??
-          "1 category selected"
+        "1 category selected"
         : `${selectedCategories.length} categories selected`;
 
   const toggleCategory = (categoryName: string, checked: boolean) => {
@@ -188,18 +192,31 @@ interface BOM {
 
 interface Store {
   id: string | number;
-  name: string;
+  storeName: string;
+  name?: string;
   [key: string]: any;
 }
 
 interface StoreItem {
   id: string | number;
   itemId?: string | number;
+  ItemId?: string | number;
+  item_id?: string | number;
+  ItemID?: string | number;
   itemName?: string;
   name?: string;
-  availableQty?: number;
-  availableQuantity?: number;
+  qty?: number;
+  Qty?: number;
   quantity?: number;
+  allocatedQty?: number;
+  AllocatedQty?: number;
+  allocated_qty?: number;
+  availableQty?: number;
+  AvailableQty?: number;
+  availableQuantity?: number;
+  AvailableQuantity?: number;
+  available_qty?: number;
+  available_quantity?: number;
   [key: string]: any;
 }
 
@@ -434,6 +451,7 @@ function Step1(props: {
   const [dirtyItems, setDirtyItems] = useState<Set<string>>(new Set());
   const [showFullyAllocated, setShowFullyAllocated] = useState(false);
   const [storePromptOpen, setStorePromptOpen] = useState(false);
+  const storeItemsRequestId = useRef(0);
 
   useEffect(() => {
     // ✅ Reset local display values
@@ -450,38 +468,107 @@ function Step1(props: {
     onChange({});
   }, [bom.id]); // ← fires every time BOM changes
 
-  const fetchStoreItems = useCallback(async (storeName: string) => {
+  const fetchStoreItems = useCallback(async (storeId: string) => {
+    const requestId = ++storeItemsRequestId.current;
     setLoadingItems(true);
+    setStoreItems([]);
     try {
-      const data = await itemStoreService.getAll(storeName);
-      setStoreItems(Array.isArray(data) ? data : data?.data ?? []);
-    } catch {
-      toast.error("Failed to load store inventory");
-      setStoreItems([]);
+      const data = await itemStoreService.getByStoreId(storeId);
+      if (requestId === storeItemsRequestId.current) {
+        const rows = Array.isArray(data)
+          ? data
+          : data && typeof data === "object"
+            ? data.data ?? data.Data ?? data.items ?? data.Items ?? []
+            : [];
+        setStoreItems(Array.isArray(rows) ? rows : []);
+      }
+    } catch (error) {
+      console.error("Failed to load inventory for selected store", error);
+      if (requestId === storeItemsRequestId.current) {
+        toast.error("Failed to load store inventory");
+      }
     } finally {
-      setLoadingItems(false);
+      if (requestId === storeItemsRequestId.current) setLoadingItems(false);
     }
   }, []);
 
   const handleStoreChange = (storeId: string) => {
     setSelectedStore(storeId);
-    const store = stores.find((s) => String(s.id) === storeId);
-    if (store) fetchStoreItems(store.name);
+    setLocalValues({});
+    setDirtyItems(new Set());
+    onChange({});
+    if (storeId) void fetchStoreItems(storeId);
+    else {
+      storeItemsRequestId.current += 1;
+      setStoreItems([]);
+      setLoadingItems(false);
+    }
   };
 
   const getAvailableQty = (item: BOMItem): number => {
-    const match = storeItems.find(
-      (si) =>
-        String(si.itemId ?? si.id) === String(item.id) ||
-        (si.itemName ?? si.name ?? "")
-          .toLowerCase()
-          .includes(item.itemName.toLowerCase())
-    );
-    return match?.availableQty ?? 0;
+    const itemId = item.itemId ?? item.ItemId ?? item.item_id ?? item.id;
+    const toNumericId = (value: string | number | undefined) => {
+      if (value === undefined || value === null || String(value).trim() === "") return null;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    };
+    const targetId = toNumericId(itemId);
+    const match = storeItems.find((storeItem) => {
+      const storeItemId = storeItem.itemId ?? storeItem.ItemId ?? storeItem.item_id ?? storeItem.ItemID;
+      const numericStoreItemId = toNumericId(storeItemId);
+      return targetId !== null
+        ? numericStoreItemId === targetId
+        : String(storeItemId ?? "") === String(itemId ?? "");
+    });
+    if (!match) return 0;
+    const available =
+      match.availableQty ??
+      match.AvailableQty ??
+      match.availableQuantity ??
+      match.AvailableQuantity ??
+      match.available_qty ??
+      match.available_quantity;
+    if (available !== undefined && available !== null) {
+      const quantity = Number(available);
+      return Number.isFinite(quantity) ? Math.max(0, quantity) : 0;
+    }
+
+    const quantity = Number(match.qty ?? match.Qty ?? match.quantity ?? 0);
+    const allocated = Number(match.allocatedQty ?? match.AllocatedQty ?? match.allocated_qty ?? 0);
+    return Number.isFinite(quantity) && Number.isFinite(allocated)
+      ? Math.max(0, quantity - allocated)
+      : 0;
   };
 
   const pendingForItem = (item: BOMItem) =>
     Math.max(0, item.qty - item.allottedQty - (allocations[item.id] ?? 0));
+
+  const autoAllocateAvailableStock = () => {
+    if (!selectedStore || loadingItems) return;
+    const nextAllocations: AllocationMap = {};
+    const nextLocalValues: Record<string, string> = {};
+    const autoAllocatedIds = new Set<string>();
+
+    bom.items.forEach((item) => {
+      const remainingRequired = Math.max(0, item.qty - item.allottedQty);
+      const quantity = Math.floor(Math.min(getAvailableQty(item), remainingRequired));
+      nextLocalValues[item.id] = quantity > 0 ? String(quantity) : "";
+      if (quantity > 0) {
+        nextAllocations[item.id] = quantity;
+        autoAllocatedIds.add(item.id);
+      }
+    });
+
+    if (autoAllocatedIds.size === 0) {
+      toast.info("No available store stock can be allocated to this BOM.");
+      return;
+    }
+
+    setLocalValues(nextLocalValues);
+    setDirtyItems((current) => new Set([...current, ...autoAllocatedIds]));
+    onChange(nextAllocations);
+    toast.success("Available store quantities filled without exceeding BOM requirements.");
+  };
 
   const rowsWithPending = bom.items.map((item) => ({
     item,
@@ -507,33 +594,48 @@ function Step1(props: {
               : null}
           </p>
         </div>
-        {doneRows.length > 0 && (
+      </div>
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-100 dark:border-blue-900">
+        <div className="flex flex-wrap items-center gap-3">
+          {doneRows.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFullyAllocated((v) => !v)}
+              className="text-xs shrink-0"
+            >
+              {showFullyAllocated ? "Hide" : "Show"} allocated
+            </Button>
+          )}
+          <ItemCategoryFilter
+            categories={categories}
+            selectedCategories={selectedCategories}
+            onChange={onSelectedCategoriesChange}
+          />
+          <Select value={selectedStore} onValueChange={handleStoreChange}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Choose store…" />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map((s) => (
+                <SelectItem key={String(s.id)} value={String(s.id)}>
+                  {s.storeName ?? s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
-            variant="ghost"
+            type="button"
+            variant="outline"
             size="sm"
-            onClick={() => setShowFullyAllocated((v) => !v)}
-            className="text-xs shrink-0"
+            onClick={autoAllocateAvailableStock}
+            disabled={!selectedStore || loadingItems || storeItems.length === 0}
+            className="gap-2"
           >
-            {showFullyAllocated ? "Hide" : "Show"} allocated
+            <WandSparkles className="h-4 w-4" />
+            Auto-allocate available
           </Button>
-        )}
-        <ItemCategoryFilter
-          categories={categories}
-          selectedCategories={selectedCategories}
-          onChange={onSelectedCategoriesChange}
-        />
-        <Select value={selectedStore} onValueChange={handleStoreChange}>
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Choose store…" />
-          </SelectTrigger>
-          <SelectContent>
-            {stores.map((s) => (
-              <SelectItem key={String(s.id)} value={String(s.id)}>
-                {s.storeName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        </div>
       </div>
 
       {/* Items table */}
@@ -574,7 +676,7 @@ function Step1(props: {
               const available = selectedStore ? getAvailableQty(item) : "—";
               const maxAllocate =
                 typeof available == "number"
-                  ? Math.min(available, pending)
+                  ? Math.min(available, pending + (allocations[item.id] ?? 0))
                   : pending;
 
               return (
@@ -616,6 +718,7 @@ function Step1(props: {
                       type="number"
                       min={0}
                       max={maxAllocate}
+                      step={1}
                       // ✅ Read from localValues object
                       value={localValues[item.id] ?? ""}
                       onFocus={() => {
@@ -637,6 +740,7 @@ function Step1(props: {
                         let val = e.target.value === "" ? undefined : Number(e.target.value);
                         if (val !== undefined) {
                           if (isNaN(val) || val < 0) val = 0;
+                          val = Math.floor(val);
                           if (val > maxAllocate) val = maxAllocate;
                         }
                         // ✅ Snap local display to clamped value
@@ -656,7 +760,7 @@ function Step1(props: {
                         onChange({ ...allocations, [item.id]: val });
                       }}
                       className="w-20 text-right text-sm ml-auto"
-                      disabled={item.pendingQuantity === 0}
+                      disabled={!selectedStore || loadingItems || maxAllocate === 0}
                     />
                     {/* <Input
                       type="number"
@@ -1499,17 +1603,17 @@ export default function BOMAction() {
       console.error("Step 1 allocation failed", e);
       const response = typeof e === "object" && e !== null && "response" in e
         ? (e as {
-            response?: {
-              data?: {
-                message?: string;
-                unavailableItems?: {
-                  itemId: number;
-                  requestedQty: number;
-                  availableQty: number;
-                }[];
-              };
+          response?: {
+            data?: {
+              message?: string;
+              unavailableItems?: {
+                itemId: number;
+                requestedQty: number;
+                availableQty: number;
+              }[];
             };
-          }).response?.data
+          };
+        }).response?.data
         : undefined;
       const shortages = response?.unavailableItems;
       if (Array.isArray(shortages) && shortages.length > 0) {
@@ -1527,7 +1631,7 @@ export default function BOMAction() {
       } else {
         toast.error(
           response?.message ?? (e instanceof Error ? e.message : undefined) ??
-            "Failed to save store allocation"
+          "Failed to save store allocation"
         );
       }
     }
@@ -1675,195 +1779,195 @@ export default function BOMAction() {
       <div className="flex flex-col gap-6">
         {/* BOM List */}
         <Card ref={bomListRef} className="order-last scroll-mt-6">
-        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
-          <CardTitle className="text-base">BOM List</CardTitle>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search BOMs or projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-border bg-muted/40 px-5 py-4">
+            <CardTitle className="text-base">BOM List</CardTitle>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search BOMs or projects..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 pl-9" />
+              </div>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filter by Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filter by Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loadingBOMs ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
-              <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-5 w-5" />
-              Loading BOMs…
-            </div>
-          ) : filteredBOMs.length === 0 ? (
-            <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
-              <AlertCircle className="h-8 w-8 opacity-40" />
-              <p className="text-sm">No BOMs found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>BOM No.</TableHead>
-                    <TableHead>Project Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Created By</TableHead>
-                    <TableHead className="text-center">Created Date</TableHead>
-                    <TableHead className="text-center">Updated Date</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBOMs.map((bom) => (
-                    <TableRow
-                      key={bom.id}
-                      className={selectedBOM?.id === bom.id ? "bg-primary/5" : ""}
-                    >
-                      <TableCell className="font-medium">{bom.id}</TableCell>
-                      <TableCell>{bom.projectName}</TableCell>
-                      <TableCell>{getStatusBadge(bom.status)}</TableCell>
-                      <TableCell className="text-center">{bom.createdByUser}</TableCell>
-                      <TableCell className="text-center">{formatDateTime(bom.createdDate)}</TableCell>
-                      <TableCell className="text-center">{formatDateTime(bom.updatedDate)}</TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
-                          title="View BOM Consolidate"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={selectedBOM?.id === bom.id ? "default" : "outline"}
-                          onClick={() => openWorkflow(bom)}
-                        >
-                          Allocate
-                        </Button>
-                      </TableCell>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingBOMs ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+                <span className="animate-spin border-2 border-primary border-t-transparent rounded-full h-5 w-5" />
+                Loading BOMs…
+              </div>
+            ) : filteredBOMs.length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-muted-foreground gap-2">
+                <AlertCircle className="h-8 w-8 opacity-40" />
+                <p className="text-sm">No BOMs found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>BOM No.</TableHead>
+                      <TableHead>Project Name</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Created By</TableHead>
+                      <TableHead className="text-center">Created Date</TableHead>
+                      <TableHead className="text-center">Updated Date</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBOMs.map((bom) => (
+                      <TableRow
+                        key={bom.id}
+                        className={selectedBOM?.id === bom.id ? "bg-primary/5" : ""}
+                      >
+                        <TableCell className="font-medium">{bom.id}</TableCell>
+                        <TableCell>{bom.projectName}</TableCell>
+                        <TableCell>{getStatusBadge(bom.status)}</TableCell>
+                        <TableCell className="text-center">{bom.createdByUser}</TableCell>
+                        <TableCell className="text-center">{formatDateTime(bom.createdDate)}</TableCell>
+                        <TableCell className="text-center">{formatDateTime(bom.updatedDate)}</TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/bom-consolidate/${bom.id}`)}
+                            title="View BOM Consolidate"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={selectedBOM?.id === bom.id ? "default" : "outline"}
+                            onClick={() => openWorkflow(bom)}
+                          >
+                            Allocate
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         {/* ── Workflow ── */}
         {selectedBOM && (
           <div className="order-first scroll-mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Workflow Panel */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-start justify-between pb-4">
-              <div>
-                <CardTitle className="text-lg">
-                  Allocation Workflow
-                </CardTitle>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {/* {selectedBOM.projectName} — {selectedBOM.description} */}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0 shrink-0"
-                onClick={closeWorkflow}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {/* Step Indicator */}
-              <StepIndicator
-                currentStep={currentStep}
-                onStepClick={setCurrentStep}
+            {/* Main Workflow Panel */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="flex flex-row items-start justify-between pb-4">
+                <div>
+                  <CardTitle className="text-lg">
+                    Allocation Workflow
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {/* {selectedBOM.projectName} — {selectedBOM.description} */}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 shrink-0"
+                  onClick={closeWorkflow}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {/* Step Indicator */}
+                <StepIndicator
+                  currentStep={currentStep}
+                  onStepClick={setCurrentStep}
+                />
+
+                {/* Step Content */}
+                {currentStep === 1 && (
+                  <Step1
+                    bom={selectedBOM}
+                    stores={loadingStores ? [] : stores}
+                    categories={categories}
+                    selectedCategories={selectedCategories}
+                    onSelectedCategoriesChange={setSelectedCategories}
+                    allocations={step1Alloc}
+                    onChange={setStep1Alloc}
+                    onApply={applyStep1}
+                    onSkip={skipStep1}
+                  />
+                )}
+                {currentStep === 2 && (
+                  <Step2
+                    bom={selectedBOM}
+                    projects={loadingProjects ? [] : projects}
+                    categories={categories}
+                    selectedCategories={selectedCategories}
+                    onSelectedCategoriesChange={setSelectedCategories}
+                    step1Alloc={step1Alloc}
+                    allocations={step2Alloc}
+                    onChange={setStep2Alloc}
+                    onApply={applyStep2}
+                    onBack={() => setCurrentStep(1)}
+                    onSkip={skipStep2}
+                  />
+                )}
+                {currentStep === 3 && (
+                  <Step3
+                    bom={selectedBOM}
+                    categories={categories}
+                    selectedCategories={selectedCategories}
+                    onSelectedCategoriesChange={setSelectedCategories}
+                    step1Alloc={step1Alloc}
+                    step2Alloc={step2Alloc}
+                    poItems={poQty}
+                    dueDate={purchaseRequestDueDate}
+                    onDueDateChange={setPurchaseRequestDueDate}
+                    onChangeQty={setPoQty}
+                    onCreatePO={handleCreatePO}
+                    onContinue={handleContinueFromPO}
+                    onBack={() => setCurrentStep(2)}
+                  />
+                )}
+                {currentStep === 4 && (
+                  <Step4
+                    bom={selectedBOM}
+                    categories={categories}
+                    selectedCategories={selectedCategories}
+                    onSelectedCategoriesChange={setSelectedCategories}
+                    step1Alloc={step1Alloc}
+                    step2Alloc={step2Alloc}
+                    step3Alloc={poQty}
+                    outsourceItems={outsourceQty}
+                    dueDate={outsourceRequestDueDate}
+                    onDueDateChange={setOutsourceRequestDueDate}
+                    onChangeQty={setOutsourceQty}
+                    onCreateOutsource={handleCreateOutsource}
+                    onFinish={handleFinishWithoutOutsource}
+                    onBack={() => setCurrentStep(3)}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Summary Sidebar */}
+            <div className="order-first lg:order-last">
+              <SummaryPanel
+                bom={selectedBOM}
+                step1Alloc={step1Alloc}
+                step2Alloc={step2Alloc}
+                step3Alloc={poQty}
+                step4Alloc={outsourceQty}
               />
-
-              {/* Step Content */}
-              {currentStep === 1 && (
-                <Step1
-                  bom={selectedBOM}
-                  stores={loadingStores ? [] : stores}
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectedCategoriesChange={setSelectedCategories}
-                  allocations={step1Alloc}
-                  onChange={setStep1Alloc}
-                  onApply={applyStep1}
-                  onSkip={skipStep1}
-                />
-              )}
-              {currentStep === 2 && (
-                <Step2
-                  bom={selectedBOM}
-                  projects={loadingProjects ? [] : projects}
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectedCategoriesChange={setSelectedCategories}
-                  step1Alloc={step1Alloc}
-                  allocations={step2Alloc}
-                  onChange={setStep2Alloc}
-                  onApply={applyStep2}
-                  onBack={() => setCurrentStep(1)}
-                  onSkip={skipStep2}
-                />
-              )}
-              {currentStep === 3 && (
-                <Step3
-                  bom={selectedBOM}
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectedCategoriesChange={setSelectedCategories}
-                  step1Alloc={step1Alloc}
-                  step2Alloc={step2Alloc}
-                  poItems={poQty}
-                  dueDate={purchaseRequestDueDate}
-                  onDueDateChange={setPurchaseRequestDueDate}
-                  onChangeQty={setPoQty}
-                  onCreatePO={handleCreatePO}
-                  onContinue={handleContinueFromPO}
-                  onBack={() => setCurrentStep(2)}
-                />
-              )}
-              {currentStep === 4 && (
-                <Step4
-                  bom={selectedBOM}
-                  categories={categories}
-                  selectedCategories={selectedCategories}
-                  onSelectedCategoriesChange={setSelectedCategories}
-                  step1Alloc={step1Alloc}
-                  step2Alloc={step2Alloc}
-                  step3Alloc={poQty}
-                  outsourceItems={outsourceQty}
-                  dueDate={outsourceRequestDueDate}
-                  onDueDateChange={setOutsourceRequestDueDate}
-                  onChangeQty={setOutsourceQty}
-                  onCreateOutsource={handleCreateOutsource}
-                  onFinish={handleFinishWithoutOutsource}
-                  onBack={() => setCurrentStep(3)}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Summary Sidebar */}
-          <div className="order-first lg:order-last">
-            <SummaryPanel
-              bom={selectedBOM}
-              step1Alloc={step1Alloc}
-              step2Alloc={step2Alloc}
-              step3Alloc={poQty}
-              step4Alloc={outsourceQty}
-            />
-          </div>
+            </div>
           </div>
         )}
       </div>

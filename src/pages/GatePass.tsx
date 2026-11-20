@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Camera, X, Upload, Eye, Download, Trash2, Pencil, Search } from "lucide-react";
+import { Plus, Camera, X, Upload, Eye, Download, Search, PackageCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { bomService } from "@/services/bomService";
 import { projectService } from "@/services/projectService";
 import { gatePassService, type GatePassApiPhoto, type GatePassApiRecord } from "@/services/gatePassService";
+import { storeService } from "@/services/storeService";
 
 interface ProjectOption {
   id: string;
@@ -27,6 +28,11 @@ interface ProjectBomOption {
   name: string;
 }
 
+interface StoreOption {
+  id: string;
+  name: string;
+}
+
 interface GatePassBomItem {
   id: string;
   itemName: string;
@@ -34,12 +40,15 @@ interface GatePassBomItem {
   allocatedQty: number;
   qty: number;
   allocateQty: string;
+  returnOfGatePassItemId?: number;
 }
 
 interface GatePassFormValues {
   passType: "Outward" | "Return";
   projectId: string;
   bomId: string;
+  storeId: string;
+  returnSourceGatePassId: string;
   projectLocation: string;
   eWayBillNumber: string;
   dcNumber: string;
@@ -64,6 +73,8 @@ const initialFormValues: GatePassFormValues = {
   passType: "Outward",
   projectId: "",
   bomId: "",
+  storeId: "",
+  returnSourceGatePassId: "",
   projectLocation: "",
   eWayBillNumber: "",
   dcNumber: "",
@@ -235,6 +246,7 @@ const createGatePassPdf = (gatePass: GatePassApiRecord): Blob => {
   addFieldsSection("Project details", [
     { label: "Project", value: gatePass.projectName || `Project ${gatePass.projectId}` },
     { label: "BOM", value: gatePass.bomName || `BOM ${gatePass.bomId}` },
+    { label: "Source store", value: gatePass.storeName || `Store ${gatePass.storeId}` },
     { label: "Project location", value: gatePass.projectLocation || "-" },
     { label: "EWay Bill No", value: gatePass.eWayBillNumber || "-" },
     { label: "DC No.", value: gatePass.dcNumber || "-" },
@@ -268,7 +280,7 @@ const createGatePassPdf = (gatePass: GatePassApiRecord): Blob => {
     addFillRect(margin, cursorY - 22, contentWidth, 22, "0.16 0.29 0.42");
     addText("Item name", margin + 8, cursorY - 15, { size: 8, font: "F2", color: "1 1 1" });
     addText("Unit of measurement", margin + 330, cursorY - 15, { size: 8, font: "F2", color: "1 1 1" });
-    addText("Qty sent", margin + 465, cursorY - 15, { size: 8, font: "F2", color: "1 1 1" });
+    addText(gatePass.passType === "Return" ? "Qty returned" : "Qty sent", margin + 465, cursorY - 15, { size: 8, font: "F2", color: "1 1 1" });
     cursorY -= 22;
   };
   addSectionTitle("Allocated items");
@@ -343,6 +355,7 @@ export default function GatePass() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectBoms, setProjectBoms] = useState<ProjectBomOption[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
   const [bomItems, setBomItems] = useState<GatePassBomItem[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingProjectBoms, setIsLoadingProjectBoms] = useState(false);
@@ -351,10 +364,9 @@ export default function GatePass() {
   const [bomItemsTab, setBomItemsTab] = useState<"pending" | "completed">("pending");
   const [showForm, setShowForm] = useState(false);
   const [viewingGatePass, setViewingGatePass] = useState<GatePassApiRecord | null>(null);
-  const [editingAllocations, setEditingAllocations] = useState(false);
-  const [isSavingAllocations, setIsSavingAllocations] = useState(false);
-  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
-  const [allocationItems, setAllocationItems] = useState<GatePassBomItem[]>([]);
+  const [receivingGatePass, setReceivingGatePass] = useState<GatePassApiRecord | null>(null);
+  const [receiptQuantities, setReceiptQuantities] = useState<Record<number, string>>({});
+  const [isReceiving, setIsReceiving] = useState(false);
   const [formValues, setFormValues] = useState(initialFormValues);
   const [photos, setPhotos] = useState<File[]>([]);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -375,14 +387,111 @@ export default function GatePass() {
     }
   }, []);
 
+  const openReturnReceipt = (gatePass: GatePassApiRecord) => {
+    setReceivingGatePass(gatePass);
+    setReceiptQuantities(Object.fromEntries(
+      (gatePass.items ?? [])
+        .filter((item) => item.id !== undefined)
+        .map((item) => [item.id!, String(Math.max(0, item.qty - (item.receivedQty ?? 0)))]),
+    ));
+  };
+
+  const receiveReturnItem = async (item: GatePassApiRecord["items"][number]) => {
+    if (!receivingGatePass || item.id === undefined) return;
+    const quantity = Number(receiptQuantities[item.id]);
+    const remaining = item.qty - (item.receivedQty ?? 0);
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > remaining) {
+      toast.error(`Enter a whole quantity from 1 to ${remaining}.`);
+      return;
+    }
+
+    setIsReceiving(true);
+    try {
+      await gatePassService.receiveReturn(receivingGatePass.id, {
+        gatePassItemId: item.id,
+        quantity,
+      });
+      setReceivingGatePass((current) => current && ({
+        ...current,
+        items: current.items.map((currentItem) =>
+          currentItem.id === item.id
+            ? { ...currentItem, receivedQty: (currentItem.receivedQty ?? 0) + quantity }
+            : currentItem,
+        ),
+      }));
+      setReceiptQuantities((current) => ({ ...current, [item.id!]: "" }));
+      await loadGatePasses();
+      toast.success("Returned quantity received into store inventory.");
+    } catch (error) {
+      console.error("Failed to receive returned inventory", error);
+      toast.error(getApiErrorMessage(error, "Unable to receive returned inventory."));
+    } finally {
+      setIsReceiving(false);
+    }
+  };
+
   useEffect(() => {
     void loadGatePasses();
   }, [loadGatePasses]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const loadStores = async () => {
+      try {
+        const response = await storeService.getAllStores();
+        const nestedData =
+          typeof response === "object" && response !== null && "data" in response
+            ? response.data
+            : undefined;
+        const storeList = Array.isArray(response)
+          ? response
+          : Array.isArray(nestedData)
+            ? nestedData
+            : [];
+        if (isCurrent) {
+          setStores(
+            storeList
+              .filter((store): store is Record<string, unknown> =>
+                typeof store === "object" &&
+                store !== null &&
+                ("id" in store || "Id" in store),
+              )
+              .map((store) => ({
+                id: String(store.id ?? store.Id),
+                name: String(store.storeName ?? store.StoreName ?? store.name ?? `Store ${store.id ?? store.Id}`),
+              })),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load stores for gate passes", error);
+        if (isCurrent) toast.error("Unable to load stores.");
+      }
+    };
+    void loadStores();
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   const photoPreviews = useMemo(
     () => photos.map((photo) => URL.createObjectURL(photo)),
     [photos],
   );
+  const returnedQuantityBySourceItem = useMemo(() => {
+    const quantities = new Map<number, number>();
+    gatePasses
+      .filter((gatePass) => gatePass.passType === "Return")
+      .flatMap((gatePass) => gatePass.items ?? [])
+      .forEach((item) => {
+        if (item.returnOfGatePassItemId) {
+          quantities.set(
+            item.returnOfGatePassItemId,
+            (quantities.get(item.returnOfGatePassItemId) ?? 0) + Number(item.qty || 0),
+          );
+        }
+      });
+    return quantities;
+  }, [gatePasses]);
 
   useEffect(() => {
     return () => photoPreviews.forEach((preview) => URL.revokeObjectURL(preview));
@@ -445,6 +554,74 @@ export default function GatePass() {
     setFormValues((current) => ({ ...current, [key]: value }));
   };
 
+  const handlePassTypeChange = (passType: GatePassFormValues["passType"]) => {
+    ++projectBomRequestId.current;
+    ++consolidatedBomRequestId.current;
+    setFormValues((current) => ({
+      ...current,
+      passType,
+      projectId: "",
+      bomId: "",
+      storeId: "",
+      returnSourceGatePassId: "",
+    }));
+    setProjectBoms([]);
+    setBomItems([]);
+    setIsLoadingProjectBoms(false);
+    setIsLoadingBomItems(false);
+    setAllocationError("");
+  };
+
+  const handleReturnSourceChange = (gatePassId: string) => {
+    ++consolidatedBomRequestId.current;
+    setIsLoadingBomItems(false);
+    const source = gatePasses.find(
+      (gatePass) => gatePass.id === Number(gatePassId) && gatePass.passType === "Outward",
+    );
+    setFormValues((current) => ({
+      ...current,
+      returnSourceGatePassId: gatePassId,
+      projectId: source ? String(source.projectId) : "",
+      bomId: source ? String(source.bomId) : "",
+      storeId: source ? String(source.storeId) : "",
+    }));
+    setProjectBoms([]);
+    setAllocationError("");
+    if (!source) {
+      setBomItems([]);
+      return;
+    }
+
+    setBomItems(
+      (source.items ?? [])
+        .map((item) => {
+          const itemId = Number(item.itemId);
+          const sourceItemId = Number(item.id);
+          const remainingQty = Math.max(
+            0,
+            Number(item.qty) - (returnedQuantityBySourceItem.get(sourceItemId) ?? 0),
+          );
+          return {
+            id: String(itemId),
+            itemName: item.itemName || `Item ${itemId}`,
+            unit: item.unit || "",
+            allocatedQty: Number(item.qty),
+            qty: remainingQty,
+            allocateQty: "",
+            returnOfGatePassItemId: sourceItemId,
+          };
+        })
+        .filter((item) => item.qty > 0),
+    );
+    setBomItemsTab("pending");
+  };
+
+  const handleStoreChange = (storeId: string) => {
+    updateFormValue("storeId", storeId);
+    setBomItems([]);
+    if (formValues.bomId && storeId) void handleBomChange(formValues.bomId, storeId);
+  };
+
   const handleProjectChange = async (projectId: string) => {
     updateFormValue("projectId", projectId);
     updateFormValue("bomId", "");
@@ -494,19 +671,19 @@ export default function GatePass() {
     }
   };
 
-  const handleBomChange = async (bomId: string) => {
+  const handleBomChange = async (bomId: string, storeId = formValues.storeId) => {
     updateFormValue("bomId", bomId);
     setBomItems([]);
     setAllocationError("");
     const requestId = ++consolidatedBomRequestId.current;
-    if (!bomId) {
+    if (!bomId || !storeId) {
       setIsLoadingBomItems(false);
       return;
     }
 
     setIsLoadingBomItems(true);
     try {
-      const response = await bomService.GetConsolidatedBomItemsById(bomId);
+      const response = await gatePassService.getAvailableItems(bomId, storeId);
       if (requestId !== consolidatedBomRequestId.current) return;
       const raw =
         typeof response === "object" && response !== null && "data" in response
@@ -516,40 +693,22 @@ export default function GatePass() {
         ? raw
         : typeof raw === "object" && raw !== null && "items" in raw && Array.isArray(raw.items)
           ? raw.items
-          : typeof raw === "object" && raw !== null && "Items" in raw && Array.isArray(raw.Items)
-            ? raw.Items
             : [];
-      const existingGatePasses = await gatePassService.getAll();
-      if (requestId !== consolidatedBomRequestId.current) return;
-      const allocatedByItem = new Map<number, number>();
-      existingGatePasses
-        .filter((gatePass) => Number(gatePass.bomId) === Number(bomId))
-        .flatMap((gatePass) => gatePass.items ?? [])
-        .forEach((item) => {
-          const itemId = Number(item.itemId);
-          allocatedByItem.set(itemId, (allocatedByItem.get(itemId) ?? 0) + Number(item.qty || 0));
-        });
-      const remainingItems = items
+      const availableItems = items
         .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-        .map((item, index) => {
-          const rawQty = item.qty ?? item.Qty ?? item.total_qty ?? item.totalQty ?? item.requiredQuantity ?? 0;
-          const totalQty = Number(rawQty);
-          const itemId = Number(item.itemId ?? item.ItemId ?? item.item_id ?? item.id ?? item.Id ?? index);
-          const allocatedQty = allocatedByItem.get(itemId) ?? 0;
-          const remainingQty = Math.max(
-            0,
-            (Number.isFinite(totalQty) ? totalQty : 0) - allocatedQty,
-          );
+        .map((item) => {
+          const itemId = Number(item.itemId ?? item.ItemId);
+          const quantity = Number(item.qty ?? item.Qty ?? 0);
           return {
             id: String(itemId),
-            itemName: String(item.itemName ?? item.ItemName ?? item.item_name ?? item.materialName ?? `Item ${index + 1}`),
+            itemName: String(item.itemName ?? item.ItemName ?? `Item ${itemId}`),
             unit: String(item.unit ?? item.Unit ?? ""),
-            allocatedQty,
-            qty: remainingQty,
+            allocatedQty: 0,
+            qty: quantity,
             allocateQty: "",
           };
         });
-      setBomItems(remainingItems);
+      setBomItems(availableItems.filter((item) => Number(item.id) > 0 && item.qty > 0));
       setBomItemsTab("pending");
     } catch (error) {
       console.error("Failed to load consolidated BOM items", error);
@@ -579,148 +738,6 @@ export default function GatePass() {
     );
   };
 
-  const beginAllocationEdit = async (gatePass: GatePassApiRecord) => {
-    setIsLoadingAllocations(true);
-    try {
-      const [bomResponse, allGatePasses] = await Promise.all([
-        bomService.GetConsolidatedBomItemsById(gatePass.bomId),
-        gatePassService.getAll(),
-      ]);
-      const raw =
-        typeof bomResponse === "object" && bomResponse !== null && "data" in bomResponse
-          ? bomResponse.data
-          : bomResponse;
-      const items = Array.isArray(raw)
-        ? raw
-        : typeof raw === "object" && raw !== null && "items" in raw && Array.isArray(raw.items)
-          ? raw.items
-          : typeof raw === "object" && raw !== null && "Items" in raw && Array.isArray(raw.Items)
-            ? raw.Items
-            : [];
-      const allocatedByOthers = new Map<number, number>();
-      allGatePasses
-        .filter((record) => Number(record.bomId) === Number(gatePass.bomId) && record.id !== gatePass.id)
-        .flatMap((record) => record.items ?? [])
-        .forEach((item) => {
-          allocatedByOthers.set(
-            Number(item.itemId),
-            (allocatedByOthers.get(Number(item.itemId)) ?? 0) + Number(item.qty || 0),
-          );
-        });
-      const currentAllocations = new Map(
-        (gatePass.items ?? []).map((item) => [Number(item.itemId), Number(item.qty)]),
-      );
-      setAllocationItems(
-        items
-          .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
-          .map((item, index) => {
-            const itemId = Number(item.itemId ?? item.ItemId ?? item.item_id ?? item.id ?? item.Id ?? index);
-            const rawQty = item.qty ?? item.Qty ?? item.total_qty ?? item.totalQty ?? item.requiredQuantity ?? 0;
-            const totalQty = Number(rawQty);
-            const maxAllocation = Math.max(
-              0,
-              (Number.isFinite(totalQty) ? totalQty : 0) - (allocatedByOthers.get(itemId) ?? 0),
-            );
-            const allocatedQty = currentAllocations.get(itemId) ?? 0;
-            return {
-              id: String(itemId),
-              itemName: String(item.itemName ?? item.ItemName ?? item.item_name ?? item.materialName ?? `Item ${index + 1}`),
-              unit: String(item.unit ?? item.Unit ?? ""),
-              allocatedQty,
-              qty: maxAllocation,
-              allocateQty: allocatedQty > 0 ? String(allocatedQty) : "",
-            };
-          })
-          .filter((item) => item.qty > 0),
-      );
-      setEditingAllocations(true);
-    } catch (error) {
-      console.error("Failed to load BOM quantities for gate-pass update", error);
-      toast.error("Unable to load BOM quantities for this gate pass.");
-    } finally {
-      setIsLoadingAllocations(false);
-    }
-  };
-
-  const saveAllocationChanges = async () => {
-    if (!viewingGatePass) return;
-    const updatedItems = allocationItems
-      .filter((item) => Number(item.allocateQty) > 0)
-      .map((item) => ({ itemId: Number(item.id), qty: Number(item.allocateQty) }));
-    if (updatedItems.length === 0) {
-      toast.error("At least one item must have an allocated quantity.");
-      return;
-    }
-    if (updatedItems.some((item) => !Number.isFinite(item.qty) || item.qty <= 0)) {
-      toast.error("Allocated quantities must be greater than zero.");
-      return;
-    }
-    if (updatedItems.some((item) => item.qty > (allocationItems.find((row) => Number(row.id) === item.itemId)?.qty ?? 0))) {
-      toast.error("An allocated quantity cannot exceed the remaining BOM quantity.");
-      return;
-    }
-
-    setIsSavingAllocations(true);
-    try {
-      await gatePassService.update(viewingGatePass.id, {
-        projectId: viewingGatePass.projectId,
-        bomId: viewingGatePass.bomId,
-        passType: viewingGatePass.passType,
-        projectLocation: viewingGatePass.projectLocation,
-        eWayBillNumber: viewingGatePass.eWayBillNumber,
-        dcNumber: viewingGatePass.dcNumber,
-        dcDate: viewingGatePass.dcDate,
-        totalGoodsValue: viewingGatePass.totalGoodsValue,
-        remarks: viewingGatePass.remarks,
-        fromAddress: viewingGatePass.fromAddress,
-        fromCity: viewingGatePass.fromCity,
-        fromState: viewingGatePass.fromState,
-        fromZipCode: viewingGatePass.fromZipCode,
-        toAddress: viewingGatePass.toAddress,
-        toCity: viewingGatePass.toCity,
-        toState: viewingGatePass.toState,
-        toZipCode: viewingGatePass.toZipCode,
-        vehicleType: viewingGatePass.vehicleType,
-        vehicleNumber: viewingGatePass.vehicleNumber,
-        driverName: viewingGatePass.driverName,
-        phoneNumber: viewingGatePass.phoneNumber,
-        items: updatedItems,
-      });
-      toast.success("Gate-pass item quantities updated.");
-      setEditingAllocations(false);
-      setViewingGatePass({
-        ...viewingGatePass,
-        items: updatedItems.map((item) => {
-          const currentItem = allocationItems.find((allocation) => Number(allocation.id) === item.itemId);
-          return {
-            ...item,
-            itemName: currentItem?.itemName,
-            unit: currentItem?.unit,
-          };
-        }),
-      });
-      await loadGatePasses();
-    } catch (error) {
-      console.error("Failed to update gate-pass item quantities", error);
-      toast.error(getApiErrorMessage(error, "Unable to update gate-pass item quantities."));
-    } finally {
-      setIsSavingAllocations(false);
-    }
-  };
-
-  const deleteGatePass = async (gatePass: GatePassApiRecord) => {
-    if (!window.confirm(`Delete gate pass GP-${gatePass.id}?`)) return;
-    try {
-      await gatePassService.delete(gatePass.id);
-      toast.success("Gate pass deleted.");
-      if (viewingGatePass?.id === gatePass.id) setViewingGatePass(null);
-      await loadGatePasses();
-    } catch (error) {
-      console.error("Failed to delete gate pass", error);
-      toast.error(getApiErrorMessage(error, "Unable to delete gate pass."));
-    }
-  };
-
   const addPhotos = (files: FileList | null) => {
     if (!files?.length) return;
 
@@ -747,10 +764,17 @@ export default function GatePass() {
     event.preventDefault();
     const allocatedItems = bomItems.filter((item) => Number(item.allocateQty) > 0);
     const hasInvalidAllocation = allocatedItems.some(
-      (item) => !Number.isFinite(Number(item.allocateQty)) || Number(item.allocateQty) > item.qty,
+      (item) =>
+        !Number.isInteger(Number(item.allocateQty)) ||
+        Number(item.allocateQty) <= 0 ||
+        Number(item.allocateQty) > item.qty,
     );
-    if (!formValues.projectId || !formValues.bomId) {
-      setAllocationError("Select a project and BOM before creating a gate pass.");
+    if (!formValues.projectId || !formValues.bomId || !formValues.storeId) {
+      setAllocationError("Select a project, BOM, and source store before creating a gate pass.");
+      return;
+    }
+    if (formValues.passType === "Return" && !formValues.returnSourceGatePassId) {
+      setAllocationError("Select the outward Gate Pass that this return belongs to.");
       return;
     }
     if (allocatedItems.length === 0) {
@@ -769,6 +793,7 @@ export default function GatePass() {
       await gatePassService.create({
         projectId: Number(formValues.projectId),
         bomId: Number(formValues.bomId),
+        storeId: Number(formValues.storeId),
         passType: formValues.passType,
         projectLocation: formValues.projectLocation,
         eWayBillNumber: formValues.eWayBillNumber,
@@ -791,6 +816,9 @@ export default function GatePass() {
         items: allocatedItems.map((item) => ({
           itemId: Number(item.id),
           qty: Number(item.allocateQty),
+          ...(item.returnOfGatePassItemId
+            ? { returnOfGatePassItemId: item.returnOfGatePassItemId }
+            : {}),
         })),
         photos: photosPayload,
       });
@@ -878,6 +906,14 @@ export default function GatePass() {
       gatePass.dcNumber,
     ].some((value) => String(value ?? "").toLowerCase().includes(gatePassSearch.toLowerCase()))
   );
+  const returnableGatePasses = gatePasses.filter(
+    (gatePass) =>
+      gatePass.passType === "Outward" &&
+      (gatePass.items ?? []).some((item) => {
+        const returnedQty = returnedQuantityBySourceItem.get(Number(item.id)) ?? 0;
+        return Number(item.qty) > returnedQty;
+      }),
+  );
 
   const renderBomItemsTable = (items: GatePassBomItem[], completed = false) => (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -913,7 +949,7 @@ export default function GatePass() {
                       inputMode="numeric"
                       min={0}
                       max={item.qty}
-                      step="any"
+                      step={1}
                       value={item.allocateQty}
                       onChange={(event) => handleAllocationChange(item.id, event.target.value)}
                       className="ml-auto w-28 text-right"
@@ -962,58 +998,113 @@ export default function GatePass() {
                     id="passType"
                     required
                     value={formValues.passType}
-                    onChange={(event) => updateFormValue("passType", event.target.value as GatePassFormValues["passType"])}
+                    onChange={(event) => handlePassTypeChange(event.target.value as GatePassFormValues["passType"])}
                     className={inputClassName}
                   >
                     <option value="Outward">Outward</option>
                     <option value="Return">Return</option>
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label htmlFor="projectId" className="text-xs font-medium text-muted-foreground">
-                    Project<span className="ml-0.5 text-destructive">*</span>
-                  </label>
-                  <select
-                    id="projectId"
-                    aria-label="Project"
-                    required
-                    value={formValues.projectId}
-                    onChange={(event) => void handleProjectChange(event.target.value)}
-                    disabled={isLoadingProjects}
-                    className={inputClassName}
-                  >
-                    <option value="">
-                      {isLoadingProjects ? "Loading projects..." : "Select project"}
-                    </option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>{project.projectName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="bomId" className="text-xs font-medium text-muted-foreground">
-                    BOM<span className="ml-0.5 text-destructive">*</span>
-                  </label>
-                  <select
-                    id="bomId"
-                    required
-                    value={formValues.bomId}
-                    onChange={(event) => void handleBomChange(event.target.value)}
-                    disabled={!formValues.projectId || isLoadingProjectBoms || projectBoms.length === 0}
-                    className={inputClassName}
-                  >
-                    <option value="">
-                      {isLoadingProjectBoms
-                        ? "Loading BOMs..."
-                        : projectBoms.length > 0
-                          ? "Select BOM"
-                          : "Select project first"}
-                    </option>
-                    {projectBoms.map((bom) => (
-                      <option key={bom.id} value={bom.id}>{bom.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {formValues.passType === "Return" ? (
+                  <>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label htmlFor="returnSourceGatePassId" className="text-xs font-medium text-muted-foreground">
+                        Return from outward Gate Pass<span className="ml-0.5 text-destructive">*</span>
+                      </label>
+                      <select
+                        id="returnSourceGatePassId"
+                        required
+                        value={formValues.returnSourceGatePassId}
+                        onChange={(event) => handleReturnSourceChange(event.target.value)}
+                        className={inputClassName}
+                      >
+                        <option value="">Select outward Gate Pass</option>
+                        {returnableGatePasses.map((gatePass) => (
+                          <option key={gatePass.id} value={gatePass.id}>
+                            GP-{gatePass.id} · {gatePass.projectName || `Project ${gatePass.projectId}`} · {gatePass.storeName || `Store ${gatePass.storeId}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Project</label>
+                      <Input readOnly value={gatePasses.find((item) => item.id === Number(formValues.returnSourceGatePassId))?.projectName ?? ""} className={inputClassName} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">BOM</label>
+                      <Input readOnly value={gatePasses.find((item) => item.id === Number(formValues.returnSourceGatePassId))?.bomName ?? ""} className={inputClassName} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Returning to store</label>
+                      <Input readOnly value={gatePasses.find((item) => item.id === Number(formValues.returnSourceGatePassId))?.storeName ?? ""} className={inputClassName} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label htmlFor="projectId" className="text-xs font-medium text-muted-foreground">
+                        Project<span className="ml-0.5 text-destructive">*</span>
+                      </label>
+                      <select
+                        id="projectId"
+                        aria-label="Project"
+                        required
+                        value={formValues.projectId}
+                        onChange={(event) => void handleProjectChange(event.target.value)}
+                        disabled={isLoadingProjects}
+                        className={inputClassName}
+                      >
+                        <option value="">
+                          {isLoadingProjects ? "Loading projects..." : "Select project"}
+                        </option>
+                        {projects.map((project) => (
+                          <option key={project.id} value={project.id}>{project.projectName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="bomId" className="text-xs font-medium text-muted-foreground">
+                        BOM<span className="ml-0.5 text-destructive">*</span>
+                      </label>
+                      <select
+                        id="bomId"
+                        required
+                        value={formValues.bomId}
+                        onChange={(event) => void handleBomChange(event.target.value)}
+                        disabled={!formValues.projectId || isLoadingProjectBoms || projectBoms.length === 0}
+                        className={inputClassName}
+                      >
+                        <option value="">
+                          {isLoadingProjectBoms
+                            ? "Loading BOMs..."
+                            : projectBoms.length > 0
+                              ? "Select BOM"
+                              : "Select project first"}
+                        </option>
+                        {projectBoms.map((bom) => (
+                          <option key={bom.id} value={bom.id}>{bom.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="storeId" className="text-xs font-medium text-muted-foreground">
+                        Source store<span className="ml-0.5 text-destructive">*</span>
+                      </label>
+                      <select
+                        id="storeId"
+                        required
+                        value={formValues.storeId}
+                        onChange={(event) => handleStoreChange(event.target.value)}
+                        className={inputClassName}
+                      >
+                        <option value="">Select store</option>
+                        {stores.map((store) => (
+                          <option key={store.id} value={store.id}>{store.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
                 {renderField("Project location", "projectLocation", { placeholder: "City / venue" })}
                 {renderField("EWay Bill No", "eWayBillNumber", { placeholder: "EWay Bill Number" })}
                 {renderField("DC No.", "dcNumber", { placeholder: "Delivery Challan No." })}
@@ -1028,17 +1119,21 @@ export default function GatePass() {
                 <div className="sm:col-span-2">
                   {renderField("Remarks", "remarks", { placeholder: "Notes / remarks", required: false })}
                 </div>
-                {isLoadingProjectBoms && (
+                {formValues.passType === "Outward" && isLoadingProjectBoms && (
                   <p className="text-xs text-muted-foreground sm:col-span-2">Loading project BOMs...</p>
                 )}
               </div>
             </section>
 
-            {formValues.bomId && (
+            {(formValues.passType === "Outward"
+              ? formValues.bomId && formValues.storeId
+              : formValues.returnSourceGatePassId) && (
               <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-                <h3 className="mb-3 text-sm font-semibold text-foreground">BOM Items</h3>
+                <h3 className="mb-3 text-sm font-semibold text-foreground">
+                  {formValues.passType === "Return" ? "Items to return" : "Available allocated BOM items"}
+                </h3>
                 {isLoadingBomItems ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">Loading consolidated BOM items...</p>
+                  <p className="py-6 text-center text-sm text-muted-foreground">Loading available items...</p>
                 ) : (
                   <Tabs
                     value={bomItemsTab}
@@ -1224,7 +1319,9 @@ export default function GatePass() {
                 <TableRow>
                   <TableHead>Gate Pass ID</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Project</TableHead>
+                  <TableHead>Source Store</TableHead>
                   <TableHead>Vehicle Number</TableHead>
                   <TableHead>Driver Name</TableHead>
                   <TableHead>EWay Bill No</TableHead>
@@ -1237,7 +1334,7 @@ export default function GatePass() {
               <TableBody>
                 {isLoadingGatePasses ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                       Loading gate passes...
                     </TableCell>
                   </TableRow>
@@ -1245,7 +1342,17 @@ export default function GatePass() {
                   <TableRow key={gatePass.id}>
                     <TableCell className="font-medium">GP-{gatePass.id}</TableCell>
                     <TableCell>{gatePass.passType}</TableCell>
+                    <TableCell>
+                      {gatePass.passType === "Outward"
+                        ? "Dispatched"
+                        : (gatePass.items ?? []).every((item) => (item.receivedQty ?? 0) >= item.qty)
+                          ? "Received"
+                          : (gatePass.items ?? []).some((item) => (item.receivedQty ?? 0) > 0)
+                            ? "Partially received"
+                            : "In transit"}
+                    </TableCell>
                     <TableCell>{gatePass.projectName || `Project ${gatePass.projectId}`}</TableCell>
+                    <TableCell>{gatePass.storeName || `Store ${gatePass.storeId}`}</TableCell>
                     <TableCell>{gatePass.vehicleNumber}</TableCell>
                     <TableCell>{gatePass.driverName}</TableCell>
                     <TableCell>{gatePass.eWayBillNumber}</TableCell>
@@ -1254,6 +1361,19 @@ export default function GatePass() {
                     <TableCell>{new Date(gatePass.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1 whitespace-nowrap">
+                        {gatePass.passType === "Return" &&
+                          (gatePass.items ?? []).some((item) => (item.receivedQty ?? 0) < item.qty) && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              aria-label={`Receive return from gate pass GP-${gatePass.id}`}
+                              title="Receive returned items into store"
+                              onClick={() => openReturnReceipt(gatePass)}
+                            >
+                              <PackageCheck className="h-4 w-4" />
+                            </Button>
+                          )}
                         <Button
                           type="button"
                           size="icon"
@@ -1262,24 +1382,9 @@ export default function GatePass() {
                           title="View gate pass"
                           onClick={() => {
                             setViewingGatePass(gatePass);
-                            setEditingAllocations(false);
                           }}
                         >
                           <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          aria-label={`Update allocations for gate pass GP-${gatePass.id}`}
-                          title="Update allocations"
-                          onClick={() => {
-                            setViewingGatePass(gatePass);
-                            setEditingAllocations(false);
-                            void beginAllocationEdit(gatePass);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           type="button"
@@ -1291,22 +1396,12 @@ export default function GatePass() {
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          aria-label={`Delete gate pass GP-${gatePass.id}`}
-                          title="Delete gate pass"
-                          onClick={() => void deleteGatePass(gatePass)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                       No gate passes to display.
                     </TableCell>
                   </TableRow>
@@ -1320,8 +1415,6 @@ export default function GatePass() {
         onOpenChange={(open) => {
           if (!open) {
             setViewingGatePass(null);
-            setEditingAllocations(false);
-            setAllocationItems([]);
           }
         }}
       >
@@ -1336,6 +1429,7 @@ export default function GatePass() {
               </DialogHeader>
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <p><span className="font-medium">BOM:</span> {viewingGatePass.bomName || `BOM ${viewingGatePass.bomId}`}</p>
+                <p><span className="font-medium">Source store:</span> {viewingGatePass.storeName || `Store ${viewingGatePass.storeId}`}</p>
                 <p><span className="font-medium">Project location:</span> {viewingGatePass.projectLocation || "—"}</p>
                 <p><span className="font-medium">EWay Bill No:</span> {viewingGatePass.eWayBillNumber || "—"}</p>
                 <p><span className="font-medium">DC No.:</span> {viewingGatePass.dcNumber || "—"}</p>
@@ -1355,22 +1449,9 @@ export default function GatePass() {
                 </p>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">
-                    {editingAllocations ? "Update allocated items" : "Allocated items"}
-                  </h3>
-                  {!editingAllocations && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoadingAllocations}
-                      onClick={() => void beginAllocationEdit(viewingGatePass)}
-                    >
-                      {isLoadingAllocations ? "Loading..." : "Update allocations"}
-                    </Button>
-                  )}
-                </div>
+                <h3 className="text-sm font-semibold">
+                  {viewingGatePass.passType === "Return" ? "Returned items" : "Dispatched items"}
+                </h3>
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <Table>
                     <TableHeader>
@@ -1378,89 +1459,117 @@ export default function GatePass() {
                         <TableHead>Item name</TableHead>
                         <TableHead>Unit of measurement</TableHead>
                         <TableHead className="text-right">
-                          {editingAllocations ? "Max allowed" : "Qty sent"}
+                          {viewingGatePass.passType === "Return" ? "Qty returned" : "Qty sent"}
                         </TableHead>
-                        {editingAllocations && <TableHead className="text-right">Allocate Qty</TableHead>}
+                        <TableHead className="text-right">Received at store</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {editingAllocations ? (
-                        allocationItems.length > 0 ? allocationItems.map((item) => (
+                      {(viewingGatePass.items ?? []).length > 0 ? (
+                        (viewingGatePass.items ?? []).map((item) => (
                           <TableRow key={item.id}>
-                            <TableCell>{item.itemName}</TableCell>
+                            <TableCell>{item.itemName || `Item ${item.itemId}`}</TableCell>
                             <TableCell>{item.unit || "—"}</TableCell>
                             <TableCell className="text-right tabular-nums">{item.qty}</TableCell>
-                            <TableCell>
-                              <Input
-                                aria-label={`Update allocated quantity for ${item.itemName}`}
-                                type="number"
-                                min={0}
-                                max={item.qty}
-                                step="any"
-                                value={item.allocateQty}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  if (value !== "" && Number(value) > item.qty) {
-                                    toast.error(`Quantity cannot exceed ${item.qty} for ${item.itemName}.`);
-                                    return;
-                                  }
-                                  setAllocationItems((current) =>
-                                    current.map((row) =>
-                                      row.id === item.id ? { ...row, allocateQty: value } : row,
-                                    ),
-                                  );
-                                }}
-                                className="ml-auto w-28 text-right"
-                              />
+                            <TableCell className="text-right tabular-nums">
+                              {viewingGatePass.passType === "Return" ? item.receivedQty ?? 0 : "—"}
                             </TableCell>
                           </TableRow>
-                        )) : (
+                        ))) : (
                           <TableRow>
                             <TableCell colSpan={4} className="h-20 text-center text-muted-foreground">
-                              No BOM quantities available to allocate.
+                              No items recorded on this Gate Pass.
                             </TableCell>
                           </TableRow>
-                        )
-                      ) : (viewingGatePass.items ?? []).map((item) => (
-                        <TableRow key={item.id ?? item.itemId}>
-                          <TableCell>{item.itemName || `Item ${item.itemId}`}</TableCell>
-                          <TableCell>{item.unit || "—"}</TableCell>
-                          <TableCell className="text-right tabular-nums">{item.qty}</TableCell>
-                        </TableRow>
-                      ))}
+                        )}
                     </TableBody>
                   </Table>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                {editingAllocations && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSavingAllocations}
-                      onClick={() => setEditingAllocations(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      disabled={isSavingAllocations}
-                      onClick={() => void saveAllocationChanges()}
-                    >
-                      {isSavingAllocations ? "Saving..." : "Save allocations"}
-                    </Button>
-                  </>
-                )}
-                {!editingAllocations && (
-                  <Button type="button" onClick={() => downloadGatePassPdf(viewingGatePass)}>
-                    <Download className="h-4 w-4" />
-                    Download PDF
-                  </Button>
-                )}
+                <Button type="button" onClick={() => downloadGatePassPdf(viewingGatePass)}>
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </Button>
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={receivingGatePass !== null}
+        onOpenChange={(open) => {
+          if (!open && !isReceiving) setReceivingGatePass(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Receive return — GP-{receivingGatePass?.id}</DialogTitle>
+            <DialogDescription>
+              Received quantities are added to store stock. Quantities not received remain in transit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">In transit</TableHead>
+                  <TableHead className="w-36 text-right">Receive now</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(receivingGatePass?.items ?? [])
+                  .filter((item) => item.qty > (item.receivedQty ?? 0))
+                  .map((item) => {
+                    const remaining = item.qty - (item.receivedQty ?? 0);
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.itemName || `Item ${item.itemId}`}</TableCell>
+                        <TableCell className="text-right tabular-nums">{remaining}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={remaining}
+                            step={1}
+                            value={item.id === undefined ? "" : receiptQuantities[item.id] ?? ""}
+                            onChange={(event) => {
+                              if (item.id !== undefined) {
+                                setReceiptQuantities((current) => ({
+                                  ...current,
+                                  [item.id!]: event.target.value,
+                                }));
+                              }
+                            }}
+                            aria-label={`Quantity received for ${item.itemName ?? `item ${item.itemId}`}`}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={isReceiving || item.id === undefined}
+                            onClick={() => void receiveReturnItem(item)}
+                          >
+                            Receive
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                {(receivingGatePass?.items ?? []).every((item) => item.qty <= (item.receivedQty ?? 0)) && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-16 text-center text-muted-foreground">
+                      All items on this Return Gate Pass have been received.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

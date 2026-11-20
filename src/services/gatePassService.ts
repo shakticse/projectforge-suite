@@ -3,8 +3,17 @@ import api from "@/lib/api";
 export interface GatePassApiItem {
   id?: number;
   itemId: number;
+  returnOfGatePassItemId?: number | null;
   itemName?: string;
   unit?: string;
+  qty: number;
+  receivedQty?: number;
+}
+
+export interface GatePassAvailableItem {
+  itemId: number;
+  itemName: string;
+  unit: string;
   qty: number;
 }
 
@@ -20,6 +29,8 @@ export interface GatePassApiRecord {
   projectName?: string;
   bomId: number;
   bomName?: string;
+  storeId: number;
+  storeName?: string;
   passType: "Outward" | "Return";
   projectLocation?: string;
   eWayBillNumber?: string;
@@ -56,18 +67,31 @@ export const gatePassService = {
     return response.data;
   },
 
-  async create(data: Omit<GatePassApiRecord, "id" | "createdAt">): Promise<{ id: number }> {
+  async getAvailableItems(bomId: string | number, storeId: string | number): Promise<GatePassAvailableItem[]> {
+    const response = await api.get("/api/gatepass/available-items", { params: { bomId, storeId } });
+    return response.data;
+  },
+
+  async create(data: Omit<GatePassApiRecord, "id" | "createdAt" | "storeName">): Promise<{ id: number }> {
     const response = await api.post("/api/gatepass", data);
     return response.data;
   },
 
-  async update(id: string | number, data: Omit<GatePassApiRecord, "id" | "createdAt">): Promise<{ id: number }> {
+  async update(id: string | number, data: Omit<GatePassApiRecord, "id" | "createdAt" | "storeName">): Promise<{ id: number }> {
     const response = await api.put(`/api/gatepass/${id}`, data);
     return response.data;
   },
 
   async delete(id: string | number): Promise<void> {
     await api.delete(`/api/gatepass/${id}`);
+  },
+
+  async receiveReturn(
+    id: string | number,
+    item: { gatePassItemId: number; quantity: number },
+  ): Promise<{ receivedQty: number }> {
+    const response = await api.post(`/api/gatepass/${id}/receive`, item);
+    return response.data;
   },
 };
 

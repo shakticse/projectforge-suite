@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { purchaseOrderService, type PurchaseOrderRecord } from "@/services/purchaseOrderService";
 import { createPurchaseOrderPdf } from "@/lib/purchaseOrderPdf";
+import { storeSettingsService } from "@/services/storeSettingsService";
 
 type SortField = "id" | "projectName" | "vendorName" | "totalAmount" | "status" | "orderDate" | "dueDate";
 
@@ -175,9 +176,10 @@ export default function PurchaseOrders() {
     </Button>
   );
 
-  const downloadPdf = (purchaseOrder: PurchaseOrderRecord) => {
+  const downloadPdf = async (purchaseOrder: PurchaseOrderRecord) => {
     try {
-      const pdf = createPurchaseOrderPdf(purchaseOrder);
+      const storeSettings = await storeSettingsService.get();
+      const pdf = createPurchaseOrderPdf(purchaseOrder, storeSettings);
       const url = URL.createObjectURL(pdf);
       const link = document.createElement("a");
       link.href = url;

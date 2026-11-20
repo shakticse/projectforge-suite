@@ -27,6 +27,13 @@ export interface PurchaseOrderItemRecord {
   quantity: number;
   vendorPrice: number;
   totalPrice: number;
+  hsnCode?: string | null;
+  gstRate?: number | null;
+  discountPercent?: number | null;
+  name?: string | null;
+  description?: string | null;
+  uom?: string | null;
+  UOM?: string | null;
 }
 
 export interface PurchaseOrderRecord {
